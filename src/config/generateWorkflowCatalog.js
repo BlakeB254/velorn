@@ -4,6 +4,7 @@ import {
   CUSTOM_GENERATE_VIDEO_WORKFLOW_ID,
 } from './generateWorkspaceConfig'
 import { getImportedManifestById, getImportedManifestByWorkflowId } from './importedWorkflowRegistry'
+import { listComfyNativeTemplates } from './comfyNativeTemplates'
 
 const WORKFLOW_ASSET_BASE = (() => {
   const rawBase = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
@@ -109,7 +110,7 @@ const firstLastFrameVideoFields = Object.freeze([
     type: 'assetSelect',
     assetType: 'image',
     required: true,
-    helper: 'Choose the ending image Seedance should animate toward.',
+    helper: 'Choose the ending still this flow should animate toward.',
   }),
   field('prompt', { label: 'Prompt', type: 'textarea' }),
   field('duration', { label: 'Duration', type: 'duration' }),
@@ -1016,6 +1017,27 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
     runnable: false,
     tags: ['music video', 'create', 'lyrics', 'cloud'],
   },
+  ...listComfyNativeTemplates().map((item) => ({
+    id: item.id,
+    workflowId: item.id,
+    title: item.label,
+    description: item.description,
+    subtitle: item.templateName || item.extensionPath || item.id,
+    mode: 'generate',
+    route: item.route || 'local',
+    category: item.category === 'image'
+      ? (item.needsImage ? 'image-edit' : 'text-to-image')
+      : (item.needs?.includes('first') ? 'image-to-video' : 'text-to-video'),
+    provider: 'ComfyUI',
+    cover: cover(item.group === 'flf' ? 'seedance2-flf2v.webp' : item.category === 'image' ? 'image-edit.webp' : 'ltx23-i2v.webp'),
+    badge: item.route === 'cloud' ? 'Cloud' : 'ComfyUI',
+    runtimeLabel: item.route === 'cloud' ? 'Official API template' : 'Official local template',
+    needsImage: Boolean(item.needsImage || item.needs?.includes('first')),
+    outputType: item.category === 'image' ? 'image' : 'video',
+    fields: item.needs?.includes('last') ? firstLastFrameVideoFields : (item.needsImage ? videoFields : textToVideoFields),
+    runnable: true,
+    tags: ['comfyui', 'official', item.group, item.id],
+  })),
 ])
 
 export function getWorkflowManifestByWorkflowId(workflowId) {

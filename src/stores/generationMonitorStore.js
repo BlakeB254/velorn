@@ -18,6 +18,7 @@ function sanitizeMonitorJob(job = {}) {
     elapsedMs: Number(job.elapsedMs) || null,
     resultAssetIds: Array.isArray(job.resultAssetIds) ? job.resultAssetIds.filter(Boolean).slice(0, 12) : [],
     restoredFromLedger: Boolean(job.restoredFromLedger),
+    storyboardCardId: job.storyboardCardId || job.sourceCardId || null,
   }
 }
 

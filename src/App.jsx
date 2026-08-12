@@ -4,6 +4,7 @@ import TitleBar from './components/TitleBar'
 import ExportPanel from './components/ExportPanel'
 import WorkspaceErrorBoundary from './components/WorkspaceErrorBoundary'
 import LeftPanel from './components/LeftPanel'
+import MediaPoolSidebar from './components/MediaPoolSidebar'
 import PreviewPanel from './components/PreviewPanel'
 import Timeline from './components/Timeline'
 import DopeSheet from './components/DopeSheet'
@@ -39,6 +40,8 @@ import { attachProjectDirtyWatchers, isProjectDirty } from './services/projectDi
 // and ExportPanel hosts the renderer-side export engine that MCP-driven
 // exports rely on.
 const GenerateWorkspace = lazy(() => import('./components/GenerateWorkspace'))
+const StoryboardWorkspace = lazy(() => import('./components/StoryboardWorkspace'))
+const SequenceWorkspace = lazy(() => import('./components/SequenceWorkspace'))
 const FlowAIWorkspace = lazy(() => import('./components/FlowAIWorkspace'))
 const AgentWorkspace = lazy(() => import('./components/AgentWorkspace'))
 const MOGWorkspace = lazy(() => import('./components/MOGWorkspace'))
@@ -72,6 +75,8 @@ function App() {
   const [mainTab, setMainTab] = useState('editor')
   const [hasMountedFlowAi, setHasMountedFlowAi] = useState(false)
   const [hasMountedGenerate, setHasMountedGenerate] = useState(false)
+  const [hasMountedStoryboard, setHasMountedStoryboard] = useState(false)
+  const [hasMountedSequence, setHasMountedSequence] = useState(false)
   const [bottomEditorView, setBottomEditorView] = useState('timeline')
   const [activeTimelineToolLabel, setActiveTimelineToolLabel] = useState('Move tool')
   const [timelineStatusText, setTimelineStatusText] = useState('')
@@ -83,6 +88,7 @@ function App() {
   const [leftPanelExpanded, setLeftPanelExpanded] = useState(true)
   const [leftPanelTab, setLeftPanelTab] = useState('assets')
   const [leftPanelFullHeight, setLeftPanelFullHeight] = useState(false) // Resolve-style full height mode
+  const [mediaPoolOpen, setMediaPoolOpen] = useState(true)
   
   // Right panel (Inspector) state
   const [inspectorExpanded, setInspectorExpanded] = useState(true)
@@ -328,6 +334,12 @@ function App() {
     if (mainTab === 'generate') {
       setHasMountedGenerate(true)
     }
+    if (mainTab === 'storyboard') {
+      setHasMountedStoryboard(true)
+    }
+    if (mainTab === 'sequence') {
+      setHasMountedSequence(true)
+    }
   }, [mainTab])
 
   // When user sends timeline frame to Generate (right-click preview → Extend with AI / Starting keyframe for AI)
@@ -341,6 +353,12 @@ function App() {
     const handler = () => setMainTab('generate')
     window.addEventListener('comfystudio-open-generate-tab', handler)
     return () => window.removeEventListener('comfystudio-open-generate-tab', handler)
+  }, [])
+
+  useEffect(() => {
+    const handler = () => setHasMountedGenerate(true)
+    window.addEventListener('comfystudio-ensure-generate-workspace', handler)
+    return () => window.removeEventListener('comfystudio-ensure-generate-workspace', handler)
   }, [])
 
   // Reveal-in-assets (timeline clip menu / Shift+F): make sure the Assets
@@ -383,6 +401,7 @@ function App() {
           setInspectorWidth(saved.inspectorWidth)
         }
         if (typeof saved.leftPanelExpanded === 'boolean') setLeftPanelExpanded(saved.leftPanelExpanded)
+        if (typeof saved.mediaPoolOpen === 'boolean') setMediaPoolOpen(saved.mediaPoolOpen)
         if (typeof saved.inspectorExpanded === 'boolean') setInspectorExpanded(saved.inspectorExpanded)
         if (typeof saved.leftPanelFullHeight === 'boolean') setLeftPanelFullHeight(saved.leftPanelFullHeight)
         if (typeof saved.inspectorFullHeight === 'boolean') setInspectorFullHeight(saved.inspectorFullHeight)
@@ -406,7 +425,7 @@ function App() {
     } catch (_) { /* ignore */ }
   }, [])
 
-  const isFullScreenTab = mainTab === 'export' || mainTab === 'generate' || mainTab === 'agent' || mainTab === 'flow-ai' || mainTab === 'mog' || mainTab === 'llm-assistant' || mainTab === 'stock' || mainTab === 'comfyui'
+  const isFullScreenTab = mainTab === 'export' || mainTab === 'generate' || mainTab === 'storyboard' || mainTab === 'sequence' || mainTab === 'agent' || mainTab === 'flow-ai' || mainTab === 'mog' || mainTab === 'llm-assistant' || mainTab === 'stock' || mainTab === 'comfyui'
   // Editor layout insets used by the editor content shell.
   const editorLeftInset = leftPanelExpanded ? ICON_BAR_WIDTH + leftPanelWidth : ICON_BAR_WIDTH
   const editorRightInset = inspectorExpanded ? ICON_BAR_WIDTH + inspectorWidth : ICON_BAR_WIDTH
@@ -665,6 +684,19 @@ function App() {
       
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden min-h-0">
+        {(mainTab === 'storyboard' || mainTab === 'sequence' || mainTab === 'generate') && (
+          <MediaPoolSidebar
+            open={mediaPoolOpen}
+            onToggle={() => {
+              setMediaPoolOpen((prev) => {
+                const next = !prev
+                persistLayout({ mediaPoolOpen: next })
+                return next
+              })
+            }}
+            isActive={mainTab === 'storyboard' || mainTab === 'sequence' || mainTab === 'generate'}
+          />
+        )}
         {/* ComfyUI tab – kept mounted when visible so iframe does not reload */}
         <div
           className="flex-1 flex flex-col min-h-0 bg-sf-dark-950"
@@ -762,6 +794,30 @@ function App() {
             queue/progress survives tab switches. MCP music-video tools open
             this tab via the comfystudio-open-generate-tab event before their
             readiness probe, so first mount happens before they need it. */}
+        {hasMountedStoryboard && (
+          <div
+            className="flex-1 flex flex-col min-h-0 overflow-hidden bg-sf-dark-950"
+            style={{ display: mainTab === 'storyboard' ? 'flex' : 'none' }}
+          >
+            <WorkspaceErrorBoundary>
+              <Suspense fallback={WORKSPACE_LOADING_FALLBACK}>
+                <StoryboardWorkspace key={`storyboard-workspace-${projectSessionKey}`} />
+              </Suspense>
+            </WorkspaceErrorBoundary>
+          </div>
+        )}
+        {hasMountedSequence && (
+          <div
+            className="flex-1 flex flex-col min-h-0 overflow-hidden bg-sf-dark-950"
+            style={{ display: mainTab === 'sequence' ? 'flex' : 'none' }}
+          >
+            <WorkspaceErrorBoundary>
+              <Suspense fallback={WORKSPACE_LOADING_FALLBACK}>
+                <SequenceWorkspace key={`sequence-workspace-${projectSessionKey}`} />
+              </Suspense>
+            </WorkspaceErrorBoundary>
+          </div>
+        )}
         {hasMountedGenerate && (
           <div
             className="flex-1 flex flex-col min-h-0 overflow-hidden bg-sf-dark-950"

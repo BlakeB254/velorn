@@ -1,9 +1,11 @@
-import { Upload, FolderOpen, Image, Video, Music, Search, Grid, List, Trash2, Edit3, Play, FileVideo, FileAudio, FileImage, Loader2, FolderPlus, ChevronRight, ChevronDown, ChevronLeft, Home, Minus, Plus, MoreVertical, FolderInput, Wand2, Layers, Film, VolumeX, Volume2, ArrowUpDown, ArrowUp, ArrowDown, Copy, Type, RefreshCcw } from 'lucide-react'
+import { Upload, FolderOpen, Image, Video, Music, Search, Grid, List, Trash2, Edit3, Play, FileVideo, FileAudio, FileImage, Loader2, FolderPlus, ChevronRight, ChevronDown, ChevronLeft, Home, Minus, Plus, MoreVertical, FolderInput, Wand2, Layers, Film, VolumeX, Volume2, ArrowUpDown, ArrowUp, ArrowDown, Copy, Type, RefreshCcw, Pencil, CheckSquare, Square } from 'lucide-react'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import useAssetsStore from '../../stores/assetsStore'
 import useProjectStore from '../../stores/projectStore'
 import useTimelineStore from '../../stores/timelineStore'
-import { getAbsoluteFileUrl, importAsset, isElectron, writeGeneratedOverlayToProject, deleteProjectFile } from '../../services/fileSystem'
+import { getAbsoluteFileUrl, getProjectFileUrl, importAsset, isElectron, writeGeneratedOverlayToProject, deleteProjectFile } from '../../services/fileSystem'
+import { setPendingMaskDataUrl } from '../../services/comfyTemplateRunner'
+import InpaintEditor from '../storyboard/InpaintEditor'
 import parseFcpXml from '../../services/fcpxmlImporter'
 import { enqueuePlaybackTranscode, generatePlaybackCachesForAllVideos, isPlaybackCacheableVideoAsset } from '../../services/playbackCache'
 import { enqueueProxyTranscode, isProxyPlaybackEnabled } from '../../services/proxyCache'
@@ -183,6 +185,8 @@ function AssetsPanel({ isActive = true }) {
   
   // Selected assets (array for multi-select; used for delete and drag-to-folder)
   const [selectedAssetIds, setSelectedAssetIds] = useState([])
+  const [editPoolAsset, setEditPoolAsset] = useState(null)
+  const [editPoolUrl, setEditPoolUrl] = useState('')
   const [selectedSequenceId, setSelectedSequenceId] = useState(null)
   const [openingSequenceId, setOpeningSequenceId] = useState(null)
   const [dragOverFolderId, setDragOverFolderId] = useState(null) // 'root' | folderId for drop highlight
@@ -1339,6 +1343,56 @@ function AssetsPanel({ isActive = true }) {
       confirmResolverRef.current = null
     }
   }, [])
+
+  const deleteSelectedAssets = useCallback(async (ids = selectedAssetIds) => {
+    const uniqueIds = [...new Set((ids || []).filter(Boolean))]
+    if (!uniqueIds.length) return false
+    const count = uniqueIds.length
+    const confirmed = await requestConfirm({
+      title: count === 1 ? 'Delete asset?' : 'Delete selected assets?',
+      message: shouldDeleteFromDisk
+        ? (
+            count === 1
+              ? 'Delete this asset?\n\nThis also deletes its local file from the project folder (when available). This cannot be undone.'
+              : `Delete ${count} selected assets?\n\nThis also deletes their local files from the project folder (when available). This cannot be undone.`
+          )
+        : (
+            count === 1
+              ? 'Delete this asset from the project?\n\nThe source file on disk will be kept.'
+              : `Delete ${count} selected assets from the project?\n\nSource files on disk will be kept.`
+          ),
+      confirmLabel: count === 1 ? 'Delete asset' : 'Delete assets',
+      cancelLabel: 'Keep',
+      tone: 'danger',
+    })
+    if (!confirmed) return false
+    if (shouldDeleteFromDisk) {
+      await deleteAssetFilesOnly(uniqueIds)
+    }
+    uniqueIds.forEach((id) => removeAsset(id))
+    setSelectedAssetIds([])
+    return true
+  }, [deleteAssetFilesOnly, removeAsset, requestConfirm, selectedAssetIds, shouldDeleteFromDisk])
+
+  const openEditForAssets = useCallback(async (ids = selectedAssetIds) => {
+    const image = (ids || [])
+      .map((id) => assets.find((asset) => asset.id === id))
+      .find((asset) => asset?.type === 'image')
+    if (!image) return
+    const path = image.path || image.absolutePath
+    let url = image.url && !String(image.url).startsWith('blob:') ? image.url : ''
+    if (!url && path && currentProjectHandle) {
+      try {
+        url = await getProjectFileUrl(currentProjectHandle, path)
+      } catch (_) {
+        url = ''
+      }
+    }
+    if (!url) return
+    setEditPoolAsset(image)
+    setEditPoolUrl(url)
+    setContextMenu(null)
+  }, [assets, currentProjectHandle, selectedAssetIds])
   
   // Keyboard handler for Delete/Backspace (and Escape to clear selection)
   useEffect(() => {
@@ -1357,36 +1411,12 @@ function AssetsPanel({ isActive = true }) {
         e.preventDefault()
         e.stopPropagation()
         if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation()
-        const count = selectedAssetIds.length
-        const confirmed = await requestConfirm({
-          title: count === 1 ? 'Delete asset?' : 'Delete selected assets?',
-          message: shouldDeleteFromDisk
-            ? (
-                count === 1
-                  ? 'Delete this asset?\n\nThis also deletes its local file from the project folder (when available). This cannot be undone.'
-                  : `Delete ${count} selected assets?\n\nThis also deletes their local files from the project folder (when available). This cannot be undone.`
-              )
-            : (
-                count === 1
-                  ? 'Delete this asset from the project?\n\nThe source file on disk will be kept.'
-                  : `Delete ${count} selected assets from the project?\n\nSource files on disk will be kept.`
-              ),
-          confirmLabel: count === 1 ? 'Delete asset' : 'Delete assets',
-          cancelLabel: 'Keep',
-          tone: 'danger',
-        })
-        if (confirmed) {
-          if (shouldDeleteFromDisk) {
-            await deleteAssetFilesOnly(selectedAssetIds)
-          }
-          selectedAssetIds.forEach(id => removeAsset(id))
-          setSelectedAssetIds([])
-        }
+        await deleteSelectedAssets(selectedAssetIds)
       }
     }
     window.addEventListener('keydown', handleKeyDown, true)
     return () => window.removeEventListener('keydown', handleKeyDown, true)
-  }, [selectedAssetIds, editingId, removeAsset, requestConfirm, confirmDialog, clearTimelineSelection, deleteAssetFilesOnly, shouldDeleteFromDisk])
+  }, [selectedAssetIds, editingId, confirmDialog, clearTimelineSelection, deleteSelectedAssets])
 
   // After an asset is dropped onto the timeline, the source tile still holds
   // panel selection and keyboard focus, so the next Delete press would ask to
@@ -1461,21 +1491,7 @@ function AssetsPanel({ isActive = true }) {
   // Handle delete
   const handleDelete = async (e, id) => {
     e.stopPropagation()
-    const confirmed = await requestConfirm({
-      title: 'Delete asset?',
-      message: shouldDeleteFromDisk
-        ? 'Delete this asset?\n\nThis also deletes its local file from the project folder (when available). This cannot be undone.'
-        : 'Delete this asset from the project?\n\nThe source file on disk will be kept.',
-      confirmLabel: 'Delete asset',
-      cancelLabel: 'Keep',
-      tone: 'danger',
-    })
-    if (confirmed) {
-      if (shouldDeleteFromDisk) {
-        await deleteAssetFilesOnly([id])
-      }
-      removeAsset(id)
-    }
+    await deleteSelectedAssets([id])
   }
 
   const handleDeleteFolder = useCallback(async (folderId, folderName) => {
@@ -2183,6 +2199,49 @@ function AssetsPanel({ isActive = true }) {
               Project Only
             </button>
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setSelectedAssetIds(filteredAssets.map((asset) => asset.id))}
+            disabled={filteredAssets.length === 0}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-sf-dark-800 border border-sf-dark-600 text-[10px] text-sf-text-secondary hover:text-sf-text-primary disabled:opacity-40"
+          >
+            <CheckSquare className="w-3 h-3" />
+            Select all
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedAssetIds([])}
+            disabled={selectedAssetIds.length === 0}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-sf-dark-800 border border-sf-dark-600 text-[10px] text-sf-text-secondary hover:text-sf-text-primary disabled:opacity-40"
+          >
+            <Square className="w-3 h-3" />
+            Clear
+          </button>
+          <span className="text-[10px] text-sf-text-muted">
+            {selectedAssetIds.length ? `${selectedAssetIds.length} selected` : 'Click to select · Shift range · Ctrl/Cmd add'}
+          </span>
+          <div className="flex-1" />
+          <button
+            type="button"
+            onClick={() => { void openEditForAssets(selectedAssetIds) }}
+            disabled={!selectedAssetIds.some((id) => assets.find((asset) => asset.id === id)?.type === 'image')}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-sf-dark-800 border border-sf-dark-600 text-[10px] text-sf-text-secondary hover:text-sf-text-primary disabled:opacity-40"
+            title="Open the first selected still in the fullscreen editor"
+          >
+            <Pencil className="w-3 h-3" />
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => { void deleteSelectedAssets(selectedAssetIds) }}
+            disabled={selectedAssetIds.length === 0}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-500/40 bg-red-500/10 text-[10px] text-red-200 hover:bg-red-500/20 disabled:opacity-40"
+          >
+            <Trash2 className="w-3 h-3" />
+            Delete
+          </button>
         </div>
         
         {/* Folder breadcrumb navigation */}
@@ -2909,6 +2968,19 @@ function AssetsPanel({ isActive = true }) {
           ) : (
             /* Asset menu */
             <>
+          {assets.find((asset) => asset.id === contextMenu.assetId)?.type === 'image' && (
+            <button
+              type="button"
+              onClick={() => {
+                const ids = selectedAssetIds.includes(contextMenu.assetId) ? selectedAssetIds : [contextMenu.assetId]
+                void openEditForAssets(ids)
+              }}
+              className="w-full px-3 py-1.5 text-left text-xs text-sf-text-primary hover:bg-sf-dark-700 flex items-center gap-2"
+            >
+              <Pencil className="w-3 h-3 text-sf-accent" />
+              Edit selected still
+            </button>
+          )}
           {/* Video/Image specific options */}
           {(() => {
             const asset = assets.find(a => a.id === contextMenu.assetId)
@@ -3171,6 +3243,33 @@ function AssetsPanel({ isActive = true }) {
         defaultFolderId={overlayModalFolderId ?? currentFolderId}
         initialType={overlayModalInitialType}
         availableTypes={['letterbox', 'color']}
+      />
+
+      <InpaintEditor
+        open={Boolean(editPoolAsset)}
+        imageUrl={editPoolUrl}
+        title={editPoolAsset?.name || 'Edit still'}
+        initialPrompt=""
+        onClose={() => {
+          setEditPoolAsset(null)
+          setEditPoolUrl('')
+        }}
+        onSubmit={(payload) => {
+          if (!editPoolAsset?.id) return
+          setPendingMaskDataUrl(payload.maskDataUrl || null)
+          window.dispatchEvent(new CustomEvent('comfystudio-open-generate-tab'))
+          window.dispatchEvent(new CustomEvent('comfystudio-mcp-prepare-generation', {
+            detail: {
+              workflowId: payload.workflowId,
+              category: 'image',
+              prompt: payload.prompt,
+              selectedAssetId: editPoolAsset.id,
+              selectedAssetFieldIds: { image: editPoolAsset.id },
+            },
+          }))
+          setEditPoolAsset(null)
+          setEditPoolUrl('')
+        }}
       />
 
       {/* Footer with asset count */}

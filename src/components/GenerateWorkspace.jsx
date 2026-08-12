@@ -3761,6 +3761,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
 
   // Generation queue state
   const [generationQueue, setGenerationQueue] = useState(() => loadPersistedGenerationQueue())
+  const [pendingAutoQueue, setPendingAutoQueue] = useState(null)
+  const pendingStoryboardCardIdRef = useRef(null)
   const [generationCompletionSoundSettings, setGenerationCompletionSoundSettingsState] = useState(() => (
     getGenerationCompletionSoundSettings()
   ))
@@ -3901,8 +3903,25 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         setSelectedWorkflowManifestId(manifest.id)
         setWorkflowRoute(manifest.route || 'local')
       }
-      setSelectedAssetId(null)
-      setSelectedAsset(null)
+      const nextAssetId = String(detail.selectedAssetId || detail.inputAssetId || '').trim()
+      if (nextAssetId) {
+        setSelectedAssetId(nextAssetId)
+      } else {
+        setSelectedAssetId(null)
+        setSelectedAsset(null)
+      }
+      if (Object.prototype.hasOwnProperty.call(detail, 'referenceAssetId1')) {
+        setReferenceAssetId1(detail.referenceAssetId1 || null)
+      }
+      if (Object.prototype.hasOwnProperty.call(detail, 'referenceAssetId2')) {
+        setReferenceAssetId2(detail.referenceAssetId2 || null)
+      }
+      if (Object.prototype.hasOwnProperty.call(detail, 'selectedAudioAssetId')) {
+        setSelectedAudioAssetId(detail.selectedAudioAssetId || null)
+      }
+      if (detail.selectedAssetFieldIds && typeof detail.selectedAssetFieldIds === 'object') {
+        setSelectedAssetFieldIds(detail.selectedAssetFieldIds)
+      }
       if (typeof detail.prompt === 'string' && detail.prompt.trim()) setPrompt(detail.prompt)
       if (typeof detail.negativePrompt === 'string' && detail.negativePrompt.trim()) setNegativePrompt(detail.negativePrompt)
       if (Number.isFinite(Number(detail.duration)) && Number(detail.duration) > 0) setDuration(Number(detail.duration))
@@ -3914,11 +3933,41 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         })
       }
       setFormError(null)
-      addComfyLog('status', `MCP prepared timeline frame for ${getWorkflowDisplayLabel(nextWorkflowId) || nextWorkflowId}. Review settings, then click Generate when ready.`)
+      if (detail.storyboardCardId) {
+        pendingStoryboardCardIdRef.current = detail.storyboardCardId
+      }
+      if (detail.autoQueue) {
+        setPendingAutoQueue({
+          workflowId: nextWorkflowId,
+          assetId: nextAssetId || null,
+        })
+        addComfyLog('status', `Queued ${getWorkflowDisplayLabel(nextWorkflowId) || nextWorkflowId} from Sequence.`)
+      } else {
+        addComfyLog('status', `Prepared ${getWorkflowDisplayLabel(nextWorkflowId) || nextWorkflowId} from the storyboard. Review settings, then click Generate when ready.`)
+      }
     }
     window.addEventListener('comfystudio-mcp-prepare-generation', handler)
     return () => window.removeEventListener('comfystudio-mcp-prepare-generation', handler)
   }, [addComfyLog, frameForAI?.workflowId])
+
+  useEffect(() => {
+    const handler = (event) => {
+      if (typeof event?.detail?.respond === 'function') event.detail.respond()
+    }
+    window.addEventListener('comfystudio-generate-workspace-ping', handler)
+    return () => window.removeEventListener('comfystudio-generate-workspace-ping', handler)
+  }, [])
+
+  useEffect(() => {
+    const handler = () => {
+      setGenerationMode('yolo')
+      setYoloCreationType('short-film')
+      setWorkflowRoute('featured')
+      setSelectedWorkflowManifestId('short-film-easy-mode')
+    }
+    window.addEventListener('comfystudio-open-short-film-director', handler)
+    return () => window.removeEventListener('comfystudio-open-short-film-director', handler)
+  }, [])
 
   // Restore selected asset from ID when assets are available
   useEffect(() => {
@@ -8032,6 +8081,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       assetFieldIds,
       templateParameters: { ...(templateParameterValues || {}) },
       inputFromTimelineFrame: false,
+      storyboardCardId: overrides.storyboardCardId || pendingStoryboardCardIdRef.current || null,
       referenceAssetId1: workflowId === 'image-edit' ? referenceAssetId1 : null,
       referenceAssetId2: workflowId === 'image-edit' ? referenceAssetId2 : null,
       frameTime: frameTime || 0,
@@ -13679,6 +13729,14 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   }
 
   useEffect(() => {
+    if (!pendingAutoQueue) return
+    if (workflowId !== pendingAutoQueue.workflowId) return
+    if (pendingAutoQueue.assetId && selectedAsset?.id !== pendingAutoQueue.assetId) return
+    setPendingAutoQueue(null)
+    handleGenerate()
+  }, [pendingAutoQueue, workflowId, selectedAsset, handleGenerate])
+
+  useEffect(() => {
     const handler = (event) => {
       const detail = event?.detail || {}
       const respond = typeof detail.respond === 'function' ? detail.respond : null
@@ -14847,7 +14905,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     const IDLE_TIMEOUT_MS = 10 * 60 * 1000 // bail if no WS activity for 10 min
     const POLL_INTERVAL_MS = 1000
     let consecutivePollErrors = 0
-    const maxConsecutivePollErrors = 15
+    const maxConsecutivePollErrors = 90
 
     // Track websocket activity for this specific promptId so we can tell
     // a long-running generation apart from a dead/stalled one.
@@ -15296,7 +15354,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         consecutivePollErrors += 1
         console.warn(`Poll error (${consecutivePollErrors}/${maxConsecutivePollErrors}):`, err)
         if (consecutivePollErrors >= maxConsecutivePollErrors) {
-          throw new Error('Lost connection to ComfyUI while waiting for generation result')
+          throw new Error('Lost connection to ComfyUI while waiting for the result. The LTX 2.5 / H3 graphs often restart ComfyUI under memory pressure — check that ComfyUI is running, then try again.')
         }
       }
     }
@@ -15963,6 +16021,27 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         }
       }
 
+      const runnerMod = await import('../services/comfyTemplateRunner')
+      const maskDataUrl = runnerMod.takePendingMaskDataUrl()
+      let uploadedMaskFilename = null
+      if (maskDataUrl) {
+        const maskFile = await runnerMod.dataUrlToFile(maskDataUrl, `mask_${Date.now()}.png`)
+        const maskUpload = await comfyui.uploadFile(maskFile)
+        uploadedMaskFilename = maskUpload?.name || maskFile.name
+      }
+      let uploadedLastFilename = null
+      const lastAssetId = job.assetFieldIds?.lastFrame || job.assetFieldIds?.lastImage || job.referenceAssetId1
+      if (lastAssetId && lastAssetId !== job.inputAssetId) {
+        const lastAsset = findJobAsset(lastAssetId, 'last')
+        if (lastAsset) {
+          const lastFile = await createFileFromJobAsset(lastAsset, `last_${Date.now()}.png`)
+          if (lastFile) {
+            const lastUpload = await comfyui.uploadFile(lastFile)
+            uploadedLastFilename = lastUpload?.name || lastFile.name
+          }
+        }
+      }
+
       // Music-video-shot workflow needs the song audio uploaded once per job.
       // It lives on the job as musicAudioAssetId; we grab the asset, fetch it,
       // upload it to Comfy's input folder, and keep the returned filename so
@@ -16107,19 +16186,25 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           throw new Error(`Imported workflow file is corrupt: ${error?.message || error}. Re-import the template.`)
         }
       } else {
-        const workflowPath = BUILTIN_WORKFLOW_PATHS[job.workflowId]
-        if (!workflowPath) throw new Error('Unknown workflow: ' + job.workflowId)
+        const nativeMod = await import('../config/comfyNativeTemplates')
+        const runnerMod = await import('../services/comfyTemplateRunner')
+        if (nativeMod.isComfyNativeTemplate(job.workflowId)) {
+          workflowJson = await runnerMod.loadComfyNativeTemplate(job.workflowId)
+        } else {
+          const workflowPath = BUILTIN_WORKFLOW_PATHS[job.workflowId]
+          if (!workflowPath) throw new Error('Unknown workflow: ' + job.workflowId)
 
-        const resp = await fetch(workflowPath)
-        if (!resp.ok) throw new Error(`Failed to load workflow file: ${workflowPath} (${resp.status})`)
-        const workflowText = await resp.text()
-        try {
-          workflowJson = JSON.parse(workflowText)
-        } catch {
-          const snippet = workflowText.trim().slice(0, 120)
-          throw new Error(
-            `Workflow file is not valid JSON: ${workflowPath}. Response starts with: ${snippet || '(empty response)'}`
-          )
+          const resp = await fetch(workflowPath)
+          if (!resp.ok) throw new Error(`Failed to load workflow file: ${workflowPath} (${resp.status})`)
+          const workflowText = await resp.text()
+          try {
+            workflowJson = JSON.parse(workflowText)
+          } catch {
+            const snippet = workflowText.trim().slice(0, 120)
+            throw new Error(
+              `Workflow file is not valid JSON: ${workflowPath}. Response starts with: ${snippet || '(empty response)'}`
+            )
+          }
         }
       }
 
@@ -16573,7 +16658,26 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             filenamePrefix: outputPrefix || 'audio/short_film_voice',
           })
           break
-        default:
+        default: {
+          const nativeCheck = await import('../config/comfyNativeTemplates')
+          const nativeRunner = await import('../services/comfyTemplateRunner')
+          if (nativeCheck.isComfyNativeTemplate(job.workflowId)) {
+            modifiedWorkflow = nativeRunner.applyComfyNativeInputs(workflowJson, {
+              prompt: job.prompt,
+              negativePrompt: job.negativePrompt,
+              inputImage: uploadedFilename,
+              lastImage: uploadedLastFilename,
+              maskImage: uploadedMaskFilename,
+              width: job.resolution?.width,
+              height: job.resolution?.height,
+              duration: job.duration,
+              fps: job.fps,
+              seed: job.seed,
+              filenamePrefix: outputPrefix || `${job.category === 'video' ? 'video' : 'image'}/${job.workflowId}`,
+              wireLastFrame: Boolean(nativeCheck.getComfyNativeTemplate(job.workflowId)?.wireLastFrame),
+            })
+            break
+          }
           if (importedJobEntry?.bindings) {
             modifiedWorkflow = applyImportedWorkflowBindings(workflowJson, importedJobEntry.bindings, {
               prompt: job.prompt,
@@ -16591,6 +16695,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             throw new Error('This imported template predates field bindings. Re-import it from the ComfyUI tab.')
           }
           throw new Error('Unhandled workflow: ' + job.workflowId)
+        }
       }
 
       updateJob(job.id, { status: 'queuing', progress: 40 })
@@ -17599,6 +17704,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                   />
                 ) : isYoloShortFilmMode ? (
                   <ShortFilmEasyMode
+                    draftStorageScope={generateWorkspaceProjectScope}
+                    currentProject={currentProject}
                     assets={assets}
                     generationQueue={generationQueue}
                     onQueueVoices={handleQueueShortFilmVoices}

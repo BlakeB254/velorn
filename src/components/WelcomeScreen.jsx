@@ -228,62 +228,72 @@ function WelcomeScreen() {
     }
   }, [])
 
-  // Load recent projects on mount
-  useEffect(() => {
-    const loadRecentProjects = async () => {
-      if (defaultProjectsHandle) {
-        setLoadingProjects(true)
-        try {
-          const projects = await getRecentProjectsList()
-          setRecentProjectsList(projects)
-        } catch (err) {
-          console.error('Error loading recent projects:', err)
-        }
-        setLoadingProjects(false)
-      } else {
-        setRecentProjectsList(recentProjects)
-      }
-    }
-    
-    loadRecentProjects()
-  }, [defaultProjectsHandle, recentProjects])
-
-  // Once we have the list, resolve any on-disk thumbnail pointers into
-  // <img>-ready URLs. We do this separately so the grid can render cards
-  // immediately (with placeholder icons) while thumbnails swap in as they
-  // resolve, matching Resolve's "pop in" behaviour.
+  // Load the workspace folder once per handle. Do not depend on
+  // recentProjects — writing that store from the loader caused the
+  // Home grid to remount and flicker thumbnails.
   useEffect(() => {
     let cancelled = false
-    const urls = {}
+    const loadRecentProjects = async () => {
+      if (!defaultProjectsHandle) {
+        if (!cancelled) setRecentProjectsList(recentProjects)
+        return
+      }
+      setLoadingProjects(true)
+      try {
+        const projects = await getRecentProjectsList()
+        if (!cancelled) setRecentProjectsList(projects)
+      } catch (err) {
+        console.error('Error loading recent projects:', err)
+      }
+      if (!cancelled) setLoadingProjects(false)
+    }
+    loadRecentProjects()
+    return () => { cancelled = true }
+    // recentProjects is only a fallback when no folder is set
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultProjectsHandle, getRecentProjectsList])
+
+  const thumbnailSignature = recentProjectsList
+    .map((project) => `${project.path || project.name}:${project.thumbnail || ''}`)
+    .join('|')
+
+  // Resolve on-disk thumbnails without wiping already-loaded URLs.
+  useEffect(() => {
+    let cancelled = false
+    const validKeys = new Set(recentProjectsList.map((project) => project.path || project.name).filter(Boolean))
+    setThumbnailUrls((prev) => {
+      let changed = false
+      const next = {}
+      Object.entries(prev).forEach(([key, url]) => {
+        if (validKeys.has(key)) next[key] = url
+        else changed = true
+      })
+      return changed ? next : prev
+    })
+
     const run = async () => {
       for (const project of recentProjectsList) {
         if (cancelled) return
         if (!project?.thumbnail) continue
+        const key = project.path || project.name
         try {
           const url = await resolveThumbnailUrl(
             project.path || project.handle,
             project.thumbnail
           )
           if (cancelled) return
-          if (url) {
-            const key = project.path || project.name
-            urls[key] = url
-            // Push each as it resolves so cards don't wait for the slowest.
-            setThumbnailUrls((prev) => ({ ...prev, [key]: url }))
-          }
+          if (!url) continue
+          setThumbnailUrls((prev) => (prev[key] === url ? prev : { ...prev, [key]: url }))
         } catch (_) {
           // Non-fatal; card falls back to placeholder icon.
         }
       }
     }
-    // Clear any stale URLs before resolving the new batch so removed
-    // projects don't linger.
-    setThumbnailUrls({})
     run()
     return () => {
       cancelled = true
     }
-  }, [recentProjectsList])
+  }, [thumbnailSignature, recentProjectsList])
   
   // Format date for display
   const formatDate = (isoString) => {
@@ -467,8 +477,9 @@ function WelcomeScreen() {
     </div>
   ) : null
 
-  // First-run setup screen
-  if (isFirstRun || !defaultProjectsHandle) {
+  // First-run setup screen. A stored workspace folder is enough to leave
+  // this screen even if persisted isFirstRun is still true.
+  if (!defaultProjectsHandle) {
     return (
       <div className="h-screen bg-sf-dark-950 flex flex-col">
         {titleStrip}

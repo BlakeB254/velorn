@@ -1,0 +1,326 @@
+{
+  "version": 1,
+  "updated": "2026-08-12",
+  "root": "/home/codex450/creative/_library/motions",
+  "items": [
+    {
+      "slug": "knockout-fall",
+      "title": "Knockout fall",
+      "chars": 1,
+      "fps": 24,
+      "license": "internal",
+      "source": "CTT ep.001 approved movement",
+      "approval": "approved",
+      "tags": [
+        "fight",
+        "fall",
+        "approved"
+      ],
+      "animation": "",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/knockout-fall",
+        "pose": "/home/codex450/creative/_library/motions/knockout-fall/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/knockout-fall/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/knockout-fall/skeleton.mp4",
+        "depth": "/home/codex450/creative/_library/motions/knockout-fall/depth.mp4",
+        "source": ""
+      }
+    },
+    {
+      "slug": "right-cross-knockout",
+      "title": "Right-cross knockout",
+      "chars": 1,
+      "fps": 24,
+      "license": "internal",
+      "source": "CTT ep.001 approved movement",
+      "approval": "approved",
+      "tags": [
+        "fight",
+        "punch",
+        "standing",
+        "approved"
+      ],
+      "animation": "",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/right-cross-knockout",
+        "pose": "/home/codex450/creative/_library/motions/right-cross-knockout/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/right-cross-knockout/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/right-cross-knockout/skeleton.mp4",
+        "depth": "/home/codex450/creative/_library/motions/right-cross-knockout/depth.mp4",
+        "source": ""
+      }
+    },
+    {
+      "slug": "ctt-s1-standing-convo",
+      "title": "Standing conversation (2-shot)",
+      "chars": 2,
+      "fps": 24,
+      "license": "internal",
+      "source": "CTT ep.001 approved movement",
+      "approval": "extracted",
+      "tags": [
+        "standing",
+        "conversation",
+        "two-person"
+      ],
+      "animation": "",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/ctt-s1-standing-convo",
+        "pose": "/home/codex450/creative/_library/motions/ctt-s1-standing-convo/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/ctt-s1-standing-convo/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/ctt-s1-standing-convo/skeleton.mp4",
+        "depth": "",
+        "source": ""
+      }
+    },
+    {
+      "slug": "fighting-idle",
+      "title": "Fighting idle",
+      "chars": 1,
+      "fps": 24,
+      "license": "CC0",
+      "source": "Mesh2Motion human-base-animations (CC0)",
+      "approval": "vendor",
+      "tags": [
+        "fight",
+        "idle",
+        "guard"
+      ],
+      "animation": "Fighting Idle",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/fighting-idle",
+        "pose": "/home/codex450/creative/_library/motions/fighting-idle/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/fighting-idle/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/fighting-idle/skeleton.mp4",
+        "depth": "",
+        "source": "/home/codex450/creative/_library/motions/_vendor/mesh2motion/human-base-animations.glb"
+      }
+    },
+    {
+      "slug": "hit-knockback",
+      "title": "Hit knockback",
+      "chars": 1,
+      "fps": 24,
+      "license": "CC0",
+      "source": "Mesh2Motion human-base-animations (CC0)",
+      "approval": "vendor",
+      "tags": [
+        "hit",
+        "react",
+        "fight"
+      ],
+      "animation": "Hit_Knockback",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/hit-knockback",
+        "pose": "/home/codex450/creative/_library/motions/hit-knockback/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/hit-knockback/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/hit-knockback/skeleton.mp4",
+        "depth": "",
+        "source": "/home/codex450/creative/_library/motions/_vendor/mesh2motion/human-base-animations.glb"
+      }
+    },
+    {
+      "slug": "idle",
+      "title": "Idle",
+      "chars": 1,
+      "fps": 24,
+      "license": "CC0",
+      "source": "Mesh2Motion human-base-animations (CC0)",
+      "approval": "vendor",
+      "tags": [
+        "idle",
+        "standing",
+        "loco"
+      ],
+      "animation": "Idle_A",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/idle",
+        "pose": "/home/codex450/creative/_library/motions/idle/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/idle/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/idle/skeleton.mp4",
+        "depth": "",
+        "source": "/home/codex450/creative/_library/motions/_vendor/mesh2motion/human-base-animations.glb"
+      }
+    },
+    {
+      "slug": "idle-listening",
+      "title": "Idle listening",
+      "chars": 1,
+      "fps": 24,
+      "license": "CC0",
+      "source": "Mesh2Motion human-base-animations (CC0)",
+      "approval": "vendor",
+      "tags": [
+        "idle",
+        "listen",
+        "standing"
+      ],
+      "animation": "Idle Listening",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/idle-listening",
+        "pose": "/home/codex450/creative/_library/motions/idle-listening/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/idle-listening/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/idle-listening/skeleton.mp4",
+        "depth": "",
+        "source": "/home/codex450/creative/_library/motions/_vendor/mesh2motion/human-base-animations.glb"
+      }
+    },
+    {
+      "slug": "idle-talking",
+      "title": "Idle talking",
+      "chars": 1,
+      "fps": 24,
+      "license": "CC0",
+      "source": "Mesh2Motion human-base-animations (CC0)",
+      "approval": "vendor",
+      "tags": [
+        "idle",
+        "talk",
+        "standing"
+      ],
+      "animation": "Idle_Talking",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/idle-talking",
+        "pose": "/home/codex450/creative/_library/motions/idle-talking/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/idle-talking/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/idle-talking/skeleton.mp4",
+        "depth": "",
+        "source": "/home/codex450/creative/_library/motions/_vendor/mesh2motion/human-base-animations.glb"
+      }
+    },
+    {
+      "slug": "jog",
+      "title": "Jog",
+      "chars": 1,
+      "fps": 24,
+      "license": "CC0",
+      "source": "Mesh2Motion human-base-animations (CC0)",
+      "approval": "vendor",
+      "tags": [
+        "jog",
+        "loco"
+      ],
+      "animation": "Jog",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/jog",
+        "pose": "/home/codex450/creative/_library/motions/jog/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/jog/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/jog/skeleton.mp4",
+        "depth": "",
+        "source": "/home/codex450/creative/_library/motions/_vendor/mesh2motion/human-base-animations.glb"
+      }
+    },
+    {
+      "slug": "punch-cross",
+      "title": "Punch cross",
+      "chars": 1,
+      "fps": 24,
+      "license": "CC0",
+      "source": "Mesh2Motion human-base-animations (CC0)",
+      "approval": "vendor",
+      "tags": [
+        "punch",
+        "fight"
+      ],
+      "animation": "Punch_Cross",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/punch-cross",
+        "pose": "/home/codex450/creative/_library/motions/punch-cross/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/punch-cross/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/punch-cross/skeleton.mp4",
+        "depth": "",
+        "source": "/home/codex450/creative/_library/motions/_vendor/mesh2motion/human-base-animations.glb"
+      }
+    },
+    {
+      "slug": "push",
+      "title": "Push",
+      "chars": 1,
+      "fps": 24,
+      "license": "CC0",
+      "source": "Mesh2Motion human-base-animations (CC0)",
+      "approval": "vendor",
+      "tags": [
+        "push",
+        "shove",
+        "action"
+      ],
+      "animation": "Push",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/push",
+        "pose": "/home/codex450/creative/_library/motions/push/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/push/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/push/skeleton.mp4",
+        "depth": "",
+        "source": "/home/codex450/creative/_library/motions/_vendor/mesh2motion/human-base-animations.glb"
+      }
+    },
+    {
+      "slug": "sit",
+      "title": "Sitting idle",
+      "chars": 1,
+      "fps": 24,
+      "license": "CC0",
+      "source": "Mesh2Motion human-base-animations (CC0)",
+      "approval": "vendor",
+      "tags": [
+        "sit",
+        "idle"
+      ],
+      "animation": "Sitting_Idle",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/sit",
+        "pose": "/home/codex450/creative/_library/motions/sit/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/sit/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/sit/skeleton.mp4",
+        "depth": "",
+        "source": "/home/codex450/creative/_library/motions/_vendor/mesh2motion/human-base-animations.glb"
+      }
+    },
+    {
+      "slug": "sprint",
+      "title": "Sprint",
+      "chars": 1,
+      "fps": 24,
+      "license": "CC0",
+      "source": "Mesh2Motion human-base-animations (CC0)",
+      "approval": "vendor",
+      "tags": [
+        "run",
+        "sprint",
+        "loco"
+      ],
+      "animation": "Sprint",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/sprint",
+        "pose": "/home/codex450/creative/_library/motions/sprint/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/sprint/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/sprint/skeleton.mp4",
+        "depth": "",
+        "source": "/home/codex450/creative/_library/motions/_vendor/mesh2motion/human-base-animations.glb"
+      }
+    },
+    {
+      "slug": "walk",
+      "title": "Walk",
+      "chars": 1,
+      "fps": 24,
+      "license": "CC0",
+      "source": "Mesh2Motion human-base-animations (CC0)",
+      "approval": "vendor",
+      "tags": [
+        "walk",
+        "loco"
+      ],
+      "animation": "Walk",
+      "files": {
+        "dir": "/home/codex450/creative/_library/motions/walk",
+        "pose": "/home/codex450/creative/_library/motions/walk/pose.png",
+        "preview": "/home/codex450/creative/_library/motions/walk/preview.mp4",
+        "skeleton": "/home/codex450/creative/_library/motions/walk/skeleton.mp4",
+        "depth": "",
+        "source": "/home/codex450/creative/_library/motions/_vendor/mesh2motion/human-base-animations.glb"
+      }
+    }
+  ]
+}

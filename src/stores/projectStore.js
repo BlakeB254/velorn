@@ -311,7 +311,9 @@ export const useProjectStore = create(
             if (isValid) {
               set({ 
                 defaultProjectsHandle: storedDefault,
-                defaultProjectsLocation: getDisplayName(storedDefault),
+                defaultProjectsLocation: typeof storedDefault === 'string'
+                  ? storedDefault
+                  : getDisplayName(storedDefault),
                 isFirstRun: false,
               })
             }
@@ -1128,24 +1130,23 @@ export const useProjectStore = create(
         }
         
         try {
-          // Refresh list from file system
+          // Show every valid project in the workspace folder, not only
+          // ones this install has already opened. Migrated / copied
+          // project.comfystudio folders would otherwise stay invisible.
           const projects = await listProjects(state.defaultProjectsHandle)
-          
-          // Update recent projects with fresh data
-          const updatedRecent = state.recentProjects.map(recent => {
-            const fresh = projects.find(p => p.name === recent.name)
-            if (fresh) {
-              return {
-                ...recent,
-                ...fresh,
-                // In Electron mode, use the path from fresh data
-                path: fresh.path || recent.path,
-              }
-            }
-            return recent
-          })
-          
-          return updatedRecent.slice(0, 10)
+          const byKey = new Map()
+          for (const recent of state.recentProjects || []) {
+            const key = recent.path || recent.name
+            if (key) byKey.set(key, recent)
+          }
+          for (const fresh of projects) {
+            const key = fresh.path || fresh.name
+            const prev = key ? byKey.get(key) : null
+            byKey.set(key, prev ? { ...prev, ...fresh, path: fresh.path || prev.path } : fresh)
+          }
+          const merged = Array.from(byKey.values())
+          merged.sort((a, b) => new Date(b.modified || 0) - new Date(a.modified || 0))
+          return merged
         } catch (err) {
           console.error('Error getting recent projects:', err)
           return state.recentProjects
@@ -1235,6 +1236,35 @@ export const useProjectStore = create(
        * new projects start blank and existing projects can reopen their own
        * music-video/script/custom-workflow context.
        */
+      getStoryboardBoard: () => {
+        const project = get().currentProject
+        return project?.storyboardBoard || { version: 1, cards: [] }
+      },
+
+      setStoryboardBoard: (storyboardBoard) => {
+        if (!get().currentProject) return null
+        set((state) => ({
+          currentProject: state.currentProject ? {
+            ...state.currentProject,
+            storyboardBoard,
+            modified: new Date().toISOString(),
+          } : null,
+        }))
+        return storyboardBoard
+      },
+
+      setShortFilmDirector: (shortFilmDirector) => {
+        if (!get().currentProject) return null
+        set((state) => ({
+          currentProject: state.currentProject ? {
+            ...state.currentProject,
+            shortFilmDirector,
+            modified: new Date().toISOString(),
+          } : null,
+        }))
+        return shortFilmDirector
+      },
+
       setGenerateWorkspaceState: (generateWorkspace) => {
         set((state) => {
           if (!state.currentProject) return {}

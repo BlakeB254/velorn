@@ -1,0 +1,1443 @@
+{
+  "version": 2,
+  "source": "/home/codex450/cdx-platform/services/cdx-video-director/config/cinematography_vocab.yaml",
+  "assemblyOrder": [
+    "framing",
+    "camera_angle",
+    "lens",
+    "lighting",
+    "film_stock",
+    "camera_movement",
+    "mood"
+  ],
+  "exclusiveGroups": [
+    "framing",
+    "camera_angle",
+    "lens",
+    "lighting",
+    "film_stock",
+    "camera_movement",
+    "mood"
+  ],
+  "overlapGroups": [
+    [
+      "framing",
+      "camera_angle",
+      "lens"
+    ],
+    [
+      "lighting",
+      "film_stock",
+      "mood"
+    ],
+    [
+      "framing",
+      "camera_movement"
+    ]
+  ],
+  "categories": {
+    "framing": {
+      "id": "framing",
+      "label": "Shot size / framing",
+      "description": "How much of the subject fills the frame",
+      "uiGroup": "camera",
+      "exclusive": true,
+      "options": [
+        {
+          "id": "extreme-close-up",
+          "label": "Extreme close-up (ECU)",
+          "tagline": "Eyes, mouth, or detail only",
+          "prompt": "extreme close-up framing, face detail fills the frame, intimate microscopic intimacy",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/extreme-close-up.png"
+        },
+        {
+          "id": "tight-medium",
+          "label": "Close-up (CU)",
+          "tagline": "Head and shoulders, intimate",
+          "prompt": "tight medium close-up framing, head and shoulders, intimate",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": true,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/tight-medium.png"
+        },
+        {
+          "id": "medium-close-up",
+          "label": "Medium close-up (MCU)",
+          "tagline": "Chest up",
+          "prompt": "medium close-up framing, chest-up, conversational intimacy",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/medium-close-up.png"
+        },
+        {
+          "id": "medium-shot",
+          "label": "Medium shot (MS)",
+          "tagline": "Waist up",
+          "prompt": "medium shot framing, waist-up, balanced subject and environment",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/medium-shot.png"
+        },
+        {
+          "id": "wide-medium",
+          "label": "Medium-wide / cowboy",
+          "tagline": "Three-quarter body + room",
+          "prompt": "wide-medium shot, three-quarter body visible with environment",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/wide-medium.png"
+        },
+        {
+          "id": "full-shot",
+          "label": "Full shot (FS)",
+          "tagline": "Head to toe",
+          "prompt": "full shot framing, head-to-toe subject, complete body readable",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/full-shot.png"
+        },
+        {
+          "id": "wide-establishing",
+          "label": "Wide / establishing (WS)",
+          "tagline": "Subject small in space",
+          "prompt": "wide establishing shot, subject small in the environment, location readable",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/wide-establishing.png"
+        },
+        {
+          "id": "extreme-wide",
+          "label": "Extreme wide (EWS)",
+          "tagline": "Landscape / epic scale",
+          "prompt": "extreme wide shot, epic scale landscape or cityscape, tiny figures if any",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/extreme-wide.png"
+        },
+        {
+          "id": "wide-low-angle",
+          "label": "Wide low-angle hero",
+          "tagline": "Hero composition from below",
+          "prompt": "wide low-angle shot with subject center-frame, hero composition",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/wide-low-angle.png"
+        },
+        {
+          "id": "face-stack-vertical",
+          "label": "Vertical face-stack (9:16)",
+          "tagline": "Face / context / foreground thirds",
+          "prompt": "vertical face-stack composition \u2014 FACE upper third, CONTEXT middle third, FOREGROUND lower third, staged for ken-burns reveal",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/face-stack-vertical.png"
+        },
+        {
+          "id": "over-the-shoulder",
+          "label": "Over-the-shoulder (OTS)",
+          "tagline": "Dialogue coverage classic",
+          "prompt": "over-the-shoulder framing, near shoulder soft in foreground, subject facing camera across the line",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/over-the-shoulder.png"
+        },
+        {
+          "id": "two-shot",
+          "label": "Two-shot",
+          "tagline": "Both subjects in frame",
+          "prompt": "two-shot framing, both subjects visible and balanced in frame",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/two-shot.png"
+        },
+        {
+          "id": "shot-reverse-shot",
+          "label": "Shot/reverse-shot setup",
+          "tagline": "Conversation coverage",
+          "prompt": "two-shot framing across a table, both subjects visible, shot-reverse-shot ready",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/shot-reverse-shot.png"
+        },
+        {
+          "id": "hidden-cam-static",
+          "label": "Hidden-camera static",
+          "tagline": "Surveillance / found-footage frame",
+          "prompt": "hidden-camera-style static angle, generic mid-shot framing, slightly washed-out",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/hidden-cam-static.png"
+        },
+        {
+          "id": "insert-detail",
+          "label": "Insert / detail cutaway",
+          "tagline": "Hands, prop, screen",
+          "prompt": "insert detail shot, object or hands fill frame, narrative cutaway clarity",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/insert-detail.png"
+        }
+      ]
+    },
+    "camera_angle": {
+      "id": "camera_angle",
+      "label": "Camera angle",
+      "description": "Vertical / lateral relationship of camera to subject",
+      "uiGroup": "camera",
+      "exclusive": true,
+      "options": [
+        {
+          "id": "eye-level",
+          "label": "Eye level",
+          "tagline": "Neutral, documentary default",
+          "prompt": "eye-level camera angle, neutral horizon, natural perspective",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": true,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/eye-level.png"
+        },
+        {
+          "id": "high-angle",
+          "label": "High angle",
+          "tagline": "Looking down, diminishes subject",
+          "prompt": "high-angle shot looking down on the subject, slight power-loss framing",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/high-angle.png"
+        },
+        {
+          "id": "low-angle",
+          "label": "Low angle",
+          "tagline": "Looking up, empowers subject",
+          "prompt": "low-angle shot looking up at the subject, heroic or imposing perspective",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/low-angle.png"
+        },
+        {
+          "id": "birds-eye",
+          "label": "Bird's-eye / top-down",
+          "tagline": "Straight down",
+          "prompt": "bird's-eye top-down camera angle, directly overhead, map-like geometry",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/birds-eye.png"
+        },
+        {
+          "id": "worms-eye",
+          "label": "Worm's-eye",
+          "tagline": "Extreme low, sky behind",
+          "prompt": "worm's-eye extreme low angle, sky or ceiling dominating the background",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/worms-eye.png"
+        },
+        {
+          "id": "dutch-angle",
+          "label": "Dutch / canted angle",
+          "tagline": "Tilted horizon, unease",
+          "prompt": "Dutch angle canted horizon, off-kilter framing, psychological tension",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/dutch-angle.png"
+        },
+        {
+          "id": "profile-90",
+          "label": "Profile (90\u00b0)",
+          "tagline": "Side view",
+          "prompt": "strict profile camera angle, subject side-on at 90 degrees",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/profile-90.png"
+        },
+        {
+          "id": "three-quarter",
+          "label": "Three-quarter view",
+          "tagline": "~45\u00b0 face/body",
+          "prompt": "three-quarter camera angle, face and body turned about 45 degrees toward camera",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/three-quarter.png"
+        },
+        {
+          "id": "frontal-flat",
+          "label": "Frontal / flat",
+          "tagline": "Straight-on, fashion editorial",
+          "prompt": "frontal flat camera angle, subject square to camera, graphic poster clarity",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/frontal-flat.png"
+        },
+        {
+          "id": "pov",
+          "label": "POV",
+          "tagline": "Subject's point of view",
+          "prompt": "point-of-view camera angle, first-person perspective as if through the character's eyes",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/pov.png"
+        }
+      ]
+    },
+    "lens": {
+      "id": "lens",
+      "label": "Lens",
+      "description": "Focal length + optical character",
+      "uiGroup": "optics",
+      "exclusive": true,
+      "options": [
+        {
+          "id": "35mm-anamorphic",
+          "label": "35mm anamorphic (default)",
+          "tagline": "Scope flares, shallow DOF",
+          "prompt": "35mm anamorphic lens, shallow depth of field, anamorphic lens flare",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v",
+            "extend"
+          ],
+          "isDefault": true,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/35mm-anamorphic.png"
+        },
+        {
+          "id": "24mm-wide",
+          "label": "24mm wide",
+          "tagline": "Environment emphasis",
+          "prompt": "24mm wide-angle lens, deep focus, environmental context strong",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/24mm-wide.png"
+        },
+        {
+          "id": "50mm-normal",
+          "label": "50mm normal",
+          "tagline": "Natural human FOV",
+          "prompt": "50mm normal lens, natural human field of view, balanced perspective",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/50mm-normal.png"
+        },
+        {
+          "id": "85mm-portrait",
+          "label": "85mm telephoto portrait",
+          "tagline": "Compression + soft bokeh",
+          "prompt": "85mm telephoto lens, very shallow depth of field, soft bokeh background",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/85mm-portrait.png"
+        },
+        {
+          "id": "135mm-long",
+          "label": "135mm long tele",
+          "tagline": "Heavy compression",
+          "prompt": "135mm long telephoto lens, strong background compression, isolated subject",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/135mm-long.png"
+        },
+        {
+          "id": "wide-low-angle-lens",
+          "label": "Wide low-angle lens",
+          "tagline": "Dramatic perspective stretch",
+          "prompt": "wide-angle lens shot from low-angle, deep focus, dramatic perspective",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/wide-low-angle-lens.png"
+        },
+        {
+          "id": "dutch-tilt",
+          "label": "Dutch tilt (anamorphic)",
+          "tagline": "Off-kilter anamorphic",
+          "prompt": "35mm anamorphic with subtle Dutch tilt angle, off-kilter framing",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/dutch-tilt.png"
+        },
+        {
+          "id": "macro-ecu",
+          "label": "Macro ECU",
+          "tagline": "Surgical detail",
+          "prompt": "macro lens extreme close-up, surgical detail, every fiber visible",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/macro-ecu.png"
+        },
+        {
+          "id": "fish-eye",
+          "label": "Fish-eye",
+          "tagline": "Edge distortion, 70s energy",
+          "prompt": "wide-angle slight fish-eye lens distortion at edges, vintage 70s feel",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/fish-eye.png"
+        },
+        {
+          "id": "spherical-clean",
+          "label": "Spherical clean",
+          "tagline": "No anamorphic artifacts",
+          "prompt": "modern spherical cinema lens, clean edges, minimal flare, clinical sharpness",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/spherical-clean.png"
+        },
+        {
+          "id": "vintage-soft",
+          "label": "Vintage soft glass",
+          "tagline": "Halation, gentle bloom",
+          "prompt": "vintage soft cinema glass, gentle halation on highlights, slight bloom, period softness",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/vintage-soft.png"
+        }
+      ]
+    },
+    "film_stock": {
+      "id": "film_stock",
+      "label": "Film grade / stock",
+      "description": "Color science, grain, and grade signature",
+      "uiGroup": "grade",
+      "exclusive": true,
+      "options": [
+        {
+          "id": "kodak-5219-teal-orange",
+          "label": "Teal & orange (Vision3)",
+          "tagline": "Modern Hollywood default",
+          "prompt": "Kodak Vision3 5219 grade, teal-orange color contrast, milky highlights, crushed blacks",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v",
+            "extend"
+          ],
+          "isDefault": true,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/kodak-5219-teal-orange.png"
+        },
+        {
+          "id": "black-and-white",
+          "label": "Black & white",
+          "tagline": "Classic monochrome",
+          "prompt": "pure black and white cinema grade, silver halide contrast, no color, rich midtone gray scale",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/black-and-white.png"
+        },
+        {
+          "id": "film-noir-bw",
+          "label": "Film noir B&W",
+          "tagline": "Hard light, deep blacks",
+          "prompt": "classic film noir black and white grade, hard key light, deep crushed shadows, 1940s crime cinema",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/film-noir-bw.png"
+        },
+        {
+          "id": "bleach-bypass",
+          "label": "Bleach bypass",
+          "tagline": "Desat silver, high contrast",
+          "prompt": "bleach bypass film grade, desaturated silver highlights, high contrast, metallic midtones",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/bleach-bypass.png"
+        },
+        {
+          "id": "kodak-5219-cool-cyan",
+          "label": "Cyan-cold (horror)",
+          "tagline": "Heavy teal pull",
+          "prompt": "Kodak Vision3 5219 with HEAVY cyan-teal pull, oranges receding, deep crushed blacks, cold dread atmosphere",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/kodak-5219-cool-cyan.png"
+        },
+        {
+          "id": "golden-hour-grade",
+          "label": "Golden hour grade",
+          "tagline": "Warm low sun palette",
+          "prompt": "golden hour color grade, warm amber highlights, soft long shadows, romantic drama palette",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/golden-hour-grade.png"
+        },
+        {
+          "id": "70s-saturation-push",
+          "label": "70s saturation push",
+          "tagline": "Mustard / purple / hot-blue",
+          "prompt": "HEAVY 70s analog film aesthetic, saturated mustard-yellow streetlights, deep purple shadows, hot-blue sky, hardation on neons, slight color separation in shadows",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/70s-saturation-push.png"
+        },
+        {
+          "id": "belly-red-blue",
+          "label": "Red/blue gels (Hype Williams)",
+          "tagline": "Non-natural color gels",
+          "prompt": "extreme red/blue color gels, color-coded character lighting, saturated to non-naturalism, deep blacks, neon haze",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/belly-red-blue.png"
+        },
+        {
+          "id": "narcos-vintage",
+          "label": "Narcos vintage",
+          "tagline": "Hot ochres / deep blues",
+          "prompt": "vintage 80s analog grain, hot ochres in highlights, deeper blues in shadows, slight sepia bias on midtones",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/narcos-vintage.png"
+        },
+        {
+          "id": "monochrome-cyan",
+          "label": "Drained monochrome cyan",
+          "tagline": "Near mono + one red",
+          "prompt": "drained near-monochrome cyan grade, single deep-red highlight allowed, all other color removed",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/monochrome-cyan.png"
+        },
+        {
+          "id": "prismatic-chromatic",
+          "label": "Prismatic chromatic",
+          "tagline": "Annihilation-style leaks",
+          "prompt": "heavy chromatic aberration on the right side of frame, prismatic light leaks, rainbow refraction artifacts, Annihilation-grade prismatic horror",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/prismatic-chromatic.png"
+        },
+        {
+          "id": "technicolor-vintage",
+          "label": "Vintage Technicolor",
+          "tagline": "Saturated primaries",
+          "prompt": "vintage Technicolor film grade, saturated primaries, 1950s\u201360s stock glow, slight soft focus",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/technicolor-vintage.png"
+        },
+        {
+          "id": "arthouse-muted",
+          "label": "Arthouse muted",
+          "tagline": "Heavy grain, desat natural",
+          "prompt": "arthouse muted natural grade, heavy film grain, desaturated earth tones, contemplative cinema palette",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/arthouse-muted.png"
+        },
+        {
+          "id": "clean-commercial",
+          "label": "Clean commercial",
+          "tagline": "Polished advertising",
+          "prompt": "clean commercial color grade, controlled highlights, product-ready polish, modern advertising look",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/clean-commercial.png"
+        },
+        {
+          "id": "neon-night-grade",
+          "label": "Neon night grade",
+          "tagline": "Magenta/cyan practicals",
+          "prompt": "neon night city color grade, magenta and cyan practical lights, wet reflective streets, night exterior cinema",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/neon-night-grade.png"
+        }
+      ]
+    },
+    "lighting": {
+      "id": "lighting",
+      "label": "Lighting setup",
+      "description": "Key light + motivated practicals",
+      "uiGroup": "light",
+      "exclusive": true,
+      "options": [
+        {
+          "id": "monitor-blue-tungsten-amber",
+          "label": "Monitor blue + tungsten amber",
+          "tagline": "Split teal/orange face",
+          "prompt": "cool monitor blue glow as key from camera-right, tungsten desk lamp warm amber as fill from camera-left, teal-orange split on subject's face",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/monitor-blue-tungsten-amber.png"
+        },
+        {
+          "id": "tungsten-warm-key",
+          "label": "Tungsten warm key",
+          "tagline": "Luxury interior",
+          "prompt": "tungsten warm key from a single brass desk lamp + cooler ambient room fill, deep crushed shadows in corners",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/tungsten-warm-key.png"
+        },
+        {
+          "id": "sodium-vapor-streetlight",
+          "label": "Sodium-vapor streetlight",
+          "tagline": "Grit night exterior",
+          "prompt": "harsh amber cone of sodium-vapor practical streetlight as the only key, deep crushed shadows everywhere else",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/sodium-vapor-streetlight.png"
+        },
+        {
+          "id": "hard-noon-daylight",
+          "label": "Hard noon daylight",
+          "tagline": "Training Day sun",
+          "prompt": "hard noon overhead daylight pouring through windshield/window, chrome dashboard reflections, anamorphic lens flares on bright sun glints",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/hard-noon-daylight.png"
+        },
+        {
+          "id": "stadium-rim-lights",
+          "label": "Stadium hard rim",
+          "tagline": "Sports arena",
+          "prompt": "hard stadium key light from above frame, warm secondary fill from courtside lights, anamorphic lens flares on brightest stadium spots",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/stadium-rim-lights.png"
+        },
+        {
+          "id": "golden-hour-rim",
+          "label": "Golden-hour rim",
+          "tagline": "Warm rim from side",
+          "prompt": "late-afternoon golden warm rim from camera-right, long shadows across the frame",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": true,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/golden-hour-rim.png"
+        },
+        {
+          "id": "chandelier-fireplace-amber",
+          "label": "Chandelier + fireplace",
+          "tagline": "Opulent honey gold",
+          "prompt": "tungsten warm key + practical chandelier glow + fireplace amber rim, opulent honey-and-gold palette",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/chandelier-fireplace-amber.png"
+        },
+        {
+          "id": "fluorescent-overhead-overlit",
+          "label": "Fluorescent overlit",
+          "tagline": "Suburban / surveillance",
+          "prompt": "cool fluorescent overhead practical lighting, slightly washed-out colors, surveillance-feel",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/fluorescent-overhead-overlit.png"
+        },
+        {
+          "id": "red-blue-strobe",
+          "label": "Red+blue strobe",
+          "tagline": "Climax flicker",
+          "prompt": "strobing red and blue light at low frequency (~6Hz) from monitor, violent flickering across face",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/red-blue-strobe.png"
+        },
+        {
+          "id": "gobo-shadows-chain-link",
+          "label": "Gobo chain-link shadows",
+          "tagline": "Geometric shadow patterns",
+          "prompt": "gobo shadows from chain-link fence overhead, geometric shadow patterns on subject",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/gobo-shadows-chain-link.png"
+        },
+        {
+          "id": "softbox-beauty",
+          "label": "Softbox beauty",
+          "tagline": "Clean commercial face light",
+          "prompt": "soft large softbox beauty lighting, even face illumination, gentle falloff, advertising polish",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/softbox-beauty.png"
+        },
+        {
+          "id": "chiaroscuro",
+          "label": "Chiaroscuro",
+          "tagline": "Rembrandt drama",
+          "prompt": "chiaroscuro lighting, single hard key, deep shadow half-face, Rembrandt drama",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/chiaroscuro.png"
+        },
+        {
+          "id": "available-natural",
+          "label": "Available / natural light",
+          "tagline": "Window + ambient only",
+          "prompt": "available natural light only, soft window key, no artificial film lights, documentary realism",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/available-natural.png"
+        }
+      ]
+    },
+    "camera_movement": {
+      "id": "camera_movement",
+      "label": "Camera action / move",
+      "description": "How the camera moves during the shot (video + I2V + FLF fill)",
+      "uiGroup": "motion",
+      "exclusive": true,
+      "options": [
+        {
+          "id": "locked-off-static",
+          "label": "Locked-off static",
+          "tagline": "No move \u2014 tension / dialogue",
+          "prompt": "locked-off static camera, no movement, stillness creating tension",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend",
+            "still"
+          ],
+          "isDefault": true,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/locked-off-static.png"
+        },
+        {
+          "id": "pan-left",
+          "label": "Pan left",
+          "tagline": "Horizontal swivel left",
+          "prompt": "smooth camera pan left, horizontal rotation on tripod axis",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/pan-left.png"
+        },
+        {
+          "id": "pan-right",
+          "label": "Pan right",
+          "tagline": "Horizontal swivel right",
+          "prompt": "smooth camera pan right, horizontal rotation on tripod axis",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/pan-right.png"
+        },
+        {
+          "id": "tilt-up",
+          "label": "Tilt up",
+          "tagline": "Vertical swivel up",
+          "prompt": "smooth camera tilt up, vertical rotation revealing height",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/tilt-up.png"
+        },
+        {
+          "id": "tilt-down",
+          "label": "Tilt down",
+          "tagline": "Vertical swivel down",
+          "prompt": "smooth camera tilt down, vertical rotation revealing ground or subject",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/tilt-down.png"
+        },
+        {
+          "id": "slow-push-in",
+          "label": "Dolly / push in",
+          "tagline": "Move toward subject",
+          "prompt": "slow micro push-in dolly toward subject across the shot's duration",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/slow-push-in.png"
+        },
+        {
+          "id": "slow-pull-back-reveal",
+          "label": "Dolly out / pull back",
+          "tagline": "Reveal context",
+          "prompt": "slow dolly pull-back reveal, gradually exposing more of the scene",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/slow-pull-back-reveal.png"
+        },
+        {
+          "id": "dolly-back-reveal",
+          "label": "Dolly-back reveal",
+          "tagline": "Smooth reverse track",
+          "prompt": "smooth dolly-back to reveal the subject's larger context",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/dolly-back-reveal.png"
+        },
+        {
+          "id": "truck-left",
+          "label": "Truck left",
+          "tagline": "Lateral track left",
+          "prompt": "lateral truck left, camera slides sideways keeping subject framed",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/truck-left.png"
+        },
+        {
+          "id": "truck-right",
+          "label": "Truck right",
+          "tagline": "Lateral track right",
+          "prompt": "lateral truck right, camera slides sideways keeping subject framed",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/truck-right.png"
+        },
+        {
+          "id": "tracking-from-behind",
+          "label": "Tracking follow",
+          "tagline": "Follow subject from behind",
+          "prompt": "wide tracking shot from behind, following the subject",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/tracking-from-behind.png"
+        },
+        {
+          "id": "slow-dolly-glide",
+          "label": "Steadicam glide",
+          "tagline": "Smooth forward glide",
+          "prompt": "slow steadicam glide forward, smooth tracking, medium-paced",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/slow-dolly-glide.png"
+        },
+        {
+          "id": "crane-up",
+          "label": "Crane / jib up",
+          "tagline": "Rise above scene",
+          "prompt": "crane shot rising upward, revealing scale and geography",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/crane-up.png"
+        },
+        {
+          "id": "crane-down",
+          "label": "Crane / jib down",
+          "tagline": "Descend into scene",
+          "prompt": "crane shot descending into the scene, settling on the subject",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/crane-down.png"
+        },
+        {
+          "id": "orbit-arc",
+          "label": "Orbit / arc",
+          "tagline": "Circle around subject",
+          "prompt": "orbital arc camera move circling the subject, 180-degree sweep",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/orbit-arc.png"
+        },
+        {
+          "id": "handheld-micro-motion",
+          "label": "Handheld micro-motion",
+          "tagline": "Subtle shake / life",
+          "prompt": "subtle handheld micro-motion to suggest the subject is moving",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/handheld-micro-motion.png"
+        },
+        {
+          "id": "whip-pan",
+          "label": "Whip pan",
+          "tagline": "Fast blur transition",
+          "prompt": "fast whip pan with motion blur, energetic directional swipe",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/whip-pan.png"
+        },
+        {
+          "id": "zoom-in",
+          "label": "Zoom in",
+          "tagline": "Optical push (not dolly)",
+          "prompt": "optical zoom in, focal length increasing, background compresses",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/zoom-in.png"
+        },
+        {
+          "id": "zoom-out",
+          "label": "Zoom out",
+          "tagline": "Optical pull",
+          "prompt": "optical zoom out, focal length decreasing, scene opens up",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf",
+            "extend"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/zoom-out.png"
+        },
+        {
+          "id": "ken-burns-zoomout",
+          "label": "Ken Burns zoom-out",
+          "tagline": "Slow still-reveal",
+          "prompt": "slow ken-burns zoom-out from face-tight to full-frame reveal",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "still"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/ken-burns-zoomout.png"
+        },
+        {
+          "id": "roll-dutch-move",
+          "label": "Roll / Dutch roll",
+          "tagline": "Horizon rotates mid-shot",
+          "prompt": "camera roll rotating the horizon mid-shot, disorienting Dutch motion",
+          "appliesTo": [
+            "video",
+            "i2v",
+            "flf"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/roll-dutch-move.png"
+        }
+      ]
+    },
+    "mood": {
+      "id": "mood",
+      "label": "Mood / register",
+      "description": "Overall tonal register (soft prompt bias)",
+      "uiGroup": "mood",
+      "exclusive": true,
+      "options": [
+        {
+          "id": "narrative-character",
+          "label": "Narrative character (default)",
+          "tagline": "Story-first drama",
+          "prompt": "narrative character-driven cinema tone",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v",
+            "extend"
+          ],
+          "isDefault": true,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/narrative-character.png"
+        },
+        {
+          "id": "cinematic-b-roll",
+          "label": "Cinematic b-roll",
+          "tagline": "No dialogue, pure visual",
+          "prompt": "cinematic b-roll tone, no dialogue focus, pure visual storytelling",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/cinematic-b-roll.png"
+        },
+        {
+          "id": "mixed-promo",
+          "label": "Mixed promo",
+          "tagline": "Ad / hype energy",
+          "prompt": "mixed promotional tone, advertising energy with narrative moments",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/mixed-promo.png"
+        },
+        {
+          "id": "hidden-cam-surveillance",
+          "label": "Hidden-camera surveillance",
+          "tagline": "Observational grit",
+          "prompt": "hidden-camera surveillance tone, observational, slightly washed",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/hidden-cam-surveillance.png"
+        },
+        {
+          "id": "prestige-horror",
+          "label": "Prestige horror",
+          "tagline": "Annihilation / Hereditary",
+          "prompt": "prestige horror tone, elevated dread, clinical unease",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/prestige-horror.png"
+        },
+        {
+          "id": "blaxploitation-70s",
+          "label": "70s blaxploitation",
+          "tagline": "Shaft energy",
+          "prompt": "1970s blaxploitation cinema tone, bold swagger, period grit",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/blaxploitation-70s.png"
+        },
+        {
+          "id": "belly-hype-williams",
+          "label": "Belly / Hype Williams",
+          "tagline": "Music-video maximalism",
+          "prompt": "Hype Williams Belly-era music video tone, maximal color and attitude",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/belly-hype-williams.png"
+        },
+        {
+          "id": "narcos-vintage",
+          "label": "Narcos vintage",
+          "tagline": "Period crime drama",
+          "prompt": "Narcos-era vintage crime drama tone, period weight",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/mood-narcos-vintage.png"
+        },
+        {
+          "id": "commercial-clean-mood",
+          "label": "Clean commercial",
+          "tagline": "Product polish",
+          "prompt": "clean commercial advertising tone, aspirational polish",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/commercial-clean-mood.png"
+        },
+        {
+          "id": "documentary-verite",
+          "label": "Documentary v\u00e9rit\u00e9",
+          "tagline": "Observational real",
+          "prompt": "documentary cin\u00e9ma v\u00e9rit\u00e9 tone, observational realism",
+          "appliesTo": [
+            "still",
+            "video",
+            "flf",
+            "i2v"
+          ],
+          "isDefault": false,
+          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/documentary-verite.png"
+        }
+      ]
+    }
+  },
+  "defaults": {
+    "framing": "tight-medium",
+    "camera_angle": "eye-level",
+    "lens": "35mm-anamorphic",
+    "film_stock": "kodak-5219-teal-orange",
+    "lighting": "golden-hour-rim",
+    "camera_movement": "locked-off-static",
+    "mood": "narrative-character"
+  }
+}

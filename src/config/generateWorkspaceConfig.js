@@ -29,6 +29,13 @@ export const SEEDANCE_UGC_VIDEO_WORKFLOW_ID = 'seedance2-r2v'
 export const WORKFLOWS = {
   video: [
     { id: CUSTOM_GENERATE_VIDEO_WORKFLOW_ID, label: 'Custom Video Workflow', needsImage: false, description: 'Run your own ComfyUI video graph from Generate' },
+    { id: 'ltx25-i2v', label: 'Image to Video (LTX 2.5)', needsImage: true, description: 'Animate an image with local LTX 2.5' },
+    { id: 'ltx25-t2v', label: 'Text to Video (LTX 2.5)', needsImage: false, description: 'Generate video from text with local LTX 2.5' },
+    { id: 'ltx25-flf2v', label: 'First/Last Frame (LTX 2.5)', needsImage: true, description: 'Local LTX 2.5 first/last-frame video' },
+    { id: 'minimax-h3-i2v', label: 'Image to Video (MiniMax H3)', needsImage: true, description: 'Local MiniMax H3 image-to-video' },
+    { id: 'minimax-h3-flf2v', label: 'First/Last Frame (MiniMax H3)', needsImage: true, description: 'Local MiniMax H3 first/last-frame video' },
+    { id: 'minimax-h3-t2v', label: 'Text to Video (MiniMax H3)', needsImage: false, description: 'Local MiniMax H3 text-to-video' },
+    { id: 'minimax-h3-r2v-local', label: 'Reference to Video (MiniMax H3)', needsImage: false, description: 'Local MiniMax H3 reference-to-video' },
     { id: 'ltx23-i2v', label: 'Image to Video (LTX 2.3)', needsImage: true, description: 'Animate an image with local LTX 2.3' },
     { id: 'ltx23-ia2v', label: 'Image + Audio to Video (LTX 2.3)', needsImage: true, description: 'Animate an image with local LTX 2.3 audio conditioning' },
     { id: 'ltx23-t2v', label: 'Text to Video (LTX 2.3)', needsImage: false, description: 'Generate video from text with local LTX 2.3' },
@@ -50,6 +57,11 @@ export const WORKFLOWS = {
     { id: 'longcat-text-to-image', label: 'Text to Image (LongCat)', needsImage: false, description: 'Generate image with local LongCat' },
     { id: 'ernie-image-turbo', label: 'Text to Image (Ernie Turbo)', needsImage: false, description: 'Generate image with local Ernie Image Turbo' },
     { id: 'flux2-text-to-image', label: 'Text to Image (Flux 2)', needsImage: false, description: 'Generate image with local Flux 2' },
+    { id: 'qwen-inpaint', label: 'Inpaint (Qwen InstantX)', needsImage: true, description: 'Paint a mask and edit that region' },
+    { id: 'qwen-edit-2511', label: 'Image Edit (Qwen 2511)', needsImage: true, description: 'Official Qwen Image Edit 2511' },
+    { id: 'flux2-klein-edit', label: 'Image Edit (FLUX.2 Klein)', needsImage: true, description: 'Official FLUX.2 Klein edit' },
+    { id: 'qwen-image-2512', label: 'Text to Image (Qwen 2512)', needsImage: false, description: 'Official Qwen-Image 2512 stills' },
+    { id: 'ideogram4-t2i', label: 'Text to Image (Ideogram 4)', needsImage: false, description: 'Official Ideogram 4 stills' },
     { id: 'nano-banana-2', label: 'Nano Banana 2 Image Edit (Cloud)', needsImage: false, description: 'Cloud image generation and reference editing with Nano Banana 2' },
     { id: 'gpt-image-2-t2i', label: 'Text to Image (GPT Image 2)', needsImage: false, description: 'Cloud text-to-image with OpenAI GPT Image 2' },
     { id: 'gpt-image-2-edit', label: 'Image Edit (GPT Image 2)', needsImage: true, description: 'Cloud image edit with OpenAI GPT Image 2' },
@@ -171,8 +183,11 @@ export const SEEDANCE_VIDEO_DURATION_PRESETS = Object.freeze([5, 8, 10, 12, 15])
 
 export function getVideoDurationPresets(workflowId = '') {
   const normalized = String(workflowId || '').trim()
-  if (['ltx23-i2v', 'ltx23-ia2v', 'ltx23-id-lora', 'ltx23-t2v'].includes(normalized)) {
+  if (['ltx23-i2v', 'ltx23-ia2v', 'ltx23-id-lora', 'ltx23-t2v', 'ltx25-i2v', 'ltx25-t2v', 'ltx25-flf2v'].includes(normalized)) {
     return LTX23_VIDEO_DURATION_PRESETS
+  }
+  if (['minimax-h3-i2v', 'minimax-h3-flf2v', 'minimax-h3-t2v', 'minimax-h3-r2v-local'].includes(normalized)) {
+    return SEEDANCE_VIDEO_DURATION_PRESETS
   }
   if (['seedance2-t2v', 'seedance2-mini-r2v', 'seedance2-flf2v', 'seedance2-r2v'].includes(normalized)) {
     return SEEDANCE_VIDEO_DURATION_PRESETS

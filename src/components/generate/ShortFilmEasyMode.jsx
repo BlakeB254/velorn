@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import MediaPicker from '../storyboard/MediaPicker'
+import { getProjectFileUrl } from '../../services/fileSystem'
 import {
   CheckCircle2,
   Clipboard,
@@ -23,8 +25,15 @@ import {
   SHORT_FILM_KEYFRAME_WORKFLOW_OPTIONS,
   SHORT_FILM_VIDEO_RESOLUTION_OPTIONS,
 } from '../../config/shortFilmConfig'
+import useProjectStore from '../../stores/projectStore'
 
 const DRAFT_STORAGE_KEY = 'comfystudio-short-film-easy-mode-draft-v1'
+const DRAFT_PROJECT_STORAGE_PREFIX = `${DRAFT_STORAGE_KEY}:project:`
+
+function getDraftStorageKey(scope = '') {
+  const normalized = String(scope || '').trim()
+  return normalized ? `${DRAFT_PROJECT_STORAGE_PREFIX}${normalized}` : DRAFT_STORAGE_KEY
+}
 
 const STEPS = [
   { id: 'story', label: 'Story', number: '1' },
@@ -221,7 +230,7 @@ function normalizeDraft(rawDraft = {}) {
   }
 }
 
-function loadDraft() {
+function loadDraft(storageKey = DRAFT_STORAGE_KEY) {
   if (typeof localStorage === 'undefined') {
     return {
       draft: DEFAULT_DRAFT,
@@ -231,7 +240,7 @@ function loadDraft() {
     }
   }
   try {
-    const parsed = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY) || '{}')
+    const parsed = JSON.parse(localStorage.getItem(storageKey) || localStorage.getItem(DRAFT_STORAGE_KEY) || '{}')
     return {
       draft: normalizeDraft(parsed.draft || parsed),
       characters: normalizeCharacters(parsed.characters),
@@ -561,23 +570,104 @@ function Stat({ label, value }) {
   )
 }
 
-function AssetSelect({ value, onChange, assets, placeholder = 'Choose reference image' }) {
+function isDefaultShortFilmState(state) {
+  const title = String(state?.draft?.title || '')
+  const characterIds = (state?.characters || []).map((entry) => entry?.id)
+  return !title
+    || title === DEFAULT_DRAFT.title
+    || characterIds.includes('character-james')
+}
+
+function isRichDirector(director) {
+  return Boolean(
+    director?.draft?.title
+    && director.draft.title !== DEFAULT_DRAFT.title
+    && Array.isArray(director.characters)
+    && director.characters.length
+  )
+}
+
+function AssetAssign({
+  value,
+  onChange,
+  assets,
+  label,
+  preferredFolderNames = [],
+}) {
+  const [open, setOpen] = useState(false)
+  const asset = assets.find((entry) => entry.id === value)
   return (
-    <select
-      value={value || ''}
-      onChange={(event) => onChange(event.target.value)}
-      className="mt-1 w-full rounded-lg border border-sf-dark-700 bg-sf-dark-950 px-3 py-2 text-xs text-sf-text-primary outline-none focus:border-sf-accent"
-    >
-      <option value="">{placeholder}</option>
-      {assets.map((asset) => (
-        <option key={asset.id} value={asset.id}>{getAssetName(asset)}</option>
-      ))}
-    </select>
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <ReferencePreview asset={asset} />
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          className="rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-2.5 py-1.5 text-[11px] text-sf-text-primary hover:border-sf-accent"
+        >
+          {asset ? 'Change image' : 'Choose from media pool'}
+        </button>
+        {value ? (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="rounded-lg border border-sf-dark-700 px-2.5 py-1.5 text-[11px] text-sf-text-muted hover:text-sf-text-primary"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+      {open && (
+        <div className="mt-2">
+          <MediaPicker
+            assets={assets}
+            value={value}
+            allowClear
+            preferredFolderNames={preferredFolderNames}
+            onPick={(picked) => {
+              onChange(picked?.id || '')
+              if (picked?.id) setOpen(false)
+            }}
+          />
+        </div>
+      )}
+    </div>
   )
 }
 
 function ReferencePreview({ asset }) {
-  const url = getAssetUrl(asset)
+  const handle = useProjectStore((state) => state.currentProjectHandle)
+  const [url, setUrl] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      if (!asset) {
+        setUrl('')
+        return
+      }
+      const direct = asset.url && !String(asset.url).startsWith('blob:') ? asset.url : getAssetUrl(asset)
+      if (direct && !String(direct).startsWith('blob:')) {
+        setUrl(direct)
+        return
+      }
+      const path = asset.path || asset.absolutePath
+      if (!path || !handle) {
+        setUrl(direct || '')
+        return
+      }
+      try {
+        const resolved = await getProjectFileUrl(handle, path)
+        if (!cancelled) setUrl(resolved || direct || '')
+      } catch (_) {
+        if (!cancelled) setUrl(direct || '')
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [asset, handle])
+
   if (!url) {
     return (
       <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-sf-dark-600 bg-sf-dark-950 text-sf-text-muted">
@@ -593,6 +683,8 @@ function ReferencePreview({ asset }) {
 }
 
 export default function ShortFilmEasyMode({
+  draftStorageScope = '',
+  currentProject = null,
   assets = [],
   generationQueue = [],
   onQueueVoices,
@@ -602,16 +694,32 @@ export default function ShortFilmEasyMode({
   setImageResolution,
   setYoloVideoFps,
 }) {
-  const initial = useMemo(() => loadDraft(), [])
+  const draftStorageKey = useMemo(() => getDraftStorageKey(draftStorageScope), [draftStorageScope])
+  const setShortFilmDirector = useProjectStore((state) => state.setShortFilmDirector)
+  const initial = useMemo(() => {
+    const fromProject = currentProject?.shortFilmDirector
+    if (isRichDirector(fromProject)) {
+      return {
+        draft: normalizeDraft(fromProject.draft),
+        characters: normalizeCharacters(fromProject.characters),
+        locations: normalizeLocations(fromProject.locations),
+        shotPlan: Array.isArray(fromProject.shotPlan) ? fromProject.shotPlan : [],
+      }
+    }
+    return loadDraft(draftStorageKey)
+  }, [currentProject?.shortFilmDirector, draftStorageKey])
   const [draft, setDraft] = useState(initial.draft)
   const [characters, setCharacters] = useState(initial.characters)
   const [locations, setLocations] = useState(initial.locations)
   const [shotPlan, setShotPlan] = useState(initial.shotPlan)
+  const lastSavedRef = useRef('')
+  const autoImportedRef = useRef(false)
   const [briefStatus, setBriefStatus] = useState('')
   const [voiceStatus, setVoiceStatus] = useState('')
   const [keyframeStatus, setKeyframeStatus] = useState('')
   const [videoStatus, setVideoStatus] = useState('')
   const [selectedVideoShotId, setSelectedVideoShotId] = useState('')
+  const [importStatus, setImportStatus] = useState('')
   const [videoPromptOverrides, setVideoPromptOverrides] = useState({})
   const [editingShotId, setEditingShotId] = useState('')
 
@@ -713,14 +821,34 @@ export default function ShortFilmEasyMode({
   }, [assets, draft.title])
 
   useEffect(() => {
-    if (typeof localStorage === 'undefined') return
-    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
-      draft,
-      characters,
-      locations,
-      shotPlan,
-    }))
-  }, [characters, draft, locations, shotPlan])
+    const fromProject = currentProject?.shortFilmDirector
+    if (!isRichDirector(fromProject)) return
+    if (draft.title === fromProject.draft.title && characters.length === fromProject.characters.length) return
+    if (!isDefaultShortFilmState({ draft, characters })) return
+    setDraft(normalizeDraft(fromProject.draft))
+    setCharacters(normalizeCharacters(fromProject.characters))
+    setLocations(normalizeLocations(fromProject.locations))
+    setShotPlan(Array.isArray(fromProject.shotPlan) ? fromProject.shotPlan : [])
+  }, [characters, currentProject?.shortFilmDirector, draft])
+
+  useEffect(() => {
+    const payload = { draft, characters, locations, shotPlan }
+    const serialized = JSON.stringify(payload)
+    if (serialized === lastSavedRef.current) return
+    lastSavedRef.current = serialized
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(draftStorageKey, JSON.stringify(payload))
+    }
+    const existing = currentProject?.shortFilmDirector
+    if (isDefaultShortFilmState(payload) && isRichDirector(existing)) return
+    if (currentProject) {
+      setShortFilmDirector?.({
+        ...(existing || {}),
+        ...payload,
+        version: 1,
+      })
+    }
+  }, [characters, currentProject, draft, draftStorageKey, locations, setShortFilmDirector, shotPlan])
 
   useEffect(() => {
     setResolution?.(outputResolution)
@@ -732,6 +860,53 @@ export default function ShortFilmEasyMode({
   const currentVoiceWorkflow = VOICE_WORKFLOW_OPTIONS.find((option) => option.id === draft.voiceWorkflow) || VOICE_WORKFLOW_OPTIONS[0]
 
   const updateDraft = (patch) => setDraft((prev) => ({ ...prev, ...patch }))
+
+  const importFromOpenProject = async () => {
+    if (!currentProject) {
+      setImportStatus('Open a Velorn project first.')
+      return
+    }
+    setImportStatus('Loading cast, locations, script, and storyboard…')
+    try {
+      const { importShortFilmFromProject } = await import('../../services/shortFilmProjectImport')
+      const imported = await importShortFilmFromProject(currentProject, assets)
+      setDraft(imported.draft)
+      setCharacters(imported.characters)
+      setLocations(imported.locations)
+      setShotPlan(imported.shotPlan)
+      setShortFilmDirector?.({
+        version: 1,
+        importedAt: new Date().toISOString(),
+        source: imported.source,
+        draft: imported.draft,
+        characters: imported.characters,
+        locations: imported.locations,
+        shotPlan: imported.shotPlan,
+      })
+      const bits = [
+        imported.source.loadedBible ? 'bible' : null,
+        imported.source.loadedScript ? 'script' : null,
+        imported.source.storyboardCards ? `${imported.source.storyboardCards} storyboard cards` : null,
+        imported.characters.length ? `${imported.characters.length} characters` : null,
+      ].filter(Boolean)
+      setImportStatus(`Loaded ${imported.draft.title} from this project (${bits.join(', ') || 'storyboard only'}).`)
+    } catch (error) {
+      setImportStatus(error?.message || 'Could not import this project into Short Film.')
+    }
+  }
+
+  useEffect(() => {
+    if (autoImportedRef.current) return
+    if (!currentProject) return
+    if (isRichDirector(currentProject.shortFilmDirector)) return
+    if (!isDefaultShortFilmState({ draft, characters })) return
+    const hasStoryboard = Boolean(currentProject.storyboardBoard?.cards?.length)
+    const hasMigration = Boolean(currentProject.cdxMigration?.slug || currentProject.cdxMigration?.sourceRoots?.length)
+    if (!hasStoryboard && !hasMigration) return
+    autoImportedRef.current = true
+    void importFromOpenProject()
+  }, [characters, currentProject, draft])
+
   const goNext = () => {
     const nextStep = STEPS[Math.min(STEPS.length - 1, currentStepIndex + 1)]
     if (nextStep) updateDraft({ step: nextStep.id })
@@ -1003,6 +1178,21 @@ export default function ShortFilmEasyMode({
         <p className="mt-1 text-sm text-sf-text-secondary">
           This builds the LLM brief. After the script exists, the script becomes the source of truth.
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={importFromOpenProject}
+            className="inline-flex items-center gap-2 rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs font-semibold text-sf-text-primary hover:border-sf-accent"
+          >
+            Load from this project
+          </button>
+          {importStatus && <span className="text-xs text-sf-text-muted">{importStatus}</span>}
+        </div>
+        {draft.title && draft.title !== DEFAULT_DRAFT.title && (
+          <p className="mt-2 text-xs text-emerald-300">
+            Using {draft.title}: {characters.length} characters, {locations.length} locations, {shotPlan.length} shots.
+          </p>
+        )}
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
@@ -1126,7 +1316,6 @@ export default function ShortFilmEasyMode({
 
       <div className="grid gap-3 lg:grid-cols-2">
         {characters.map((character) => {
-          const refAsset = imageAssets.find((asset) => asset.id === character.referenceAssetId)
           return (
             <div key={character.id} className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/80 p-4">
               <div className="flex items-start justify-between gap-3">
@@ -1176,15 +1365,14 @@ export default function ShortFilmEasyMode({
                 />
               </div>
               <div className="mt-3 space-y-3">
-                <ReferencePreview asset={refAsset} />
+                <AssetAssign
+                  label="Face / wardrobe reference"
+                  value={character.referenceAssetId}
+                  onChange={(value) => updateCharacter(character.id, { referenceAssetId: value })}
+                  assets={imageAssets}
+                  preferredFolderNames={['Cast']}
+                />
                 <div>
-                  <FieldLabel>Face / wardrobe reference</FieldLabel>
-                  <AssetSelect
-                    value={character.referenceAssetId}
-                    onChange={(value) => updateCharacter(character.id, { referenceAssetId: value })}
-                    assets={imageAssets}
-                    placeholder="Choose character image"
-                  />
                   <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                     <div>
                       <FieldLabel>Voice preset</FieldLabel>
@@ -1289,19 +1477,15 @@ export default function ShortFilmEasyMode({
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {refs.map(([fieldId, label]) => {
-                  const asset = imageAssets.find((entry) => entry.id === location[fieldId])
                   return (
                     <div key={fieldId}>
-                      <ReferencePreview asset={asset} />
-                      <div className="mt-2">
-                        <FieldLabel>{label} reference</FieldLabel>
-                        <AssetSelect
-                          value={location[fieldId]}
-                          onChange={(value) => updateLocation(location.id, { [fieldId]: value })}
-                          assets={imageAssets}
-                          placeholder={`Choose ${label.toLowerCase()} image`}
-                        />
-                      </div>
+                      <AssetAssign
+                        label={`${label} reference`}
+                        value={location[fieldId]}
+                        onChange={(value) => updateLocation(location.id, { [fieldId]: value })}
+                        assets={imageAssets}
+                        preferredFolderNames={['Plates', 'Storyboard']}
+                      />
                     </div>
                   )
                 })}
