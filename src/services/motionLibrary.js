@@ -1,4 +1,4 @@
-import bundledCatalog from '../config/motionCatalog.json'
+import bundledCatalog from '../config/motionCatalog.json' with { type: 'json' }
 import { getAbsoluteFileUrl } from './fileSystem'
 
 export const MOTION_LIBRARY_PATH = '/home/codex450/creative/_library/motions/catalog.json'

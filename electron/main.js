@@ -3251,10 +3251,15 @@ const launcherLogDir = path.join(app.getPath('userData'), 'logs')
 let cachedLauncherConfig = safeCloneLauncherConfig(DEFAULT_LAUNCHER_CONFIG)
 let cachedHttpBase = `http://127.0.0.1:${DEFAULT_LOCAL_COMFY_PORT}`
 let launcherQuitConfirmed = false
+let closeAttempts = 0
 
 function getOwnedRunningComfyLauncherState() {
   const state = comfyLauncher.getState()
-  const ownsRunning = state.ownership === 'ours' && (state.state === 'running' || state.state === 'starting')
+  // Only a process Velorn actually spawned can block quit. System
+  // comfyui.service on :8188 is a client attachment — never intercept close.
+  const ownsRunning = Boolean(state.spawnedByVelorn)
+    && state.ownership === 'ours'
+    && (state.state === 'running' || state.state === 'starting')
   return ownsRunning ? state : null
 }
 
@@ -3422,9 +3427,14 @@ ipcMain.handle('window:toggleMaximize', () => {
 })
 
 ipcMain.handle('window:close', () => {
-  if (mainWindow) {
-    mainWindow.close()
+  if (!mainWindow || mainWindow.isDestroyed()) return true
+  closeAttempts += 1
+  if (closeAttempts >= 2) {
+    launcherQuitConfirmed = true
+    mainWindow.destroy()
+    return true
   }
+  mainWindow.close()
   return true
 })
 
@@ -3813,52 +3823,28 @@ async function createWindow(restoredWindowState = null) {
   
   mainWindow.on('close', async (event) => {
     if (launcherQuitConfirmed) return
-    if (!getOwnedRunningComfyLauncherState()) return
+    closeAttempts += 1
+    // Second close (or force) always wins — never trap the window.
+    if (closeAttempts >= 2 || !getOwnedRunningComfyLauncherState()) {
+      launcherQuitConfirmed = true
+      return
+    }
 
     event.preventDefault()
+    launcherQuitConfirmed = true
     try {
       if (!safeCloneLauncherConfig(cachedLauncherConfig).stopOnQuit) {
-        launcherQuitConfirmed = true
-        try {
-          await comfyLauncher.detach()
-        } catch (error) {
-          console.warn('[comfyLauncher] detach during close failed:', error?.message || error)
-        }
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.close()
-        } else {
-          app.quit()
-        }
-        return
-      }
-
-      const choice = await dialog.showMessageBox(mainWindow, {
-        type: 'question',
-        buttons: ['Stop ComfyUI & quit', 'Leave ComfyUI running', 'Cancel'],
-        defaultId: 0,
-        cancelId: 2,
-        title: 'Quit Velorn?',
-        message: 'ComfyUI is still running.',
-        detail: 'Velorn started ComfyUI. Choose what happens to it when you quit.\n\n• Stop ComfyUI & quit — shuts down ComfyUI and cancels any in-flight generation jobs.\n• Leave ComfyUI running — Velorn will quit but ComfyUI stays up. Handy when you\'re just relaunching Velorn and don\'t want to wait for ComfyUI to boot again.',
-      })
-      if (choice.response === 2) return
-      launcherQuitConfirmed = true
-      try {
-        if (choice.response === 1) {
-          await comfyLauncher.detach()
-        } else {
-          await comfyLauncher.shutdown({ confirmStop: true })
-        }
-      } catch (error) {
-        console.warn('[comfyLauncher] shutdown/detach during close failed:', error?.message || error)
-      }
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.close()
+        await comfyLauncher.detach().catch(() => {})
       } else {
-        app.quit()
+        await comfyLauncher.detach().catch(() => {})
       }
     } catch (error) {
       console.warn('[comfyLauncher] close handler error:', error?.message || error)
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.destroy()
+    } else {
+      app.exit(0)
     }
   })
 
@@ -7359,45 +7345,20 @@ app.whenReady().then(async () => {
   })
 })
 
-app.on('before-quit', async (event) => {
+app.on('before-quit', (event) => {
   if (launcherQuitConfirmed) return
-  if (!getOwnedRunningComfyLauncherState()) return
-
-  event.preventDefault()
-  try {
-    if (!safeCloneLauncherConfig(cachedLauncherConfig).stopOnQuit) {
-      try {
-        await comfyLauncher.detach()
-      } catch (error) {
-        console.warn('[comfyLauncher] detach during before-quit failed:', error?.message || error)
-      }
-      launcherQuitConfirmed = true
-      app.quit()
-      return
-    }
-
-    const choice = await dialog.showMessageBox(mainWindow && !mainWindow.isDestroyed() ? mainWindow : null, {
-      type: 'question',
-      buttons: ['Stop ComfyUI & quit', 'Leave ComfyUI running', 'Cancel'],
-      defaultId: 0,
-      cancelId: 2,
-      title: 'Quit Velorn?',
-      message: 'ComfyUI is still running.',
-      detail: 'Velorn started ComfyUI. Choose what happens to it when you quit.\n\n• Stop ComfyUI & quit — shuts down ComfyUI and cancels any in-flight generation jobs.\n• Leave ComfyUI running — Velorn will quit but ComfyUI stays up. Handy when you\'re just relaunching Velorn and don\'t want to wait for ComfyUI to boot again.',
-    })
-    if (choice.response === 2) {
-      return
-    }
-    if (choice.response === 1) {
-      await comfyLauncher.detach()
-    } else {
-      await comfyLauncher.shutdown({ confirmStop: true })
-    }
-  } catch (error) {
-    console.warn('[comfyLauncher] before-quit shutdown error:', error?.message || error)
+  if (!getOwnedRunningComfyLauncherState()) {
+    launcherQuitConfirmed = true
+    return
   }
+  // Do not preventDefault. System ComfyUI must keep running; a spawned
+  // child is detached in will-quit. Blocking here made the window unclosable.
   launcherQuitConfirmed = true
-  app.quit()
+  try {
+    if (comfyLauncher.getState()?.spawnedByVelorn) {
+      comfyLauncher.detach().catch(() => {})
+    }
+  } catch (_) { /* ignore */ }
 })
 
 app.on('window-all-closed', () => {

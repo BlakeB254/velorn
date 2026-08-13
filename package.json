@@ -27,7 +27,9 @@
     "test:export-frame-source": "node --experimental-default-type=module --test ./src/services/exportFrameSource.test.js",
     "test:export-source-preparation": "node --test ./tests/exportSourcePreparation.test.js",
     "test:mcp-h3": "node --test ./tests/mcpH3ReferenceVideo.test.js",
-    "test:mcp-my-workflows": "node --test ./tests/myWorkflowCatalog.test.js"
+    "test:mcp-my-workflows": "node --test ./tests/myWorkflowCatalog.test.js",
+    "test:studio-store": "node --test ./tests/studioStore.test.js",
+    "test:production-store": "node --test ./tests/productionStore.test.js"
   },
   "keywords": [
     "animatic",

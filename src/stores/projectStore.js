@@ -23,6 +23,15 @@ import {
   createDefaultFlowAiProjectData,
   normalizeFlowAiProjectData,
 } from '../services/flowAiSchema'
+import {
+  emptyStudio,
+  normalizeStudio,
+} from '../services/studioStore'
+import {
+  emptyProduction,
+  hydrateProductionFromProject,
+  normalizeProduction,
+} from '../services/productionStore'
 
 /**
  * Resolution presets for new projects
@@ -147,6 +156,8 @@ const normalizeOpenedProjectData = (projectData) => {
   const currentTimeline = normalizedProject.timelines.find((timeline) => timeline.id === currentTimelineId) || normalizedProject.timelines[0]
 
   normalizedProject.flowAi = normalizeFlowAiProjectData(normalizedProject.flowAi)
+  normalizedProject.studio = normalizeStudio(normalizedProject.studio)
+  normalizedProject.production = hydrateProductionFromProject(normalizedProject)
 
   return {
     projectData: normalizedProject,
@@ -423,6 +434,8 @@ export const useProjectStore = create(
             assets: [],
             flowAi: createDefaultFlowAiProjectData(),
             generateWorkspace: null,
+            studio: emptyStudio(),
+            production: emptyProduction(),
           }
           
           // Save project file
@@ -656,6 +669,12 @@ export const useProjectStore = create(
             folders: assetsState.folders || [],
             folderCounter: assetsState.folderCounter ?? 1,
             thumbnail: thumbnailPointer,
+            studio: normalizeStudio(updates.studio ?? state.currentProject.studio),
+            production: hydrateProductionFromProject({
+              ...state.currentProject,
+              ...updates,
+              production: updates.production ?? state.currentProject.production,
+            }),
             modified: new Date().toISOString(),
           }
           
@@ -1263,6 +1282,60 @@ export const useProjectStore = create(
           } : null,
         }))
         return shortFilmDirector
+      },
+
+      /**
+       * The CDX-ported studio block (cast hierarchy, storyboard slots, QA
+       * verdicts). Always read through normalizeStudio so corrupt or legacy
+       * project files degrade to an empty block instead of breaking the UI.
+       */
+      getStudio: () => {
+        const project = get().currentProject
+        return normalizeStudio(project?.studio)
+      },
+
+      setStudio: (studio) => {
+        if (!get().currentProject) return null
+        const normalized = normalizeStudio(studio)
+        set((state) => ({
+          currentProject: state.currentProject ? {
+            ...state.currentProject,
+            studio: normalized,
+            modified: new Date().toISOString(),
+          } : null,
+        }))
+        return normalized
+      },
+
+      /**
+       * Convenience: mutate the studio block with a pure studioStore op.
+       * `mutator` receives the normalized studio and returns the next one.
+       */
+      updateStudio: (mutator) => {
+        if (!get().currentProject) return null
+        const current = get().getStudio()
+        return get().setStudio(mutator(current))
+      },
+
+      getProduction: () => hydrateProductionFromProject(get().currentProject),
+
+      setProduction: (production) => {
+        if (!get().currentProject) return null
+        const normalized = normalizeProduction(production)
+        set((state) => ({
+          currentProject: state.currentProject ? {
+            ...state.currentProject,
+            production: normalized,
+            modified: new Date().toISOString(),
+          } : null,
+        }))
+        return normalized
+      },
+
+      updateProduction: (mutator) => {
+        if (!get().currentProject) return null
+        const current = get().getProduction()
+        return get().setProduction(mutator(current))
       },
 
       setGenerateWorkspaceState: (generateWorkspace) => {

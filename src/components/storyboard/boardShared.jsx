@@ -6,6 +6,7 @@ import {
   emptyShotSettings,
   normalizeShotSettings,
 } from '../../services/shotSettings'
+import { cameraPromptHint, emptyCameraRig, normalizeCameraRig } from '../../services/cameraRig'
 
 export const DEFAULT_FRAME_WORKFLOW = 'z-image-turbo'
 export const DEFAULT_VIDEO_WORKFLOW = 'ltx25-i2v'
@@ -68,17 +69,24 @@ export const newCard = (order) => ({
   propRefs: [],
   shotSettings: emptyShotSettings(),
   imageAssetId: null,
+  videoAssetId: null,
   workflowId: DEFAULT_FRAME_WORKFLOW,
   videoWorkflowId: DEFAULT_VIDEO_WORKFLOW,
   sourceAssetId: null,
   refAssetId1: null,
   refAssetId2: null,
   audioAssetId: null,
+  musicAssetId: null,
+  soundNotes: '',
   lastFrameAssetId: null,
   motionSlug: '',
   duration: 5,
   status: 'draft',
   hasGeneration: false,
+  versions: [],
+  videoVersions: [],
+  lastGenerationError: '',
+  cameraRig: emptyCameraRig(),
 })
 
 export const findFrameWorkflow = (workflowId) => (
@@ -92,6 +100,32 @@ export const findVideoWorkflow = (workflowId) => (
 export const isFlfWorkflow = (workflowId) => (
   (findVideoWorkflow(workflowId)?.needs || []).includes('last')
 )
+
+export function videoWorkflowKind(workflow) {
+  const needs = workflow?.needs || []
+  const id = String(workflow?.id || '')
+  if (needs.includes('last') || id.includes('flf')) return 'flf'
+  if (needs.includes('audio')) return 'audio'
+  if (needs.includes('first') || id.includes('i2v') || id.includes('extend')) return 'extend'
+  if (id.includes('t2v')) return 't2v'
+  return 'other'
+}
+
+export const VIDEO_WORKFLOW_GROUP_LABELS = {
+  extend: 'Extend one frame',
+  flf: 'First / last frame',
+  audio: 'Needs dialogue audio',
+  t2v: 'Text to video',
+  other: 'Other',
+}
+
+export function groupedVideoWorkflows() {
+  const groups = { extend: [], flf: [], audio: [], t2v: [], other: [] }
+  for (const item of VIDEO_WORKFLOWS) {
+    groups[videoWorkflowKind(item)].push(item)
+  }
+  return groups
+}
 
 export const frameWorkflowSlots = (workflow) => {
   const slots = []
@@ -114,11 +148,12 @@ export const frameWorkflowSlots = (workflow) => {
 }
 
 export const isReviewStatus = (card) => (
-  card.status === 'generating'
-  || card.status === 'pending-review'
+  card.status === 'pending-review'
   || card.status === 'accepted'
   || card.status === 'rejected'
 )
+
+export const isGeneratingStatus = (card) => card.status === 'generating'
 
 export function seedFromProject(project) {
   if (Array.isArray(project?.storyboardBoard?.cards) && project.storyboardBoard.cards.length > 0) {
@@ -134,7 +169,14 @@ export function seedFromProject(project) {
         propRefs: Array.isArray(card.propRefs) ? card.propRefs : [],
         shotSettings: normalizeShotSettings(card.shotSettings),
         motionSlug: card.motionSlug || '',
+        videoAssetId: card.videoAssetId || null,
+        musicAssetId: card.musicAssetId || null,
+        soundNotes: card.soundNotes || '',
+        versions: Array.isArray(card.versions) ? card.versions : [],
+        videoVersions: Array.isArray(card.videoVersions) ? card.videoVersions : [],
+        lastGenerationError: card.lastGenerationError || '',
         hasGeneration: Boolean(card.hasGeneration),
+        cameraRig: normalizeCameraRig(card.cameraRig),
       }))),
     }
   }
@@ -170,6 +212,10 @@ export function composeGenerationPrompt(card, extra = {}) {
   if (prompt && prompt !== description) parts.push(prompt)
   if (action) parts.push(`Action: ${action}`)
   if (dialogue) parts.push(`Dialogue: "${dialogue}"`)
+  const sound = String(card.soundNotes || '').trim()
+  if (sound) parts.push(`Sound: ${sound}`)
+  if (card.audioAssetId) parts.push('Use the attached dialogue / VO clip for lips and timing.')
+  if (card.musicAssetId) parts.push('A music bed is assigned to this shot.')
   const characters = refNames(card.characterRefs)
   const location = card.locationRef?.name || refNames(card.locationRef ? [card.locationRef] : (card.sceneRefs || []).slice(0, 1))
   const props = refNames(card.propRefs)
@@ -180,11 +226,51 @@ export function composeGenerationPrompt(card, extra = {}) {
   const lexicon = extra.lexiconLine
     || assembleLexiconLine(card.shotSettings, extra.mode || 'still', extra.projectLook || {})
   if (lexicon) parts.push(lexicon)
+  const rig = normalizeCameraRig(card.cameraRig)
+  if (rig.source && rig.source !== 'default') parts.push(`Camera handle: ${cameraPromptHint(rig)}`)
   if (extra.motionTitle) {
     parts.push(`Match this pose / action exactly: ${extra.motionTitle}. Keep identity and wardrobe from the character reference.`)
   }
   if (extra.bridge) parts.push(String(extra.bridge).trim())
   return parts.filter(Boolean).join('\n')
+}
+
+export function directorRefsForCard(project, card) {
+  const director = project?.shortFilmDirector || {}
+  const shot = (director.shotPlan || []).find((item) => item.id === card?.id) || null
+  const characters = []
+  const seen = new Set()
+  const pushCharacter = (entry) => {
+    if (!entry) return
+    const key = entry.slug || entry.id || entry.name
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    characters.push({
+      id: entry.id,
+      slug: entry.slug,
+      name: entry.name,
+      assetId: entry.referenceAssetId || entry.assetId || null,
+    })
+  }
+  for (const item of card?.characterRefs || []) pushCharacter(item)
+  if (shot?.characterSlug) {
+    pushCharacter((director.characters || []).find((item) => item.slug === shot.characterSlug))
+  }
+  const location = card?.locationRef
+    || (card?.sceneRefs || [])[0]
+    || (shot?.locationSlug
+      ? (director.locations || []).find((item) => item.slug === shot.locationSlug)
+      : null)
+    || null
+  return {
+    characters,
+    location: location ? {
+      id: location.id,
+      slug: location.slug,
+      name: location.name,
+      assetId: location.heroAssetId || location.assetId || null,
+    } : null,
+  }
 }
 
 export function primaryRefIds(card) {

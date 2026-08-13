@@ -37,12 +37,15 @@ function getJobElapsedMs(job, now) {
 
 function estimateActiveRemainingMs(job, now) {
   if (!job || !ACTIVE_STATUSES.has(job.status)) return null
+  if (job.progressSource && job.progressSource !== 'sampler') return null
   const progress = Math.max(0, Math.min(99, Number(job.progress) || 0))
-  if (progress < 5) return null
+  if (progress < 12) return null
   const elapsed = getJobElapsedMs(job, now)
-  if (elapsed <= 0) return null
+  if (elapsed < 8000) return null
   const estimatedTotal = elapsed / (progress / 100)
-  return Math.max(0, estimatedTotal - elapsed)
+  const remaining = Math.max(0, estimatedTotal - elapsed)
+  if (remaining > 20 * 60 * 1000) return null
+  return remaining
 }
 
 function estimateQueuedDurationMs(job, completedJobs, activeTotalMs) {
@@ -179,9 +182,9 @@ function GenerationMonitorChip({ onOpenGenerate }) {
   const etaText = summary.knownRemainingMs > 0
     ? `~${formatDuration(summary.knownRemainingMs)}${summary.unknownQueued > 0 ? ` + ${summary.unknownQueued} queued` : ''}`
     : summary.queued.length > 0
-      ? 'waiting'
+      ? 'waiting on ComfyUI'
       : summary.active.length > 0
-        ? 'calculating'
+        ? (summary.activeJob?.progressSource === 'sampler' ? 'calculating' : 'starting')
         : ''
   const toneClass = summary.failed.length > 0
     ? 'border-red-500/40 bg-red-500/10 text-red-100'

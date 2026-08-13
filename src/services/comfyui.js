@@ -1409,6 +1409,15 @@ class ComfyUIService {
       return { status: 'error', promptId, error: error.message };
     }
   }
+
+  /**
+   * True when ComfyUI currently has this prompt (running or waiting).
+   * Restored Velorn jobs must use this before advertising a pending gen.
+   */
+  async isPromptInComfyQueue(promptId) {
+    const presence = await this.getPromptProgress(promptId)
+    return presence?.status === 'running' || presence?.status === 'pending'
+  }
 }
 
 // Singleton instance

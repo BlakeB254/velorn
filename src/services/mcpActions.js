@@ -42,8 +42,9 @@ import {
   handleUpdateCaptionCues,
   handleGenerateCaptions,
 } from './mcpCaptions'
+import { handleProductionAction } from './mcpProduction'
 
-export const MCP_ACTION_BRIDGE_VERSION = 5
+export const MCP_ACTION_BRIDGE_VERSION = 6
 
 const MCP_PROJECT_CHECKPOINTS = new Map()
 const MCP_PROJECT_CHECKPOINT_LIMIT = 20
@@ -8506,6 +8507,24 @@ async function handleMcpAction(request = {}) {
       return handleMusicVideoWorkspaceOperation('assemble-timeline', request.payload || {}, 'Music Video timeline assembly')
     case 'replace_music_video_timeline_shot':
       return handleReplaceMusicVideoTimelineShot(request.payload || {})
+    case 'get_production_context':
+    case 'list_production_catalog':
+    case 'get_shot_packet':
+    case 'list_episodes':
+    case 'set_production':
+    case 'create_episode':
+    case 'switch_episode':
+    case 'update_episode':
+    case 'update_shot':
+    case 'propose_shot_camera':
+    case 'apply_shot_camera_proposal':
+    case 'import_shot_blocking':
+    case 'studio_cast_resolve':
+    case 'studio_slots_list':
+    case 'studio_slots_mutate':
+    case 'studio_qa_record':
+    case 'studio_flow':
+      return handleProductionAction(request.action, request.payload || {})
     case 'save_project':
       return handleSaveProject(request.payload || {})
     case 'queue_timeline_generation_batch':

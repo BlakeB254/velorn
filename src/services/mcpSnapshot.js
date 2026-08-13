@@ -3,6 +3,8 @@ import useAssetsStore from '../stores/assetsStore'
 import useTimelineStore from '../stores/timelineStore'
 import { clampTrackPan, clampTrackVolume } from '../utils/audioTrackAudibility'
 import { normalizeAudioInserts } from '../utils/audioInserts'
+import { normalizeStudio, castCounts, slotCounts, qaSummary } from './studioStore'
+import { hydrateProductionFromProject, productionSummary } from './productionStore'
 
 const SNAPSHOT_VERSION = 1
 const MAX_TEXT_LENGTH = 2000
@@ -213,6 +215,36 @@ function buildTimelineSnapshot(timeline = {}, projectSettings = {}, { includeCli
   }
 }
 
+/**
+ * Lean summary of the CDX-ported studio block for the agent snapshot —
+ * counts and derived state only, never the full cast/slot payloads.
+ */
+function buildStudioSnapshot(project, sanitizedAssets, sanitizedFolders) {
+  const studio = normalizeStudio(project?.studio)
+  const keyframesFolder = sanitizedFolders.find((folder) => folder.name === 'Keyframes')
+  const approvedAssetIds = keyframesFolder
+    ? sanitizedAssets.filter((asset) => asset.folderId === keyframesFolder.id).map((asset) => asset.id)
+    : []
+  const qa = qaSummary(studio)
+  return {
+    version: studio.version,
+    cast: castCounts(studio),
+    slots: slotCounts(studio, approvedAssetIds),
+    qa: {
+      shotsWithVerdicts: qa.shots_with_verdicts,
+      overall: qa.overall,
+      perTrack: qa.per_track,
+    },
+    edls: studio.edls,
+    blockingIndex: studio.blockingIndex,
+  }
+}
+
+function buildProductionSnapshot(project) {
+  const production = hydrateProductionFromProject(project)
+  return productionSummary(production)
+}
+
 export function buildMcpSnapshot() {
   const projectState = useProjectStore.getState()
   const timelineState = useTimelineStore.getState()
@@ -236,6 +268,8 @@ export function buildMcpSnapshot() {
       currentTimeline: null,
       assets: [],
       folders: [],
+      studio: null,
+      production: null,
     }
   }
 
@@ -278,6 +312,7 @@ export function buildMcpSnapshot() {
       timelineCount: timelines.length,
       assetCount: assets.length,
       folderCount: folders.length,
+      production: buildProductionSnapshot(project),
     },
     timelines,
     currentTimeline: buildTimelineSnapshot(currentTimeline, projectSettings, {
@@ -286,6 +321,8 @@ export function buildMcpSnapshot() {
     }),
     assets,
     folders,
+    studio: buildStudioSnapshot(project, assets, folders),
+    production: buildProductionSnapshot(project),
   }
 }
 

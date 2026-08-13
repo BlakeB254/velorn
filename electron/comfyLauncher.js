@@ -36,7 +36,7 @@ const DEFAULT_CONFIG = Object.freeze({
   macAppPath: '',
   macAppLaunchHidden: true,
   autoStart: false,
-  stopOnQuit: true,
+  stopOnQuit: false,
   startupTimeoutMs: 120_000,
   extraArgs: '',
   disableAutoLaunch: true,
@@ -760,6 +760,7 @@ class ComfyLauncher extends EventEmitter {
       error: this._lastError,
       logFilePath: this._logFilePath,
       probingSince: this._probingSince,
+      spawnedByVelorn: Boolean(this._child),
     }
   }
 
@@ -811,39 +812,10 @@ class ComfyLauncher extends EventEmitter {
       return
     }
 
-    // Port is answering ComfyUI. Before settling for a read-only "external"
-    // state, try to find its PID via netstat/lsof. If we can identify it,
-    // we can offer Stop/Restart just like a process we spawned ourselves.
-    // This covers the "Velorn crashed, ComfyUI kept running, no state
-    // file" case, as well as users who launched ComfyUI manually.
+    // Always attach as a client. Claiming Stop/Restart of a process we
+    // did not spawn would kill the system ComfyUI (cdx comfyui.service).
     const pid = await this._findOwningPidFor(httpBase)
-    if (pid) {
-      const parsed = parseHttpBase(httpBase)
-      this._child = null
-      this._pid = pid
-      this._ownership = 'ours'
-      this._startedAt = nowMs()
-      this._exitCode = null
-      this._exitSignal = null
-      // Persist so subsequent boots can reclaim directly without needing
-      // netstat (faster + works on locked-down machines).
-      void this._writeStateFile({
-        pid,
-        port: parsed?.port || null,
-        httpBase,
-        startedAt: this._startedAt,
-      })
-      this._appendLog('system', `Adopted running ComfyUI (pid ${pid}) from external process. Stop/Restart enabled.`)
-      this._setState('running', {
-        statusMessage: `Connected to running ComfyUI (pid ${pid}). Velorn didn't start it, but can stop or restart it.`,
-      })
-      return
-    }
-
-    // Couldn't identify the PID (no netstat permission, locked down, etc.).
-    // Fall back to the classic read-only external state.
-    this._ownership = 'external'
-    this._setState('external', { statusMessage: `ComfyUI already running at ${httpBase}` })
+    this._attachAsExternal(httpBase, pid)
   }
 
   async _detectMacAppExternal() {
@@ -904,37 +876,9 @@ class ComfyLauncher extends EventEmitter {
       return false
     }
 
-    this._appendLog('system', `Detected existing ComfyUI on ${base} — adopting instead of spawning.`)
-
-    // Try to identify the owning PID so we can offer Stop/Restart. If we
-    // can't (e.g. netstat unavailable), fall back to read-only external.
+    this._appendLog('system', `Detected existing ComfyUI on ${base} — using it as the backend instead of spawning a second copy.`)
     const pid = await this._findOwningPidFor(base)
-    this._child = null
-    this._exitCode = null
-    this._exitSignal = null
-
-    if (pid) {
-      const parsed = parseHttpBase(base)
-      this._pid = pid
-      this._ownership = 'ours'
-      this._startedAt = nowMs()
-      void this._writeStateFile({
-        pid,
-        port: parsed?.port || null,
-        httpBase: base,
-        startedAt: this._startedAt,
-      })
-      this._setState('running', {
-        statusMessage: `Connected to running ComfyUI (pid ${pid}) at ${base}. Stop/Restart enabled.`,
-      })
-      return true
-    }
-
-    this._pid = null
-    this._ownership = 'external'
-    this._setState('external', {
-      statusMessage: `Adopted running ComfyUI at ${base}. Stop or restart it from the window where it was started.`,
-    })
+    this._attachAsExternal(base, pid)
     return true
   }
 
@@ -1086,6 +1030,21 @@ class ComfyLauncher extends EventEmitter {
    * still answers as ComfyUI, we "reclaim" the process: treat it as our
    * own, so Stop / Restart work normally. Otherwise clear the stale file.
    */
+  _attachAsExternal(httpBase, pid = null) {
+    this._child = null
+    this._pid = pid || null
+    this._ownership = 'external'
+    this._startedAt = nowMs()
+    this._exitCode = null
+    this._exitSignal = null
+    void this._clearStateFile('attached as client to existing ComfyUI')
+    this._setState('external', {
+      statusMessage: pid
+        ? `Using system ComfyUI at ${httpBase} (pid ${pid}). Velorn will not start or stop it.`
+        : `Using system ComfyUI at ${httpBase}. Velorn will not start or stop it.`,
+    })
+  }
+
   async _tryReclaimFromStateFile() {
     const record = await this._readStateFile()
     if (!record) return false
@@ -1096,39 +1055,20 @@ class ComfyLauncher extends EventEmitter {
       return false
     }
 
-    const alive = this._pidIsAlive(record.pid)
-    if (!alive) {
-      await this._clearStateFile(`pid ${record.pid} is gone`)
-      return false
-    }
-
-    const portOpen = await isPortOpen(httpBase, 500)
-    if (!portOpen) {
-      // PID exists but nothing is on the port. Could be a zombie, or a
-      // launcher that hasn't finished binding yet. Be conservative: don't
-      // claim ownership and don't delete the file — let the normal start
-      // flow re-evaluate.
+    const ownerPid = await this._findOwningPidFor(httpBase)
+    if (!ownerPid || Number(ownerPid) !== Number(record.pid)) {
+      await this._clearStateFile(`state pid ${record.pid} is not the listener on ${httpBase}`)
       return false
     }
 
     const probe = await probeHttp(httpBase, 2000)
     if (!probe.ok) {
-      // Something is on the port but it isn't answering ComfyUI.
-      // Don't claim ownership of a foreign process.
       await this._clearStateFile('port taken by non-ComfyUI listener')
       return false
     }
 
-    this._child = null // we can't regain stdio pipes for a process we didn't just spawn
-    this._pid = record.pid
-    this._ownership = 'ours'
-    this._startedAt = record.startedAt || nowMs()
-    this._exitCode = null
-    this._exitSignal = null
-    this._appendLog('system', `Reclaimed ComfyUI from previous session (pid ${record.pid}) at ${httpBase}.`)
-    this._setState('running', {
-      statusMessage: `Reconnected to ComfyUI from previous session (pid ${record.pid}).`,
-    })
+    // Even a matching PID is treated as external unless this process spawned it.
+    this._attachAsExternal(httpBase, ownerPid)
     return true
   }
 
@@ -1684,17 +1624,13 @@ class ComfyLauncher extends EventEmitter {
   }
 
   async shutdown({ confirmStop = true } = {}) {
-    if (!this._child && !this._pid) return { stopped: false }
+    if (this._ownership !== 'ours' || !this._child) return { stopped: false }
     const config = safeCloneConfig(this._getConfig?.())
     if (!config.stopOnQuit && !confirmStop) return { stopped: false }
     this._setState('stopping', { statusMessage: 'Stopping ComfyUI (app shutting down)…' })
     this._appendLog('system', 'Shutdown requested by host app.')
     try {
-      if (this._child) {
-        await killProcessTree(this._child)
-      } else if (this._pid) {
-        await killByPid(this._pid)
-      }
+      await killProcessTree(this._child)
     } catch (_) { /* ignore */ }
     void this._clearStateFile('host shutdown')
     return { stopped: true }

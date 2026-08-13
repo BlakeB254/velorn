@@ -41,7 +41,7 @@ const STATE_STYLES = {
   idle: { dot: 'bg-slate-400', label: 'ComfyUI offline', tone: 'idle' },
   starting: { dot: 'bg-amber-400 animate-pulse', label: 'Starting…', tone: 'starting' },
   running: { dot: 'bg-emerald-400', label: 'Running', tone: 'running' },
-  external: { dot: 'bg-sky-400', label: 'External', tone: 'external' },
+  external: { dot: 'bg-sky-400', label: 'System :8188', tone: 'external' },
   stopping: { dot: 'bg-amber-400 animate-pulse', label: 'Stopping…', tone: 'starting' },
   stopped: { dot: 'bg-slate-400', label: 'Stopped', tone: 'idle' },
   crashed: { dot: 'bg-red-500', label: 'Crashed', tone: 'error' },
