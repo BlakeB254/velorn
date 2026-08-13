@@ -13,6 +13,8 @@ import ShotParamsPanel from './storyboard/ShotParamsPanel'
 import ProjectLookBar from './storyboard/ProjectLookBar'
 import { findMotion, loadMotionCatalog, motionPosePrompt, POSE_STILL_WORKFLOW } from '../services/motionLibrary'
 import { modeFromWorkflow, normalizeProjectLook } from '../services/shotSettings'
+import { generateResolution } from '../services/outputRatio'
+import OutputRatioBar from './storyboard/OutputRatioBar'
 import { normalizeStudio } from '../services/studioStore'
 import { cardSlotView } from '../services/studioUi'
 import StageRail from './studio/StageRail'
@@ -284,6 +286,7 @@ export default function StoryboardWorkspace() {
             ...(refs.second ? { referenceImage2: refs.second } : {}),
           },
           storyboardCardId: card.id,
+          resolution: generateResolution(currentProject, card),
           placement: 'storyboard-frame',
           velornMeta: buildVelornMeta(card, 'storyboard-frame'),
           autoQueue: true,
@@ -346,6 +349,7 @@ export default function StoryboardWorkspace() {
             ...(poseAsset?.id ? { referenceImage1: poseAsset.id } : {}),
           },
           storyboardCardId: card.id,
+          resolution: generateResolution(currentProject, card),
           placement: 'storyboard-frame',
           velornMeta: buildVelornMeta(card, 'storyboard-frame'),
           autoQueue: true,
@@ -377,6 +381,7 @@ export default function StoryboardWorkspace() {
           selectedAssetId: card.imageAssetId,
           selectedAssetFieldIds: { image: card.imageAssetId },
           storyboardCardId: card.id,
+          resolution: generateResolution(currentProject, card),
           placement: 'storyboard-frame',
           velornMeta: buildVelornMeta(card, 'storyboard-frame'),
           autoQueue: true,
@@ -424,6 +429,19 @@ export default function StoryboardWorkspace() {
         </div>
       </div>
       <div className="px-5 py-2 border-b border-sf-dark-800 space-y-2">
+        <OutputRatioBar
+          settings={currentProject.settings || {}}
+          onChange={(next) => {
+            updateProjectSettings(next)
+            const production = getProduction?.()
+            if (production) {
+              useProjectStore.getState().setProduction?.({
+                ...production,
+                format: { ...production.format, outputTarget: next.outputTarget, aspect: next.aspectRatio },
+              })
+            }
+          }}
+        />
         <ProjectLookBar
           value={projectLook}
           onChange={(look) => updateProjectSettings({ cinematography: look })}

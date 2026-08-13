@@ -50,6 +50,19 @@ node ~/opensource/velorn/scripts/velorn-production.mjs create-episode --title "E
 
 Bundled as `public/workflows/cdx_*.json` (`cdx-keyframe-multiref`, `cdx-ltx-union-control-flf`, reactor, inpaint+ref, depth/pose extract, scene compose).
 
+## Output ratio
+
+Project default (Storyboard / Sequence **Output** bar) plus optional per-shot override:
+
+| Target | Device | Aspect | Edit canvas | Generate (32-aligned) |
+|---|---|---|---|---|
+| `mobile` | phone | 9:16 | 1080×1920 | 768×1344 |
+| `computer` | desktop | 16:9 | 1920×1080 | 1344×768 |
+| `square` | feed | 1:1 | 1080×1080 | 1024×1024 |
+| `portrait-feed` | phone feed | 4:5 | 1080×1350 | 896×1120 |
+
+MCP: `set_production` with `outputTarget: "computer"` or `update_shot` with `outputTarget`. Generate events pass `resolution` so Comfy gets the generate size, not a stretched 1080 canvas.
+
 ## Optional extensions
 
 Lexicon, camera xyz, pose/motion, location depth→Blender, FLF last-frame, sound/VO/music, multi-angles. Use them when the shot needs them. Do not dump every extension into every prompt.

@@ -165,7 +165,7 @@ export function emptyProduction() {
     title: '',
     logline: '',
     premise: '',
-    format: { aspect: '', durationHint: '', fps: null },
+    format: { aspect: '', outputTarget: '', durationHint: '', fps: null },
     look: emptyProjectLook(),
     show: emptyShow(),
     current: { seasonId: '', episodeId: '' },
@@ -210,6 +210,7 @@ export function normalizeProduction(raw) {
     premise: asString(raw.premise),
     format: {
       aspect: asString(raw.format?.aspect),
+      outputTarget: asString(raw.format?.outputTarget),
       durationHint: asString(raw.format?.durationHint || raw.format?.runtime),
       fps: asNumber(raw.format?.fps),
     },
@@ -254,6 +255,7 @@ export function hydrateProductionFromProject(project) {
 
   const format = {
     aspect: existing.format.aspect || asString(draft.aspectRatio || (settings.width && settings.height ? `${settings.width}:${settings.height}` : '')),
+    outputTarget: existing.format.outputTarget || asString(settings.outputTarget),
     durationHint: existing.format.durationHint || asString(draft.runtimeSeconds ? `${draft.runtimeSeconds}s` : migration.runtime),
     fps: existing.format.fps || asNumber(draft.videoFps || settings.fps),
   }
@@ -432,6 +434,7 @@ export function setProductionMeta(production, fields = {}) {
   if (isPlainObject(fields.format)) {
     next.format = {
       aspect: asString(fields.format.aspect, next.format.aspect),
+      outputTarget: asString(fields.format.outputTarget, next.format.outputTarget),
       durationHint: asString(fields.format.durationHint || fields.format.runtime, next.format.durationHint),
       fps: asNumber(fields.format.fps, next.format.fps),
     }

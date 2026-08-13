@@ -166,6 +166,7 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
                     workflowId: 'cdx-ltx-union-control-flf',
                     storyboardCardId: card.id,
                     prompt: card.action || card.title,
+                    resolution: { width: 768, height: 1344 },
                     autoQueue: false,
                   },
                 }))

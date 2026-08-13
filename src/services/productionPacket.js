@@ -17,6 +17,7 @@ import {
   productionSummary,
 } from './productionStore.js'
 import { resolveCast, normalizeStudio } from './studioStore.js'
+import { generateResolution, listOutputTargets, resolveOutput } from './outputRatio.js'
 import {
   assembleLexiconLabels,
   assembleLexiconLine,
@@ -95,7 +96,7 @@ function characterPacket(entry = {}, assets = [], scope = 'series') {
   }
 }
 
-function summarizeCard(card, { projectLook = {}, assets = [] } = {}) {
+function summarizeCard(card, { projectLook = {}, assets = [], project = null } = {}) {
   const mode = modeFromWorkflow(card.videoWorkflowId || card.workflowId || '', card.videoAssetId ? 'video' : 'still')
   const settings = resolveShotSettings(card.shotSettings, projectLook)
   const rig = normalizeCameraRig(card.cameraRig)
@@ -138,6 +139,8 @@ function summarizeCard(card, { projectLook = {}, assets = [] } = {}) {
     cameraHint: cameraPromptHint(rig),
     workflowId: card.workflowId || '',
     videoWorkflowId: card.videoWorkflowId || '',
+    output: project ? resolveOutput(project, card) : null,
+    generate: project ? generateResolution(project, card) : null,
   }
 }
 
@@ -202,7 +205,9 @@ export function listProductionCatalog() {
       assignOn: 'card.motionSlug',
       files: ['pose.png', 'preview.mp4', 'skeleton.mp4', 'depth.mp4'],
     },
+    outputTargets: listOutputTargets(),
     extensions: [
+      { id: 'output-ratio', required: true, when: 'every generate and edit', use: 'mobile 9:16 vs computer 16:9 (project default, shot can override)' },
       { id: 'lexicon', required: false, when: 'any still or clip', use: 'framing / angle / lens / light / grade / move ids' },
       { id: 'camera-rig', required: false, when: 'reblocking, proposing an angle, Blender env', use: 'xyz + yaw/pitch/roll/fov handle; propose/apply' },
       { id: 'pose-motion', required: false, when: 'character action must match a rig', use: 'motionSlug + pose still + skeleton/depth movies' },
@@ -224,7 +229,7 @@ export function buildShotPacket(project, cardId, { assets = [] } = {}) {
   return {
     production: productionSummary(production),
     layers: layeredContext(production),
-    shot: summarizeCard(card, { projectLook: look, assets }),
+    shot: summarizeCard(card, { projectLook: look, assets, project }),
     cameraRig: normalizeCameraRig(card.cameraRig),
     neighbors: {
       prev: cards.find((item) => item.order === card.order - 1)?.id || null,
@@ -269,12 +274,14 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
     production: productionSummary(production),
     layers: current,
     seasons: listEpisodes(production),
+    output: resolveOutput(project),
+    generate: generateResolution(project),
     look,
     characters,
     locations,
     storyboard: {
       cardCount: cards.length,
-      cards: cards.map((card) => summarizeCard(card, { projectLook: look, assets })),
+      cards: cards.map((card) => summarizeCard(card, { projectLook: look, assets, project })),
     },
     sequence: sequenceRollup(cards),
     catalog: listProductionCatalog(),

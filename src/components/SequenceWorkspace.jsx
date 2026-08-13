@@ -11,6 +11,8 @@ import { getComfyNativeTemplate } from '../config/comfyNativeTemplates'
 import MotionPicker from './storyboard/MotionPicker'
 import ShotParamsPanel from './storyboard/ShotParamsPanel'
 import ProjectLookBar from './storyboard/ProjectLookBar'
+import OutputRatioBar from './storyboard/OutputRatioBar'
+import { generateResolution } from '../services/outputRatio'
 import { findMotion, loadMotionCatalog } from '../services/motionLibrary'
 import { assembleLexiconLabels, modeFromWorkflow, normalizeProjectLook } from '../services/shotSettings'
 import {
@@ -276,6 +278,7 @@ export default function SequenceWorkspace() {
             ...(refs.second ? { referenceImage2: refs.second } : {}),
           },
           storyboardCardId: card.id,
+          resolution: generateResolution(currentProject, card),
           placement: 'sequence-clip',
           velornMeta: {
             placement: 'sequence-clip',
@@ -561,7 +564,20 @@ export default function SequenceWorkspace() {
           })}
         </div>
       </div>
-      <div className="px-5 py-2 border-b border-sf-dark-800">
+      <div className="px-5 py-2 border-b border-sf-dark-800 space-y-2">
+        <OutputRatioBar
+          settings={currentProject?.settings || {}}
+          onChange={(next) => {
+            updateProjectSettings(next)
+            const production = useProjectStore.getState().getProduction?.()
+            if (production) {
+              useProjectStore.getState().setProduction?.({
+                ...production,
+                format: { ...production.format, outputTarget: next.outputTarget, aspect: next.aspectRatio },
+              })
+            }
+          }}
+        />
         <ProjectLookBar
           value={projectLook}
           onChange={(look) => updateProjectSettings({ cinematography: look })}

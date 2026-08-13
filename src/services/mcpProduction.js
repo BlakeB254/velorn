@@ -41,6 +41,7 @@ import {
   removeSlot,
 } from './studioStore.js'
 import { normalizeProjectLook, normalizeShotSettings } from './shotSettings.js'
+import { applyOutputTargetToSettings, generateResolution } from './outputRatio.js'
 
 function requireProject() {
   const project = useProjectStore.getState().currentProject
@@ -125,15 +126,20 @@ export function handleSetProduction(payload = {}) {
   }
   const next = setProductionMeta(current, payload)
   persistProduction(next)
+  const store = useProjectStore.getState()
+  const settings = { ...(store.currentProject.settings || {}) }
   if (payload.look) {
-    const store = useProjectStore.getState()
-    const settings = { ...(store.currentProject.settings || {}), cinematography: normalizeProjectLook({
-      ...(store.currentProject.settings?.cinematography || {}),
+    settings.cinematography = normalizeProjectLook({
+      ...(settings.cinematography || {}),
       ...payload.look,
-    }) }
-    store.saveProject?.({ settings })
+    })
   }
-  return { success: true, action: 'set_production', production: next }
+  const targetId = payload.outputTarget || payload.format?.outputTarget
+  const patched = targetId ? applyOutputTargetToSettings(settings, targetId) : settings
+  if (payload.look || targetId) {
+    store.saveProject?.({ settings: patched, production: { ...next, format: { ...next.format, outputTarget: patched.outputTarget || next.format.outputTarget, aspect: patched.aspectRatio || next.format.aspect } } })
+  }
+  return { success: true, action: 'set_production', production: next, output: generateResolution({ ...store.currentProject, settings: patched, production: next }) }
 }
 
 export function handleCreateEpisode(payload = {}) {
@@ -229,6 +235,7 @@ export function handleUpdateShot(payload = {}) {
     if (payload.lexiconPreset) {
       patch.cameraRig = presetFromLexicon({ ...normalizeShotSettings(patch.shotSettings), ...payload.shotSettings })
     }
+    if (payload.outputTarget !== undefined) patch.outputTarget = payload.outputTarget || ''
     return patch
   })
   return { success: true, action: 'update_shot', card: next }
