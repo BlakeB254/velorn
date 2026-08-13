@@ -54,6 +54,34 @@ const QWEN_IMAGE_EDIT_REQUIRED_NODES = Object.freeze([
 ])
 
 export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
+  'cdx-ltx-union-control-flf': Object.freeze({
+    id: 'cdx-ltx-union-control-flf',
+    displayName: 'CDX Generate from Blocking (LTX FLF)',
+    requiredNodes: Object.freeze([
+      { classType: 'CheckpointLoaderSimple' },
+      { classType: 'LoraLoaderModelOnly' },
+      { classType: 'LoadImage' },
+      { classType: 'SamplerCustomAdvanced' },
+    ]),
+    requiredModels: Object.freeze([
+      {
+        classType: 'LoraLoaderModelOnly',
+        inputKey: 'lora_name',
+        filename: 'ltx-2.3-22b-distilled-lora-384.safetensors',
+        targetSubdir: 'loras',
+      },
+    ]),
+  }),
+  'cdx-keyframe-multiref': Object.freeze({
+    id: 'cdx-keyframe-multiref',
+    displayName: 'CDX Keyframe multi-ref',
+    requiredNodes: Object.freeze([
+      { classType: 'TextEncodeQwenImageEditPlus' },
+      { classType: 'KSampler' },
+      { classType: 'SaveImage' },
+    ]),
+    requiredModels: QWEN_IMAGE_EDIT_SHARED_MODELS,
+  }),
   'wan22-i2v': Object.freeze({
     id: 'wan22-i2v',
     displayName: 'WAN 2.2 Image-to-Video',

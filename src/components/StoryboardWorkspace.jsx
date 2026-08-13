@@ -13,6 +13,11 @@ import ShotParamsPanel from './storyboard/ShotParamsPanel'
 import ProjectLookBar from './storyboard/ProjectLookBar'
 import { findMotion, loadMotionCatalog, motionPosePrompt, POSE_STILL_WORKFLOW } from '../services/motionLibrary'
 import { modeFromWorkflow, normalizeProjectLook } from '../services/shotSettings'
+import { normalizeStudio } from '../services/studioStore'
+import { cardSlotView } from '../services/studioUi'
+import StageRail from './studio/StageRail'
+import CastPanel from './studio/CastPanel'
+import BlockingPanel from './studio/BlockingPanel'
 import {
   AssetPicker,
   DEFAULT_FRAME_WORKFLOW,
@@ -45,6 +50,8 @@ export default function StoryboardWorkspace() {
   const setStoryboardBoard = useProjectStore((state) => state.setStoryboardBoard)
   const updateProjectSettings = useProjectStore((state) => state.updateProjectSettings)
   const saveProject = useProjectStore((state) => state.saveProject)
+  const getStudio = useProjectStore((state) => state.getStudio)
+  const getProduction = useProjectStore((state) => state.getProduction)
   const assets = useAssetsStore((state) => state.assets)
   const folders = useAssetsStore((state) => state.folders)
   const addAsset = useAssetsStore((state) => state.addAsset)
@@ -58,7 +65,10 @@ export default function StoryboardWorkspace() {
   const [dragId, setDragId] = useState(null)
   const [imageUrls, setImageUrls] = useState({})
   const [editCardId, setEditCardId] = useState(null)
+  const [blockingCardId, setBlockingCardId] = useState(null)
   const cardRefs = useRef({})
+  const studio = useMemo(() => normalizeStudio(currentProject?.studio || getStudio?.()), [currentProject, getStudio])
+  const production = useMemo(() => getProduction?.() || currentProject?.production || null, [currentProject, getProduction])
 
   const board = useMemo(
     () => (currentProject ? seedFromProject(currentProject) : emptyBoard()),
@@ -413,11 +423,21 @@ export default function StoryboardWorkspace() {
           </button>
         </div>
       </div>
-      <div className="px-5 py-2 border-b border-sf-dark-800">
+      <div className="px-5 py-2 border-b border-sf-dark-800 space-y-2">
         <ProjectLookBar
           value={projectLook}
           onChange={(look) => updateProjectSettings({ cinematography: look })}
         />
+        <StageRail
+          studio={studio}
+          extras={{ videoCount: board.cards.filter((card) => card.videoAssetId).length }}
+        />
+        <details>
+          <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Cast (series → season → episode)</summary>
+          <div className="mt-2">
+            <CastPanel studio={studio} season={production?.current?.seasonId} episode={production?.current?.episodeId} />
+          </div>
+        </details>
       </div>
 
       <div className="flex-1 overflow-auto p-5">
@@ -454,6 +474,7 @@ export default function StoryboardWorkspace() {
               const workflow = findFrameWorkflow(card.workflowId || DEFAULT_FRAME_WORKFLOW)
               const slots = frameWorkflowSlots(workflow)
               const pickerFor = (slot) => mediaPicker?.cardId === card.id && mediaPicker?.slot === slot
+              const slotView = cardSlotView(studio, card)
               return (
                 <article
                   key={card.id}
@@ -473,6 +494,21 @@ export default function StoryboardWorkspace() {
                   }`}
                 >
                   <div className="px-3 pt-3 pb-2 space-y-1.5">
+                    {slotView && (
+                      <div className="flex flex-wrap gap-1 text-[9px] uppercase tracking-wide">
+                        <span className={`px-1.5 py-0.5 rounded border ${
+                          slotView.state === 'filled' ? 'border-emerald-500/50 text-emerald-300'
+                            : slotView.state === 'partial' ? 'border-amber-400/50 text-amber-200'
+                              : 'border-dashed border-sf-dark-500 text-sf-text-muted'
+                        }`}>{slotView.slot.slot_id} · {slotView.state}</span>
+                        <span className={slotView.qa.video.result === 'pass' ? 'text-emerald-300' : slotView.qa.video.result === 'fail' ? 'text-red-400' : 'text-sf-text-muted'}>
+                          V {slotView.qa.video.result}
+                        </span>
+                        <span className={slotView.qa.audio.result === 'pass' ? 'text-emerald-300' : slotView.qa.audio.result === 'fail' ? 'text-red-400' : 'text-sf-text-muted'}>
+                          A {slotView.qa.audio.result}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-start gap-2">
                       <span
                         draggable
@@ -618,6 +654,13 @@ export default function StoryboardWorkspace() {
                           </button>
                           <button
                             type="button"
+                            onClick={() => setBlockingCardId((current) => (current === card.id ? null : card.id))}
+                            className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-sf-dark-600 text-[11px] text-sf-text-secondary hover:text-sf-text-primary"
+                          >
+                            Blocking
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => openGeneratePanel(card)}
                             className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-sf-accent/80 hover:bg-sf-accent text-white text-[11px] ml-auto"
                           >
@@ -626,6 +669,14 @@ export default function StoryboardWorkspace() {
                             <ChevronDown className={`w-3 h-3 transition-transform ${generateOpen ? 'rotate-180' : ''}`} />
                           </button>
                         </div>
+                        {blockingCardId === card.id && (
+                          <BlockingPanel
+                            projectPath={typeof currentProjectHandle === 'string' ? currentProjectHandle : ''}
+                            studio={studio}
+                            card={card}
+                            onApplyRig={(rig) => updateCard(card.id, { cameraRig: rig })}
+                          />
+                        )}
                         {pickerFor('frame') && (
                           <AssetPicker
                             assets={imageAssets}

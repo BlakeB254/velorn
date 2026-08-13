@@ -2215,11 +2215,24 @@ export function modifyLocalApiWorkflow(workflow, options = {}) {
     const title = String(node?._meta?.title || '')
     const lowerTitle = title.toLowerCase()
 
-    if (inputImage && cls === 'LoadImage' && 'image' in node.inputs) {
-      node.inputs.image = inputImage
+    const titled = title.toUpperCase().replace(/[^A-Z0-9]+/g, '_')
+    if (cls === 'LoadImage' && 'image' in node.inputs) {
+      if (titled.includes('VELORN_REFERENCE_IMAGE_1') && options.referenceImage1) {
+        node.inputs.image = options.referenceImage1
+      } else if (titled.includes('VELORN_REFERENCE_IMAGE_2') && options.referenceImage2) {
+        node.inputs.image = options.referenceImage2
+      } else if (titled.includes('VELORN_INPUT_IMAGE') && inputImage) {
+        node.inputs.image = inputImage
+      } else if (!titled.includes('VELORN_') && inputImage) {
+        node.inputs.image = inputImage
+      }
     }
-    if (inputVideo && cls === 'LoadVideo' && 'file' in node.inputs) {
-      node.inputs.file = inputVideo
+    if (cls === 'LoadVideo' && 'file' in node.inputs) {
+      if (titled.includes('VELORN_CONTROL_VIDEO') && options.controlVideo) {
+        node.inputs.file = options.controlVideo
+      } else if (inputVideo) {
+        node.inputs.file = inputVideo
+      }
     }
 
     if (cls === 'SaveImage' && 'filename_prefix' in node.inputs) {

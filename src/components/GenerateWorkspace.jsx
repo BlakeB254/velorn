@@ -16713,6 +16713,21 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           })
           break
         default: {
+          if (String(job.workflowId || '').startsWith('cdx-')) {
+            modifiedWorkflow = modifyLocalApiWorkflow(workflowJson, {
+              prompt: job.prompt,
+              negativePrompt: job.negativePrompt,
+              inputImage: uploadedFilename,
+              inputVideo: uploadedVideoFilename,
+              width: job.resolution?.width,
+              height: job.resolution?.height,
+              duration: job.duration,
+              fps: job.fps,
+              seed: job.seed,
+              filenamePrefix: outputPrefix || `${job.category === 'video' ? 'video' : 'image'}/${job.workflowId}`,
+            })
+            break
+          }
           const nativeCheck = await import('../config/comfyNativeTemplates')
           const nativeRunner = await import('../services/comfyTemplateRunner')
           if (nativeCheck.isComfyNativeTemplate(job.workflowId)) {

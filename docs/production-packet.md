@@ -40,6 +40,16 @@ node ~/opensource/velorn/scripts/velorn-production.mjs catalog
 node ~/opensource/velorn/scripts/velorn-production.mjs create-episode --title "Ep 002" "Chi-Town Triplets"
 ```
 
+## Studio surfaces (this branch)
+
+- Stage rail + cast panel on Storyboard.
+- Slot state + video/audio QA pips on each card.
+- Blocking: 2D ENU handle (drag camera, edit xyz). Save `docs/blocking/<shot>/blocking.json`. Generate from blocking queues `cdx-ltx-union-control-flf`.
+
+## CDX workflow pack
+
+Bundled as `public/workflows/cdx_*.json` (`cdx-keyframe-multiref`, `cdx-ltx-union-control-flf`, reactor, inpaint+ref, depth/pose extract, scene compose).
+
 ## Optional extensions
 
 Lexicon, camera xyz, pose/motion, location depth→Blender, FLF last-frame, sound/VO/music, multi-angles. Use them when the shot needs them. Do not dump every extension into every prompt.
