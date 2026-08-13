@@ -42,7 +42,9 @@ import {
   handleUpdateCaptionCues,
   handleGenerateCaptions,
 } from './mcpCaptions'
-import { handleProductionAction } from './mcpProduction'
+import { handleProductionAction, handleSetProduction } from './mcpProduction'
+import { getOutputTarget } from './outputRatio'
+import { getProductionType } from './productionTypes'
 
 export const MCP_ACTION_BRIDGE_VERSION = 6
 
@@ -300,9 +302,18 @@ async function resolveProjectPath(baseDir, projectName) {
 async function buildCreateProjectPlan(payload = {}) {
   const projectState = useProjectStore.getState()
   const name = normalizeProjectName(payload.name || payload.projectName || payload.title)
+  const type = payload.type || payload.productionType || 'show'
+  const typeDef = getProductionType(type)
   const defaultResolution = getProjectDefaultResolution(projectState)
-  const width = normalizeProjectDimension(payload.width, defaultResolution.width)
-  const height = normalizeProjectDimension(payload.height, defaultResolution.height)
+  const typeTarget = typeDef?.outputTarget ? getOutputTarget(typeDef.outputTarget) : null
+  const width = normalizeProjectDimension(
+    payload.width,
+    typeTarget?.edit.width || defaultResolution.width,
+  )
+  const height = normalizeProjectDimension(
+    payload.height,
+    typeTarget?.edit.height || defaultResolution.height,
+  )
   const fps = normalizeProjectFps(payload.fps, projectState.defaultFps ?? FPS_PRESETS.find((item) => item.value === 24)?.value ?? 24)
   const defaultProjectsHandle = projectState.defaultProjectsHandle
   if (!defaultProjectsHandle) {
@@ -318,6 +329,7 @@ async function buildCreateProjectPlan(payload = {}) {
     action: 'create_project',
     previewOnly: payload.previewOnly !== false,
     name,
+    type: typeDef?.id || type,
     width,
     height,
     fps,
@@ -352,6 +364,7 @@ async function handleCreateProject(payload = {}) {
     width: plan.width,
     height: plan.height,
     fps: plan.fps,
+    type: payload.type || plan.type,
   })
   if (!project) {
     const error = useProjectStore.getState().error
@@ -359,11 +372,18 @@ async function handleCreateProject(payload = {}) {
   }
 
   const nextState = useProjectStore.getState()
+  let production = null
+  if (payload.type) {
+    try {
+      production = handleSetProduction({ type: payload.type, previewOnly: false })
+    } catch (_) { /* project exists even if type seed fails */ }
+  }
   return {
     created: true,
     action: 'create_project',
     project: summarizeProject(nextState.currentProject || project, nextState.currentProjectHandle),
     currentTimelineId: nextState.currentTimelineId || null,
+    production: production?.production || null,
   }
 }
 
@@ -8509,6 +8529,7 @@ async function handleMcpAction(request = {}) {
       return handleReplaceMusicVideoTimelineShot(request.payload || {})
     case 'get_production_context':
     case 'list_production_catalog':
+    case 'discover_production':
     case 'get_shot_packet':
     case 'list_episodes':
     case 'set_production':
@@ -8524,6 +8545,11 @@ async function handleMcpAction(request = {}) {
     case 'studio_slots_mutate':
     case 'studio_qa_record':
     case 'studio_flow':
+    case 'list_cuts':
+    case 'save_cut':
+    case 'checkout_cut':
+    case 'promote_cut':
+    case 'watch_cut':
       return handleProductionAction(request.action, request.payload || {})
     case 'save_project':
       return handleSaveProject(request.payload || {})

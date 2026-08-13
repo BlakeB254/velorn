@@ -9,6 +9,8 @@
 
 import { shotClipStatus } from './extractMediaFrame.js'
 import { cameraPromptHint, cameraSummary, normalizeCameraRig } from './cameraRig.js'
+import { listCuts, normalizeCutsIndex } from './productionCuts.js'
+import { PRODUCTION_FLOWS, listProductionTypes } from './productionTypes.js'
 import {
   CONTEXT_LAYERS,
   hydrateProductionFromProject,
@@ -206,6 +208,15 @@ export function listProductionCatalog() {
       files: ['pose.png', 'preview.mp4', 'skeleton.mp4', 'depth.mp4'],
     },
     outputTargets: listOutputTargets(),
+    types: listProductionTypes(),
+    aliases: {
+      advertisement: 'commercial',
+      ad: 'commercial',
+      film: 'movie',
+      standalone: 'narrative',
+      short: 'ig-short',
+    },
+    flows: PRODUCTION_FLOWS,
     extensions: [
       { id: 'output-ratio', required: true, when: 'every generate and edit', use: 'mobile 9:16 vs computer 16:9 (project default, shot can override)' },
       { id: 'lexicon', required: false, when: 'any still or clip', use: 'framing / angle / lens / light / grade / move ids' },
@@ -267,6 +278,7 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
       'Start at layers.show. That is the series bible and house look.',
       'layers.season is the arc for the current season only.',
       'layers.episode is the live workspace (storyboard + sequence) in this project file.',
+      'cuts[] are named drafts of this episode. save_cut / checkout_cut / watch_cut / promote_cut. Primary is the official version; checkout is what is on the live board.',
       'Each shot inherits show look unless it overrides. Framing/angle never inherit.',
       'camera.x_m/y_m/z_m is the handle. Propose with propose_shot_camera; Blake can apply or drag.',
       'extensions listed in catalog are optional. Use them when the shot needs them, do not dump them into every prompt.',
@@ -274,6 +286,7 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
     production: productionSummary(production),
     layers: current,
     seasons: listEpisodes(production),
+    cuts: listCuts(normalizeCutsIndex(project?.productionCuts), production.current.episodeId),
     output: resolveOutput(project),
     generate: generateResolution(project),
     look,

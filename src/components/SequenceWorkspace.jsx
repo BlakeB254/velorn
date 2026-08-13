@@ -12,6 +12,7 @@ import MotionPicker from './storyboard/MotionPicker'
 import ShotParamsPanel from './storyboard/ShotParamsPanel'
 import ProjectLookBar from './storyboard/ProjectLookBar'
 import OutputRatioBar from './storyboard/OutputRatioBar'
+import CutBar from './storyboard/CutBar'
 import { generateResolution } from '../services/outputRatio'
 import { findMotion, loadMotionCatalog } from '../services/motionLibrary'
 import { assembleLexiconLabels, modeFromWorkflow, normalizeProjectLook } from '../services/shotSettings'
@@ -578,6 +579,7 @@ export default function SequenceWorkspace() {
             }
           }}
         />
+        <CutBar />
         <ProjectLookBar
           value={projectLook}
           onChange={(look) => updateProjectSettings({ cinematography: look })}

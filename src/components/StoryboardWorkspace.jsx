@@ -15,6 +15,7 @@ import { findMotion, loadMotionCatalog, motionPosePrompt, POSE_STILL_WORKFLOW } 
 import { modeFromWorkflow, normalizeProjectLook } from '../services/shotSettings'
 import { generateResolution } from '../services/outputRatio'
 import OutputRatioBar from './storyboard/OutputRatioBar'
+import CutBar from './storyboard/CutBar'
 import { normalizeStudio } from '../services/studioStore'
 import { cardSlotView } from '../services/studioUi'
 import StageRail from './studio/StageRail'
@@ -442,6 +443,7 @@ export default function StoryboardWorkspace() {
             }
           }}
         />
+        <CutBar />
         <ProjectLookBar
           value={projectLook}
           onChange={(look) => updateProjectSettings({ cinematography: look })}

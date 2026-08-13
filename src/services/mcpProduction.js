@@ -18,6 +18,21 @@ import {
   buildShotPacket,
   listProductionCatalog,
 } from './productionPacket.js'
+import { discoverProduction, getProductionType } from './productionTypes.js'
+import {
+  applyCutsToProduction,
+  buildReviewTimeline,
+  checkoutCut,
+  findCut,
+  listCuts,
+  loadEpisodeBoard,
+  normalizeCutsIndex,
+  promoteCut,
+  saveCut,
+  snapshotLiveIntoCurrent,
+  summarizeCut,
+  upsertReviewTimeline,
+} from './productionCuts.js'
 import {
   createEpisode,
   findEpisode,
@@ -94,8 +109,178 @@ export function handleGetProductionContext(payload = {}) {
   return { action: 'get_production_context', ...packet }
 }
 
+export function handleListCuts(payload = {}) {
+  const project = requireProject()
+  const episodeId = currentEpisodeId(project, payload)
+  if (!episodeId) throw new Error('list_cuts needs episodeId')
+  return { action: 'list_cuts', ...listCuts(cutsIndex(), episodeId) }
+}
+
+export function handleSaveCut(payload = {}) {
+  const project = requireProject()
+  const episodeId = currentEpisodeId(project, payload)
+  if (!episodeId) throw new Error('save_cut needs episodeId')
+  const name = String(payload.name || payload.title || '').trim()
+  if (!name) throw new Error('save_cut needs name')
+  const board = payload.storyboardBoard || project.storyboardBoard || { version: 1, cards: [] }
+  if (payload.previewOnly !== false) {
+    return {
+      previewOnly: true,
+      action: 'save_cut',
+      episodeId,
+      name,
+      author: payload.author || '',
+      stats: { cardCount: board.cards?.length || 0 },
+    }
+  }
+  const saved = saveCut(cutsIndex(), episodeId, {
+    id: payload.id || payload.cutId,
+    name,
+    author: payload.author,
+    notes: payload.notes,
+    storyboardBoard: board,
+    timelineId: payload.pinTimelineId || payload.timelineId,
+    makeCurrent: payload.makeCurrent !== false,
+  })
+  const review = buildReviewTimeline({
+    episodeId,
+    cut: saved.cut,
+    settings: project.settings || {},
+    assets: assets(),
+    pinTimelineId: payload.pinTimelineId || saved.cut.timelineId,
+  })
+  saved.cut.timelineId = review.id
+  const withTimeline = saveCut(saved.index, episodeId, {
+    ...saved.cut,
+    timelineId: review.id,
+    storyboardBoard: saved.cut.storyboardBoard,
+    makeCurrent: payload.makeCurrent !== false,
+  })
+  const production = applyCutsToProduction(hydrateProductionFromProject(project), episodeId, withTimeline.bucket)
+  persistCuts(withTimeline.index, {
+    production,
+    timelines: upsertReviewTimeline(project.timelines, review),
+  })
+  return {
+    success: true,
+    action: 'save_cut',
+    created: withTimeline.created,
+    cut: summarizeCut(withTimeline.cut, withTimeline.bucket),
+    cuts: listCuts(withTimeline.index, episodeId),
+  }
+}
+
+export function handleCheckoutCut(payload = {}) {
+  const project = requireProject()
+  const episodeId = currentEpisodeId(project, payload)
+  const cutRef = payload.cutId || payload.id || payload.name
+  if (!episodeId || !cutRef) throw new Error('checkout_cut needs episodeId and cutId')
+  if (payload.previewOnly !== false) {
+    const found = findCut(cutsIndex(), episodeId, cutRef)
+    return { previewOnly: true, action: 'checkout_cut', episodeId, cut: summarizeCut(found.cut, found.bucket) }
+  }
+  let index = cutsIndex()
+  if (payload.snapshotCurrent !== false) {
+    const snapped = snapshotLiveIntoCurrent(index, episodeId, project.storyboardBoard)
+    if (!snapped.skipped) index = snapped.index
+  }
+  const next = checkoutCut(index, episodeId, cutRef)
+  const production = applyCutsToProduction(hydrateProductionFromProject(project), episodeId, next.bucket)
+  persistCuts(next.index, {
+    production,
+    storyboardBoard: next.cut.storyboardBoard || { version: 1, cards: [] },
+  })
+  return {
+    success: true,
+    action: 'checkout_cut',
+    cut: summarizeCut(next.cut, next.bucket),
+    cardCount: next.cut.storyboardBoard?.cards?.length || 0,
+    cuts: listCuts(next.index, episodeId),
+  }
+}
+
+export function handlePromoteCut(payload = {}) {
+  const project = requireProject()
+  const episodeId = currentEpisodeId(project, payload)
+  const cutRef = payload.cutId || payload.id || payload.name
+  if (!episodeId || !cutRef) throw new Error('promote_cut needs episodeId and cutId')
+  if (payload.previewOnly !== false) {
+    const found = findCut(cutsIndex(), episodeId, cutRef)
+    return { previewOnly: true, action: 'promote_cut', episodeId, cut: summarizeCut(found.cut, found.bucket) }
+  }
+  let index = cutsIndex()
+  if (payload.checkout) {
+    const snapped = snapshotLiveIntoCurrent(index, episodeId, project.storyboardBoard)
+    if (!snapped.skipped) index = snapped.index
+    const checked = checkoutCut(index, episodeId, cutRef)
+    index = checked.index
+  }
+  const next = promoteCut(index, episodeId, cutRef)
+  const production = applyCutsToProduction(hydrateProductionFromProject(project), episodeId, next.bucket)
+  const extra = { production }
+  if (payload.checkout) extra.storyboardBoard = next.cut.storyboardBoard
+  persistCuts(next.index, extra)
+  return {
+    success: true,
+    action: 'promote_cut',
+    cut: summarizeCut(next.cut, next.bucket),
+    cuts: listCuts(next.index, episodeId),
+  }
+}
+
+export async function handleWatchCut(payload = {}) {
+  const project = requireProject()
+  const episodeId = currentEpisodeId(project, payload)
+  const cutRef = payload.cutId || payload.id || payload.name
+  if (!episodeId || !cutRef) throw new Error('watch_cut needs episodeId and cutId')
+  const found = findCut(cutsIndex(), episodeId, cutRef)
+  if (!found.cut) throw new Error(`Cut '${cutRef}' not found on ${episodeId}`)
+  if (payload.previewOnly !== false) {
+    return {
+      previewOnly: true,
+      action: 'watch_cut',
+      cut: summarizeCut(found.cut, found.bucket),
+      timelineId: found.cut.timelineId,
+    }
+  }
+  const review = buildReviewTimeline({
+    episodeId,
+    cut: found.cut,
+    settings: project.settings || {},
+    assets: assets(),
+    pinTimelineId: found.cut.timelineId,
+  })
+  const saved = saveCut(cutsIndex(), episodeId, {
+    ...found.cut,
+    timelineId: review.id,
+    storyboardBoard: found.cut.storyboardBoard,
+    makeCurrent: false,
+  })
+  persistCuts(saved.index, { timelines: upsertReviewTimeline(project.timelines, review) })
+  const store = useProjectStore.getState()
+  if (typeof store.switchTimeline === 'function') {
+    await store.switchTimeline(review.id)
+  } else {
+    store.saveProject?.({ currentTimelineId: review.id })
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('comfystudio-open-sequence-tab', { detail: { timelineId: review.id } }))
+  }
+  return {
+    success: true,
+    action: 'watch_cut',
+    cut: summarizeCut(saved.cut, saved.bucket),
+    timelineId: review.id,
+    clipCount: review.clips.length,
+  }
+}
+
 export function handleListProductionCatalog() {
   return { action: 'list_production_catalog', ...listProductionCatalog() }
+}
+
+export function handleDiscoverProduction(payload = {}) {
+  return discoverProduction({ query: payload.query || payload.q || '', type: payload.type || payload.productionType || '' })
 }
 
 export function handleGetShotPacket(payload = {}) {
@@ -107,10 +292,47 @@ export function handleGetShotPacket(payload = {}) {
   return { action: 'get_shot_packet', ...shot }
 }
 
+function cutsIndex() {
+  return normalizeCutsIndex(useProjectStore.getState().currentProject?.productionCuts)
+}
+
+function persistCuts(index, extra = {}) {
+  const store = useProjectStore.getState()
+  if (!store.currentProject) throw new Error('No Velorn project is open.')
+  if (extra.production) store.setProduction?.(extra.production)
+  if (extra.storyboardBoard) store.setStoryboardBoard?.(extra.storyboardBoard)
+  if (extra.timelines) {
+    useProjectStore.setState((state) => ({
+      currentProject: state.currentProject
+        ? { ...state.currentProject, timelines: extra.timelines, productionCuts: index, modified: new Date().toISOString() }
+        : null,
+    }))
+  }
+  store.saveProject?.({
+    productionCuts: index,
+    ...(extra.production ? { production: extra.production } : {}),
+    ...(extra.storyboardBoard ? { storyboardBoard: extra.storyboardBoard } : {}),
+    ...(extra.productionWorkspaces ? { productionWorkspaces: extra.productionWorkspaces } : {}),
+  })
+  return index
+}
+
+function currentEpisodeId(project, payload = {}) {
+  return String(payload.episodeId || payload.episode || project.production?.current?.episodeId || '').trim()
+}
+
 export function handleListEpisodes() {
   const project = requireProject()
   const production = hydrateProductionFromProject(project)
-  return { action: 'list_episodes', seasons: listEpisodes(production), current: production.current }
+  const index = cutsIndex()
+  const seasons = listEpisodes(production).map((season) => ({
+    ...season,
+    episodes: season.episodes.map((episode) => ({
+      ...episode,
+      cuts: listCuts(index, episode.id),
+    })),
+  }))
+  return { action: 'list_episodes', seasons, current: production.current }
 }
 
 export function handleSetProduction(payload = {}) {
@@ -134,7 +356,8 @@ export function handleSetProduction(payload = {}) {
       ...payload.look,
     })
   }
-  const targetId = payload.outputTarget || payload.format?.outputTarget
+  const typeDef = payload.type ? getProductionType(payload.type) : null
+  const targetId = payload.outputTarget || payload.format?.outputTarget || typeDef?.outputTarget
   const patched = targetId ? applyOutputTargetToSettings(settings, targetId) : settings
   if (payload.look || targetId) {
     store.saveProject?.({ settings: patched, production: { ...next, format: { ...next.format, outputTarget: patched.outputTarget || next.format.outputTarget, aspect: patched.aspectRatio || next.format.aspect } } })
@@ -151,9 +374,12 @@ export function handleCreateEpisode(payload = {}) {
   }
   const outgoingId = current.current.episodeId
   let production = current
+  let index = cutsIndex()
   const store = useProjectStore.getState()
   const workspaces = { ...(store.currentProject.productionWorkspaces || {}) }
   if (outgoingId && payload.snapshotCurrent !== false) {
+    const snapped = snapshotLiveIntoCurrent(index, outgoingId, project.storyboardBoard)
+    if (!snapped.skipped) index = snapped.index
     workspaces[outgoingId] = snapshotWorkspace(project)
     production = markEpisodeWorkspace(production, outgoingId, workspaces[outgoingId].savedAt)
   }
@@ -161,13 +387,19 @@ export function handleCreateEpisode(payload = {}) {
   const incoming = payload.cloneBoard
     ? snapshotWorkspace(project).storyboardBoard
     : { version: 1, cards: [] }
-  persistProduction(created.production, { storyboardBoard: incoming })
-  store.saveProject?.({ production: created.production, productionWorkspaces: workspaces, storyboardBoard: incoming })
+  const seeded = loadEpisodeBoard(index, created.episode.id, incoming)
+  const nextProduction = applyCutsToProduction(created.production, created.episode.id, seeded.bucket)
+  persistCuts(seeded.index, {
+    production: nextProduction,
+    storyboardBoard: seeded.board,
+    productionWorkspaces: workspaces,
+  })
   return {
     success: true,
     action: 'create_episode',
     episode: created.episode,
-    production: created.production,
+    production: nextProduction,
+    cut: summarizeCut(seeded.cut, seeded.bucket),
     clonedBoard: Boolean(payload.cloneBoard),
   }
 }
@@ -177,25 +409,38 @@ export function handleSwitchEpisode(payload = {}) {
   const episodeId = String(payload.episodeId || payload.id || '').trim()
   if (!episodeId) throw new Error('switch_episode needs episodeId')
   const current = hydrateProductionFromProject(project)
-  if (!findEpisode(current, episodeId)) throw new Error(`Episode '${episodeId}' not found`)
+  const hit = findEpisode(current, episodeId)
+  if (!hit) throw new Error(`Episode '${episodeId}' not found`)
   if (payload.previewOnly !== false) {
     return { previewOnly: true, action: 'switch_episode', from: current.current.episodeId, to: episodeId }
   }
   const store = useProjectStore.getState()
   const workspaces = { ...(store.currentProject.productionWorkspaces || {}) }
-  if (current.current.episodeId) {
+  let index = cutsIndex()
+  if (current.current.episodeId && payload.snapshotCurrent !== false) {
+    const snapped = snapshotLiveIntoCurrent(index, current.current.episodeId, project.storyboardBoard)
+    if (!snapped.skipped) index = snapped.index
     workspaces[current.current.episodeId] = snapshotWorkspace(project)
   }
-  const incoming = workspaces[findEpisode(current, episodeId).episode.id]?.storyboardBoard || { version: 1, cards: [] }
-  const production = setCurrentEpisode(markEpisodeWorkspace(current, current.current.episodeId), episodeId)
-  store.saveProject?.({
+  const fallback = workspaces[hit.episode.id]?.storyboardBoard || { version: 1, cards: [] }
+  const loaded = loadEpisodeBoard(index, hit.episode.id, fallback)
+  const production = applyCutsToProduction(
+    setCurrentEpisode(markEpisodeWorkspace(current, current.current.episodeId), episodeId),
+    hit.episode.id,
+    loaded.bucket,
+  )
+  persistCuts(loaded.index, {
     production,
+    storyboardBoard: loaded.board,
     productionWorkspaces: workspaces,
-    storyboardBoard: incoming,
   })
-  store.setStoryboardBoard?.(incoming)
-  store.setProduction?.(production)
-  return { success: true, action: 'switch_episode', production, cardCount: incoming.cards?.length || 0 }
+  return {
+    success: true,
+    action: 'switch_episode',
+    production,
+    cut: summarizeCut(loaded.cut, loaded.bucket),
+    cardCount: loaded.board.cards?.length || 0,
+  }
 }
 
 export function handleUpdateEpisode(payload = {}) {
@@ -360,6 +605,8 @@ export function handleProductionAction(action, payload = {}) {
       return handleGetProductionContext(payload)
     case 'list_production_catalog':
       return handleListProductionCatalog()
+    case 'discover_production':
+      return handleDiscoverProduction(payload)
     case 'get_shot_packet':
       return handleGetShotPacket(payload)
     case 'list_episodes':
@@ -390,6 +637,16 @@ export function handleProductionAction(action, payload = {}) {
       return handleStudioQaRecord(payload)
     case 'studio_flow':
       return handleStudioFlow(payload)
+    case 'list_cuts':
+      return handleListCuts(payload)
+    case 'save_cut':
+      return handleSaveCut(payload)
+    case 'checkout_cut':
+      return handleCheckoutCut(payload)
+    case 'promote_cut':
+      return handlePromoteCut(payload)
+    case 'watch_cut':
+      return handleWatchCut(payload)
     default:
       throw new Error(`Unknown production action: ${action}`)
   }

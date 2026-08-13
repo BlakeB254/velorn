@@ -2424,6 +2424,73 @@ function resolveTimelineMarkerRemovalTargets(snapshot, args = {}) {
   }
 }
 
+function listVelornResources() {
+  return [
+    {
+      uri: 'velorn://catalog/types',
+      name: 'Production types',
+      mimeType: 'text/plain',
+      description: 'CDX Studio production types Velorn accepts: show, commercial/advertisement, music-video, ig-short, skit, movie, psa, animated, website-tour, hype-video, documentary, …',
+    },
+    {
+      uri: 'velorn://catalog/flows',
+      name: 'Production flows',
+      mimeType: 'text/plain',
+      description: 'Which MCP tools to run for each production type.',
+    },
+    {
+      uri: 'velorn://recipes',
+      name: 'MCP recipes',
+      mimeType: 'text/plain',
+      description: 'Same payload as get_mcp_recipes — review passes plus production flows.',
+    },
+  ]
+}
+
+function readVelornResource(uri) {
+  const id = String(uri || '')
+  if (id === 'velorn://catalog/types') {
+    return {
+      contents: [{
+        uri: id,
+        mimeType: 'text/plain',
+        text: [
+          'Call discover_production or list_production_catalog for the live catalog.',
+          'Canonical types: show, movie, commercial, skit, ig-short, parody, music-video, psa, animated, narrative, website-tour, hype-video, site-update, documentary, animated-short.',
+          'Aliases: advertisement/ad/advert → commercial; film → movie; standalone → narrative; short/ugc → ig-short; mv → music-video.',
+          'Episodic: show (seasons/episodes + named cuts). Music video: get_music_video_session, not the storyboard packet.',
+        ].join('\n'),
+      }],
+    }
+  }
+  if (id === 'velorn://catalog/flows') {
+    return {
+      contents: [{
+        uri: id,
+        mimeType: 'text/plain',
+        text: [
+          'show → get_production_context, list_cuts, studio_cast_resolve, update_shot, queue gen, save_cut, watch_cut, promote_cut',
+          'commercial/advertisement → discover_production, set_production type=commercial, short clips, CTA in post, save_cut',
+          'ig-short/hype → set_production type=ig-short, edit-map, one beat per clip',
+          'music-video → get_music_video_session then the dedicated music-video tools (track first)',
+          'movie/documentary/parody → set_production type=movie outputTarget=computer, list_cuts for act drafts',
+          'Always previewOnly first. GPU jobs serial. One Comfy (:8188).',
+        ].join('\n'),
+      }],
+    }
+  }
+  if (id === 'velorn://recipes') {
+    return {
+      contents: [{
+        uri: id,
+        mimeType: 'application/json',
+        text: JSON.stringify(buildAiReviewPasses(getSnapshotOrEmpty(null)), null, 2),
+      }],
+    }
+  }
+  return { contents: [], _error: `Unknown resource ${id}` }
+}
+
 function buildAiReviewPasses(snapshot) {
   const timeline = snapshot?.currentTimeline || null
   const fps = Math.max(1, toFiniteNumber(timeline?.fps, 24))
@@ -2814,11 +2881,27 @@ function buildAiReviewPasses(snapshot) {
         title: 'Show / episode production packet',
         goal: 'Understand show → season → episode → shot layers, then create an episode or propose a camera handle without writing until approved.',
         prompt: 'Call get_production_context first. Read layers.show, layers.season, layers.episode, then storyboard/sequence have-vs-missing. Use list_production_catalog for lexicon ids. Create or switch episodes with previewOnly first. To suggest a new angle, use propose_shot_camera (xyz handle) — do not apply until I approve apply_shot_camera_proposal.',
-        tools: ['get_production_context', 'list_production_catalog', 'list_episodes', 'create_episode', 'switch_episode', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow'],
+        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow'],
         safeDefaults: {
           previewOnlyFirst: true,
           neverApplyCameraProposalWithoutApproval: true,
         },
+      },
+      {
+        id: 'advertisement_commercial',
+        title: 'Advertisement / commercial',
+        goal: 'Make a 15–30s product spot (aliases: advertisement, ad) with hook-by-2s feed pace and a post-composite CTA.',
+        prompt: 'Call discover_production with type=commercial (or advertisement). set_production type=commercial outputTarget=mobile. Generate short one-beat clips, audio from frame 0. Composite brand/CTA with add_text_clip — never generate on-image logos. save_cut as Draft 1 before export.',
+        tools: ['discover_production', 'set_production', 'queue_prompt_generation_batch', 'add_text_clip', 'add_assets_to_timeline', 'save_cut', 'export_timeline'],
+        safeDefaults: { previewOnlyFirst: true, outputTarget: 'mobile', type: 'commercial' },
+      },
+      {
+        id: 'ig_short_or_hype',
+        title: 'IG short / hype / site update',
+        goal: 'Single-idea 7–20s vertical. Hook by 1.5s. No establish.',
+        prompt: 'discover_production type=ig-short. Write an edit-map, generate one beat per clip, save_cut, watch_cut, mute-test the first 3s.',
+        tools: ['discover_production', 'set_production', 'queue_prompt_generation_batch', 'save_cut', 'watch_cut'],
+        safeDefaults: { previewOnlyFirst: true, type: 'ig-short' },
       },
       {
         id: 'fcpxml_interchange',
@@ -2834,8 +2917,9 @@ function buildAiReviewPasses(snapshot) {
       },
     ],
     recommendedWorkflow: [
-      'Call get_mcp_recipes or get_ai_review_passes to choose the right pass.',
-      'For a show or episode, call get_production_context first so you know show → season → episode → shot layers before writing.',
+      'Call discover_production or get_mcp_recipes first. discover_production maps advertisement/commercial/music-video/show/ig-short/skit/PSA to tools + skills.',
+      'Call get_mcp_recipes or get_ai_review_passes to choose a review or production pass.',
+      'For a show or episode, call get_production_context first so you know show → season → episode → shot layers before writing. Use list_cuts before overwriting a draft.',
       'Use create_project_checkpoint before risky multi-step AI edits; use restore_project_checkpoint with previewOnly before rolling back to a checkpoint.',
       'Call analyze_timeline for mechanical issues before visual review.',
       'Use find_timeline_items before targeting clips, tracks, markers, transitions, or assets from a natural-language request.',
@@ -6297,8 +6381,21 @@ function createToolDefinitions() {
     },
     {
       name: 'list_production_catalog',
-      description: 'Return film-lexicon ids, inherit rules, motion-library pointer, and optional extensions (camera rig, pose, depth/blender, FLF, sound). Works without an open project.',
+      description: 'Return CDX production types (show, commercial/advertisement, music-video, ig-short, skit, movie, psa, …), flow recipes, film-lexicon ids, output targets, and optional extensions. Works without an open project. Start here or with discover_production.',
       inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'discover_production',
+      description: 'Resource discovery for Velorn video work. Given a type (commercial, advertisement, music-video, show, ig-short, …) or a free-text query, return the canonical type, pacing defaults, skills to load, and the MCP flow/tools to run. Works without an open project.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', description: 'CDX/Velorn production type or alias (advertisement, ad, film, mv, …).' },
+          productionType: { type: 'string', description: 'Alias for type.' },
+          query: { type: 'string', description: 'Free-text: commercial, CTT episode, music video, PSA, website tour…' },
+          q: { type: 'string', description: 'Alias for query.' },
+        },
+      },
     },
     {
       name: 'get_shot_packet',
@@ -6323,7 +6420,7 @@ function createToolDefinitions() {
       inputSchema: {
         type: 'object',
         properties: {
-          type: { type: 'string', enum: ['show', 'film', 'short', 'commercial', 'music-video', 'standalone'] },
+          type: { type: 'string', enum: ['show', 'movie', 'film', 'commercial', 'advertisement', 'ad', 'skit', 'ig-short', 'parody', 'music-video', 'psa', 'animated', 'narrative', 'standalone', 'website-tour', 'hype-video', 'site-update', 'documentary', 'animated-short'] },
           slug: { type: 'string' },
           title: { type: 'string' },
           logline: { type: 'string' },
@@ -6363,6 +6460,75 @@ function createToolDefinitions() {
           previewOnly: { type: 'boolean' },
         },
         required: ['episodeId'],
+      },
+    },
+    {
+      name: 'list_cuts',
+      description: 'List named drafts/cuts for an episode. Primary is the official version. Current is the cut checked out onto the live storyboard. Both can be watched and either can be promoted.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          episodeId: { type: 'string', description: 'Defaults to the current episode.' },
+        },
+      },
+    },
+    {
+      name: 'save_cut',
+      description: 'Preview or snapshot the live storyboard as a named episode cut (e.g. "Draft 1", "Grok Draft 1"). Also builds a watchable review timeline. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Draft 1, Grok Draft 1, …' },
+          author: { type: 'string', description: 'blake, grok, or another label' },
+          notes: { type: 'string' },
+          episodeId: { type: 'string' },
+          cutId: { type: 'string', description: 'Update this cut id instead of creating by name.' },
+          pinTimelineId: { type: 'string', description: 'Reuse an existing timeline (e.g. timeline-assembly) as the watch target.' },
+          makeCurrent: { type: 'boolean', description: 'Check this cut out after saving. Default true.' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['name'],
+      },
+    },
+    {
+      name: 'checkout_cut',
+      description: 'Preview or load a named cut onto the live storyboard. Snapshots the outgoing live board back into the previously checked-out cut first. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cutId: { type: 'string', description: 'draft-1, grok-draft-1, or the display name' },
+          episodeId: { type: 'string' },
+          snapshotCurrent: { type: 'boolean' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['cutId'],
+      },
+    },
+    {
+      name: 'promote_cut',
+      description: 'Preview or mark a named cut as the episode primary (official) version. Does not delete other drafts. Set checkout=true to also load it onto the live board. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cutId: { type: 'string' },
+          episodeId: { type: 'string' },
+          checkout: { type: 'boolean' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['cutId'],
+      },
+    },
+    {
+      name: 'watch_cut',
+      description: 'Preview or open a cut’s review timeline in Sequence so it is watchable without promoting it. Rebuilds the review timeline from the saved board. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cutId: { type: 'string' },
+          episodeId: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['cutId'],
       },
     },
     {
@@ -8869,6 +9035,10 @@ function createToolDefinitions() {
             type: 'number',
             description: 'Optional project frame rate. Defaults to Velorn new-project defaults.',
           },
+          type: {
+            type: 'string',
+            description: 'CDX production type: show, commercial, advertisement, music-video, ig-short, skit, movie, psa, website-tour, hype-video, documentary, …',
+          },
           previewOnly: {
             type: 'boolean',
             description: 'When true, returns the project creation plan without creating a folder. Defaults to true.',
@@ -10888,7 +11058,10 @@ class ComfyStudioMcpServer {
           result = await this.callTool(params?.name, params?.arguments || {})
           break
         case 'resources/list':
-          result = { resources: [] }
+          result = { resources: listVelornResources() }
+          break
+        case 'resources/read':
+          result = readVelornResource(params?.uri)
           break
         default:
           return {
@@ -10933,6 +11106,7 @@ class ComfyStudioMcpServer {
       'install_workflow_setup',
       'get_workflow_install_status',
       'list_production_catalog',
+      'discover_production',
     ])
     if (!hasSnapshot(snapshot) && !toolsAllowedWithoutProject.has(name)) {
       return errorResult('No Velorn project is open yet.')
@@ -10941,11 +11115,17 @@ class ComfyStudioMcpServer {
     switch (name) {
       case 'get_production_context':
       case 'list_production_catalog':
+      case 'discover_production':
       case 'get_shot_packet':
       case 'list_episodes':
+      case 'list_cuts':
       case 'set_production':
       case 'create_episode':
       case 'switch_episode':
+      case 'save_cut':
+      case 'checkout_cut':
+      case 'promote_cut':
+      case 'watch_cut':
       case 'update_episode':
       case 'update_shot':
       case 'propose_shot_camera':
@@ -10963,6 +11143,10 @@ class ComfyStudioMcpServer {
             'set_production',
             'create_episode',
             'switch_episode',
+            'save_cut',
+            'checkout_cut',
+            'promote_cut',
+            'watch_cut',
             'update_episode',
             'update_shot',
             'propose_shot_camera',

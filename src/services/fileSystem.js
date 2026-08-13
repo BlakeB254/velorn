@@ -513,6 +513,7 @@ export const isValidProject = async (dir) => {
  */
 export const listProjects = async (baseDir) => {
   const projects = []
+  const { shouldListProjectFolder, projectListMeta } = await import('./projectListing.js')
   
   if (isElectron()) {
     const result = await window.electronAPI.listDirectory(baseDir, { includeStats: true })
@@ -523,6 +524,7 @@ export const listProjects = async (baseDir) => {
     
     for (const entry of result.items) {
       if (entry.isDirectory) {
+        if (!shouldListProjectFolder(entry.name, entry.path)) continue
         try {
           const isProject = await isValidProject(entry.path)
           if (isProject) {
@@ -535,6 +537,7 @@ export const listProjects = async (baseDir) => {
                 created: projectData.created,
                 settings: projectData.settings,
                 thumbnail: projectData.thumbnail,
+                ...projectListMeta(projectData),
               })
             }
           }
@@ -547,6 +550,7 @@ export const listProjects = async (baseDir) => {
     // Web fallback
     for await (const entry of baseDir.values()) {
       if (entry.kind === 'directory') {
+        if (!shouldListProjectFolder(entry.name, entry.name)) continue
         try {
           const isProject = await isValidProject(entry)
           if (isProject) {
@@ -559,6 +563,7 @@ export const listProjects = async (baseDir) => {
                 created: projectData.created,
                 settings: projectData.settings,
                 thumbnail: projectData.thumbnail,
+                ...projectListMeta(projectData),
               })
             }
           }

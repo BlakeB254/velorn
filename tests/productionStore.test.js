@@ -13,6 +13,7 @@ import {
   setStandIns,
 } from '../src/services/cameraRig.js'
 import {
+  bootstrapProduction,
   createEpisode,
   episodeCode,
   findEpisode,
@@ -80,6 +81,17 @@ test('hydrate CTT-shaped project as a show with season 1 / episode 1', () => {
   assert.equal(layers.season.id, 'season-01')
   assert.equal(layers.episode.id, 's01e001')
   assert.ok(layers.guide.some((layer) => layer.id === 'shot'))
+})
+
+test('bootstrapProduction seeds a show with episode 1 and keeps ads non-episodic type', () => {
+  const show = bootstrapProduction({ name: 'Chi-Town Triplets', type: 'show' })
+  assert.equal(show.type, 'show')
+  assert.equal(show.current.episodeId, 's01e001')
+  assert.equal(show.seasons[0].episodes[0].title, 'Episode 1')
+  const ad = bootstrapProduction({ name: 'BiscuitGifs', type: 'advertisement' })
+  assert.equal(ad.type, 'commercial')
+  assert.equal(ad.current.episodeId, 's01e001')
+  assert.equal(ad.seasons[0].episodes[0].title, 'Main')
 })
 
 test('createEpisode upgrades standalone to show and increments ids', () => {

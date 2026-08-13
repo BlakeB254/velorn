@@ -823,9 +823,11 @@ function WelcomeScreen() {
                       {/* Name */}
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium text-sf-text-primary truncate">{project.name}</p>
-                        {project.path && (
-                          <p className="text-[10px] text-sf-text-muted truncate">{project.path}</p>
-                        )}
+                        <p className="text-[10px] text-sf-text-muted truncate">
+                          {project.productionType ? `${project.productionType}` : ''}
+                          {project.versionCount ? `${project.productionType ? ' · ' : ''}${project.versionCount} version${project.versionCount === 1 ? '' : 's'}` : ''}
+                          {project.path ? `${project.productionType || project.versionCount ? ' · ' : ''}${project.path}` : ''}
+                        </p>
                       </div>
                       {/* Metadata columns */}
                       <div className="hidden sm:flex flex-shrink-0 items-center gap-4 text-[11px] text-sf-text-muted tabular-nums">
@@ -911,6 +913,12 @@ function WelcomeScreen() {
                         </p>
                         <div className="flex items-center gap-1.5 text-[10px] text-sf-text-muted mt-0.5 truncate">
                           <span>{formatDate(project.modified)}</span>
+                          {project.versionCount > 0 && (
+                            <>
+                              <span className="opacity-50">•</span>
+                              <span>{project.versionCount} version{project.versionCount === 1 ? '' : 's'}</span>
+                            </>
+                          )}
                           {resolution && (
                             <>
                               <span className="opacity-50">•</span>

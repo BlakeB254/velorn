@@ -20,15 +20,45 @@ shot: lexicon + camera xyz handle + 1 location + 0–N characters + pose/motion 
 |-----|------|
 | `production` | type (`show`…), bible, seasons[], current episode pointer |
 | `studio` | CDX-ported cast tiers, slots, QA, EDL/blocking index |
-| `storyboardBoard` | live cards for the current episode |
+| `storyboardBoard` | live cards for the checked-out cut of the current episode |
+| `productionCuts` | named drafts per episode (`draft-1`, `grok-draft-1`, …) + review timeline ids |
 | `settings.cinematography` | inherited project look (lens/light/grade/mood) |
 | `shortFilmDirector` | imported bible/cast/locations (hydrates production if needed) |
 
 ## MCP (Velorn app on :19790)
 
-Read: `get_production_context`, `get_shot_packet`, `list_episodes`, `list_production_catalog`, `studio_cast_resolve`, `studio_slots_list`, `studio_flow`
+Read: `discover_production`, `get_production_context`, `get_shot_packet`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_slots_list`, `studio_flow`
 
-Write (previewOnly first): `set_production`, `create_episode`, `switch_episode`, `update_shot`, `propose_shot_camera`, `apply_shot_camera_proposal`, `studio_slots_mutate`, `studio_qa_record`
+Types (CDX Studio set): `show`, `commercial` (advertisement/ad), `music-video`, `ig-short`, `skit`, `movie` (film), `psa`, `website-tour`, `hype-video`, `site-update`, `documentary`, `animated`, `narrative` (standalone).
+
+Write (previewOnly first): `set_production`, `create_episode`, `switch_episode`, `save_cut`, `checkout_cut`, `watch_cut`, `promote_cut`, `update_shot`, `propose_shot_camera`, `apply_shot_camera_proposal`, `studio_slots_mutate`, `studio_qa_record`
+
+## Episode cuts (drafts)
+
+Named versions of **one episode inside one show project**. Draft 1 and Grok Draft 1
+are not sibling folders on the welcome screen. Never `create_project` / Save As for
+a cut — use `save_cut`. A mistaken second folder belongs in `_archive/` and is
+hidden from the project list.
+
+The live storyboard is the checked-out version. Primary is the official version.
+Saving a version does not delete the others. Switching episodes snapshots the
+open version first, then loads that episode's current version.
+
+| Action | Meaning |
+|---|---|
+| `save_cut` | Snapshot the live board as e.g. `Draft 1` or `Grok Draft 1` + build a review timeline |
+| `checkout_cut` | Load that draft onto the live board (snapshots the outgoing draft first) |
+| `watch_cut` | Open the cut’s review timeline in Sequence without promoting |
+| `promote_cut` | Mark it primary. Other drafts stay. `checkout=true` also loads it. |
+
+`project.productionCuts[episodeId]` holds the snapshots. `production.current.cutId` is the checkout pointer.
+
+```bash
+node ~/opensource/velorn/scripts/velorn-production.mjs cuts "Chi-Town Triplets"
+node ~/opensource/velorn/scripts/velorn-production.mjs save-cut --name "Draft 1" --author blake "Chi-Town Triplets"
+node ~/opensource/velorn/scripts/velorn-production.mjs checkout-cut --cut grok-draft-1 "Chi-Town Triplets"
+node ~/opensource/velorn/scripts/velorn-production.mjs promote-cut --cut draft-1 "Chi-Town Triplets"
+```
 
 Camera handle is **meters ENU** (`x_m` right, `y_m` forward, `z_m` up, never 0). Propose does not apply. Blake or `apply_shot_camera_proposal` commits it.
 

@@ -12,17 +12,16 @@
 
 import { normalizeSeason as normalizeSeasonId } from './studioStore.js'
 import { emptyProjectLook, normalizeProjectLook } from './shotSettings.js'
+import {
+  PRODUCTION_TYPES,
+  applyTypeDefaults,
+  getProductionType,
+  normalizeProductionType,
+} from './productionTypes.js'
+
+export { PRODUCTION_TYPES } from './productionTypes.js'
 
 export const PRODUCTION_VERSION = 1
-
-export const PRODUCTION_TYPES = Object.freeze([
-  'show',
-  'film',
-  'short',
-  'commercial',
-  'music-video',
-  'standalone',
-])
 
 export const EPISODE_STATUSES = Object.freeze([
   'bible',
@@ -160,7 +159,7 @@ function emptySeason(partial = {}) {
 export function emptyProduction() {
   return {
     schemaVersion: PRODUCTION_VERSION,
-    type: 'standalone',
+    type: 'narrative',
     slug: '',
     title: '',
     logline: '',
@@ -168,7 +167,7 @@ export function emptyProduction() {
     format: { aspect: '', outputTarget: '', durationHint: '', fps: null },
     look: emptyProjectLook(),
     show: emptyShow(),
-    current: { seasonId: '', episodeId: '' },
+    current: { seasonId: '', episodeId: '', cutId: '' },
     seasons: [],
     updatedAt: '',
   }
@@ -192,7 +191,7 @@ function normalizeShow(raw) {
 export function normalizeProduction(raw) {
   const blank = emptyProduction()
   if (!isPlainObject(raw)) return blank
-  const type = PRODUCTION_TYPES.includes(raw.type) ? raw.type : blank.type
+  const type = normalizeProductionType(raw.type, blank.type)
   const seasons = Array.isArray(raw.seasons)
     ? raw.seasons.filter(isPlainObject).map((season, index) => emptySeason({
       ...season,
@@ -208,17 +207,19 @@ export function normalizeProduction(raw) {
     title: asString(raw.title),
     logline: asString(raw.logline),
     premise: asString(raw.premise),
-    format: {
+    format: applyTypeDefaults(type, {
       aspect: asString(raw.format?.aspect),
       outputTarget: asString(raw.format?.outputTarget),
       durationHint: asString(raw.format?.durationHint || raw.format?.runtime),
       fps: asNumber(raw.format?.fps),
-    },
+      paceMode: asString(raw.format?.paceMode),
+    }),
     look: normalizeProjectLook(raw.look),
     show: normalizeShow(raw.show),
     current: {
       seasonId: currentSeasonId,
       episodeId: currentEpisodeId,
+      cutId: asString(raw.current?.cutId),
     },
     seasons,
     updatedAt: asString(raw.updatedAt),
@@ -226,11 +227,11 @@ export function normalizeProduction(raw) {
 }
 
 function inferType(project) {
-  const hinted = asString(project?.cdxMigration?.type || project?.production?.type).toLowerCase()
-  if (PRODUCTION_TYPES.includes(hinted)) return hinted
+  const hinted = normalizeProductionType(project?.cdxMigration?.type || project?.production?.type, '')
+  if (hinted) return hinted
   if (project?.cdxMigration?.season || project?.cdxMigration?.episode) return 'show'
-  if (project?.shortFilmDirector) return 'short'
-  return 'standalone'
+  if (project?.shortFilmDirector) return 'narrative'
+  return 'narrative'
 }
 
 export function hydrateProductionFromProject(project) {
@@ -240,7 +241,7 @@ export function hydrateProductionFromProject(project) {
   const draft = isPlainObject(director.draft) ? director.draft : {}
   const settings = isPlainObject(project?.settings) ? project.settings : {}
 
-  const type = existing.type !== 'standalone' || project?.production?.type
+  const type = project?.production?.type
     ? existing.type
     : inferType(project)
 
@@ -303,7 +304,7 @@ export function hydrateProductionFromProject(project) {
     format,
     look,
     show,
-    current: { seasonId: currentSeasonId, episodeId: currentEpisodeId },
+    current: { seasonId: currentSeasonId, episodeId: currentEpisodeId, cutId: existing.current.cutId || '' },
     seasons,
     updatedAt: existing.updatedAt || nowIso(),
   }
@@ -357,6 +358,21 @@ export function upsertSeason(production, fields = {}) {
   return { ...norm, seasons, updatedAt: nowIso() }
 }
 
+export function bootstrapProduction({ name = '', type = 'show' } = {}) {
+  const production = setProductionMeta(emptyProduction(), {
+    type,
+    title: name,
+    slug: name,
+  })
+  const def = getProductionType(production.type)
+  const created = createEpisode(production, {
+    number: 1,
+    title: def?.episodic ? 'Episode 1' : 'Main',
+    asShow: Boolean(def?.episodic),
+  })
+  return created.production
+}
+
 export function createEpisode(production, fields = {}) {
   const withSeason = fields.seasonId || fields.season
     ? upsertSeason(production, { id: fields.seasonId || fields.season, number: fields.seasonNumber })
@@ -384,7 +400,7 @@ export function createEpisode(production, fields = {}) {
   ))
   const next = {
     ...withSeason,
-    type: withSeason.type === 'standalone' ? 'show' : withSeason.type,
+    type: withSeason.type === 'narrative' && fields.asShow !== false ? 'show' : withSeason.type,
     seasons,
     updatedAt: nowIso(),
   }
@@ -418,7 +434,7 @@ export function setCurrentEpisode(production, episodeId) {
   if (!hit) throw new Error(`Episode '${episodeId}' not found`)
   return {
     ...normalizeProduction(production),
-    current: { seasonId: hit.season.id, episodeId: hit.episode.id },
+    current: { seasonId: hit.season.id, episodeId: hit.episode.id, cutId: '' },
     updatedAt: nowIso(),
   }
 }
@@ -426,7 +442,10 @@ export function setCurrentEpisode(production, episodeId) {
 export function setProductionMeta(production, fields = {}) {
   const norm = normalizeProduction(production)
   const next = { ...norm, updatedAt: nowIso() }
-  if (fields.type && PRODUCTION_TYPES.includes(fields.type)) next.type = fields.type
+  if (fields.type) {
+    next.type = normalizeProductionType(fields.type, next.type)
+    next.format = applyTypeDefaults(next.type, next.format)
+  }
   if (fields.slug !== undefined) next.slug = slugify(fields.slug, next.slug)
   if (fields.title !== undefined) next.title = asString(fields.title)
   if (fields.logline !== undefined) next.logline = asString(fields.logline)
@@ -467,6 +486,7 @@ export function productionSummary(production) {
     episodeCount: norm.seasons.reduce((sum, season) => sum + season.episodes.length, 0),
     currentSeasonId: norm.current.seasonId,
     currentEpisodeId: norm.current.episodeId,
+    currentCutId: norm.current.cutId || '',
     currentEpisodeTitle: current?.episode?.title || '',
     currentEpisodeStatus: current?.episode?.status || '',
     layers: CONTEXT_LAYERS.map((layer) => layer.id),

@@ -1,6 +1,27 @@
 import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import useProjectStore, { RESOLUTION_PRESETS, FPS_PRESETS } from '../stores/projectStore'
+import { getOutputTarget } from '../services/outputRatio'
+import { getProductionType, listProductionTypes } from '../services/productionTypes'
+
+const PROJECT_TYPES = listProductionTypes().filter((item) => item.id !== 'animated-short')
+
+function applyTypeResolution(typeId, setSelectedResolution, setIsCustomResolution, setCustomWidth, setCustomHeight) {
+  const def = getProductionType(typeId)
+  if (!def?.outputTarget) return
+  const target = getOutputTarget(def.outputTarget)
+  const preset = RESOLUTION_PRESETS.find((item) => (
+    item.width === target.edit.width && item.height === target.edit.height
+  ))
+  if (preset) {
+    setSelectedResolution(preset)
+    setIsCustomResolution(false)
+    return
+  }
+  setCustomWidth(target.edit.width)
+  setCustomHeight(target.edit.height)
+  setIsCustomResolution(true)
+}
 
 function NewProjectDialog({ isOpen, onClose }) {
   const { createProject, defaultResolution, defaultFps } = useProjectStore()
@@ -18,6 +39,7 @@ function NewProjectDialog({ isOpen, onClose }) {
   })
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState(null)
+  const [projectType, setProjectType] = useState('show')
 
   // Sync with store defaults when dialog opens
   useEffect(() => {
@@ -26,6 +48,8 @@ function NewProjectDialog({ isOpen, onClose }) {
       const fpsPreset = FPS_PRESETS.find(f => f.value === (defaultFps ?? 24)) || FPS_PRESETS[2]
       setSelectedResolution(resPreset)
       setSelectedFps(fpsPreset)
+      setProjectType('show')
+      applyTypeResolution('show', setSelectedResolution, setIsCustomResolution, setCustomWidth, setCustomHeight)
     }
   }, [isOpen, defaultResolution, defaultFps])
   
@@ -58,6 +82,7 @@ function NewProjectDialog({ isOpen, onClose }) {
         width: finalWidth,
         height: finalHeight,
         fps: selectedFps.value,
+        type: projectType,
       })
       
       if (result) {
@@ -83,6 +108,8 @@ function NewProjectDialog({ isOpen, onClose }) {
     setCustomHeight(1080)
     setIsCustomResolution(false)
     setSelectedFps(fpsPreset)
+    setProjectType('show')
+    applyTypeResolution('show', setSelectedResolution, setIsCustomResolution, setCustomWidth, setCustomHeight)
     setError(null)
   }
   
@@ -95,7 +122,7 @@ function NewProjectDialog({ isOpen, onClose }) {
   
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-sf-dark-900 border border-sf-dark-700 rounded-xl w-full max-w-md mx-4 overflow-hidden shadow-2xl">
+      <div className="bg-sf-dark-900 border border-sf-dark-700 rounded-xl w-full max-w-xl mx-4 max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-sf-dark-700">
           <h2 className="text-lg font-semibold text-sf-text-primary">New Project</h2>
@@ -109,7 +136,7 @@ function NewProjectDialog({ isOpen, onClose }) {
         </div>
         
         {/* Content */}
-        <div className="p-5 space-y-5">
+        <div className="p-5 space-y-5 overflow-y-auto">
           {/* Error Display */}
           {error && (
             <div className="p-3 bg-sf-error/20 border border-sf-error/50 rounded-lg">
@@ -138,6 +165,39 @@ function NewProjectDialog({ isOpen, onClose }) {
             )}
           </div>
           
+          {/* Production type */}
+          <div>
+            <label className="block text-sm font-medium text-sf-text-primary mb-2">
+              Project type
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {PROJECT_TYPES.map((item) => {
+                const selected = projectType === item.id
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setProjectType(item.id)
+                      applyTypeResolution(item.id, setSelectedResolution, setIsCustomResolution, setCustomWidth, setCustomHeight)
+                    }}
+                    disabled={isCreating}
+                    className={`px-3 py-2 rounded-lg text-left transition-colors ${
+                      selected
+                        ? 'bg-sf-accent text-white'
+                        : 'bg-sf-dark-800 border border-sf-dark-600 text-sf-text-primary hover:border-sf-dark-500'
+                    } disabled:opacity-50`}
+                  >
+                    <p className="text-xs font-medium">{item.label}</p>
+                    <p className={`text-[10px] leading-snug ${selected ? 'opacity-80' : 'opacity-70'}`}>
+                      {item.description}
+                    </p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Resolution */}
           <div>
             <label className="block text-sm font-medium text-sf-text-primary mb-2">
@@ -242,6 +302,8 @@ function NewProjectDialog({ isOpen, onClose }) {
           <div className="bg-sf-dark-800 rounded-lg p-3">
             <p className="text-xs text-sf-text-muted mb-1">Project Settings</p>
             <p className="text-sm text-sf-text-primary">
+              {getProductionType(projectType)?.label || projectType}
+              {' · '}
               {finalWidth} × {finalHeight} at {selectedFps.value} fps
               {isCustomResolution && (
                 <span className="text-sf-text-muted"> ({getAspectRatio(finalWidth, finalHeight)})</span>

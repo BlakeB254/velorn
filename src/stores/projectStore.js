@@ -28,10 +28,13 @@ import {
   normalizeStudio,
 } from '../services/studioStore'
 import {
-  emptyProduction,
+  bootstrapProduction,
   hydrateProductionFromProject,
   normalizeProduction,
 } from '../services/productionStore'
+import { emptyCut, emptyEpisodeCuts } from '../services/productionCuts'
+import { inferOutputTarget } from '../services/outputRatio'
+import { normalizeProductionType } from '../services/productionTypes'
 
 /**
  * Resolution presets for new projects
@@ -400,7 +403,7 @@ export const useProjectStore = create(
        * @param {number} options.height - Resolution height
        * @param {number} options.fps - Frame rate
        */
-      createProject: async ({ name, width, height, fps }) => {
+      createProject: async ({ name, width, height, fps, type }) => {
         const state = get()
         
         if (!state.defaultProjectsHandle) {
@@ -417,6 +420,28 @@ export const useProjectStore = create(
           // Create default timeline
           const defaultTimeline = createDefaultTimeline('Timeline 1')
           
+          const production = bootstrapProduction({
+            name,
+            type: normalizeProductionType(type, 'show'),
+          })
+          const output = inferOutputTarget({
+            outputTarget: production.format?.outputTarget,
+            width,
+            height,
+            aspect: production.format?.aspect,
+          })
+          const episodeId = production.current?.episodeId || ''
+          const productionCuts = episodeId
+            ? {
+              [episodeId]: emptyEpisodeCuts({
+                episodeId,
+                primaryId: 'draft-1',
+                currentId: 'draft-1',
+                cuts: [emptyCut({ name: 'Draft 1', id: 'draft-1', slug: 'draft-1' })],
+              }),
+            }
+            : {}
+
           // Create project data with timelines array
           const projectData = {
             name,
@@ -427,7 +452,8 @@ export const useProjectStore = create(
               width,
               height,
               fps,
-              aspectRatio: `${width}:${height}`,
+              aspectRatio: production.format?.aspect || output.aspect || `${width}:${height}`,
+              outputTarget: output.id,
             },
             timelines: [defaultTimeline], // Array of timelines
             currentTimelineId: defaultTimeline.id,
@@ -435,7 +461,9 @@ export const useProjectStore = create(
             flowAi: createDefaultFlowAiProjectData(),
             generateWorkspace: null,
             studio: emptyStudio(),
-            production: emptyProduction(),
+            production,
+            productionCuts,
+            storyboardBoard: { version: 1, cards: [] },
           }
           
           // Save project file
@@ -1163,7 +1191,10 @@ export const useProjectStore = create(
             const prev = key ? byKey.get(key) : null
             byKey.set(key, prev ? { ...prev, ...fresh, path: fresh.path || prev.path } : fresh)
           }
-          const merged = Array.from(byKey.values())
+          const { shouldListProjectFolder } = await import('../services/projectListing.js')
+          const merged = Array.from(byKey.values()).filter((item) => (
+            shouldListProjectFolder(item.name, item.path || '')
+          ))
           merged.sort((a, b) => new Date(b.modified || 0) - new Date(a.modified || 0))
           return merged
         } catch (err) {
