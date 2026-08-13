@@ -53,6 +53,7 @@ import {
   loadProject as loadProjectFile,
   saveProject as saveProjectFile,
 } from '../services/fileSystem'
+import { finalizeVelornGeneration } from '../services/generationPlacement'
 import { enqueuePlaybackTranscode } from '../services/playbackCache'
 import { enqueueProxyTranscode, isProxyPlaybackEnabled } from '../services/proxyCache'
 import { formatCaptionCuesAsSrt, transcribeAsset } from '../services/captionTranscription'
@@ -739,7 +740,8 @@ function normalizePersistedGenerationJob(job) {
       }
       : null,
     status,
-    progress: hasPromptId ? Math.max(Number(job.progress) || 0, 45) : 0,
+    progress: 0,
+    progressSource: 'ledger',
     error: null,
     node: null,
     restoredFromLedger: true,
@@ -3763,6 +3765,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   const [generationQueue, setGenerationQueue] = useState(() => loadPersistedGenerationQueue())
   const [pendingAutoQueue, setPendingAutoQueue] = useState(null)
   const pendingStoryboardCardIdRef = useRef(null)
+  const pendingPlacementRef = useRef(null)
+  const pendingVelornMetaRef = useRef(null)
   const [generationCompletionSoundSettings, setGenerationCompletionSoundSettingsState] = useState(() => (
     getGenerationCompletionSoundSettings()
   ))
@@ -3935,6 +3939,12 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       setFormError(null)
       if (detail.storyboardCardId) {
         pendingStoryboardCardIdRef.current = detail.storyboardCardId
+      }
+      if (detail.placement) {
+        pendingPlacementRef.current = detail.placement
+      }
+      if (detail.velornMeta) {
+        pendingVelornMetaRef.current = detail.velornMeta
       }
       if (detail.autoQueue) {
         setPendingAutoQueue({
@@ -7395,6 +7405,34 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     }))
   }, [])
 
+  useEffect(() => {
+    if (!isConnected) return undefined
+    let cancelled = false
+    const dropStaleLedgerJobs = async () => {
+      const candidates = queueRef.current.filter((job) => (
+        job?.promptId && RECOVERABLE_JOB_STATUSES.has(job.status)
+      ))
+      for (const job of candidates) {
+        if (cancelled) return
+        try {
+          const presence = await comfyui.getPromptProgress(job.promptId)
+          if (cancelled) return
+          if (presence?.status === 'unknown') {
+            updateJob(job.id, {
+              status: 'error',
+              error: 'ComfyUI is idle — this job is not in the queue or history. Generate again.',
+              progress: 0,
+              progressSource: 'reconcile',
+            })
+            addComfyLog('error', `Dropped stale job ${String(job.workflowLabel || job.workflowId || job.id).slice(0, 48)} — ComfyUI has nothing queued.`)
+          }
+        } catch (_) { /* next job */ }
+      }
+    }
+    dropStaleLedgerJobs()
+    return () => { cancelled = true }
+  }, [addComfyLog, isConnected, updateJob])
+
   const updateJobByPromptId = useCallback((promptId, updater) => {
     if (!promptId) return
     setGenerationQueue(prev => prev.map(job => {
@@ -7426,7 +7464,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         return {
           ...job,
           status: job.status === 'queued' ? 'running' : job.status,
-          progress: Math.min(99, Math.max(job.progress || 0, percent))
+          progress: Math.min(99, Math.max(0, percent)),
+          progressSource: 'sampler',
         }
       })
     }
@@ -8082,6 +8121,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       templateParameters: { ...(templateParameterValues || {}) },
       inputFromTimelineFrame: false,
       storyboardCardId: overrides.storyboardCardId || pendingStoryboardCardIdRef.current || null,
+      placement: overrides.placement || pendingPlacementRef.current || null,
+      velornMeta: overrides.velornMeta || pendingVelornMetaRef.current || null,
       referenceAssetId1: workflowId === 'image-edit' ? referenceAssetId1 : null,
       referenceAssetId2: workflowId === 'image-edit' ? referenceAssetId2 : null,
       frameTime: frameTime || 0,
@@ -13707,6 +13748,9 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     })
 
     enqueueJob(job)
+    pendingStoryboardCardIdRef.current = null
+    pendingPlacementRef.current = null
+    pendingVelornMetaRef.current = null
     return {
       success: true,
       queued: 1,
@@ -15072,13 +15116,17 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
       if (wsReportedSuccess) postSuccessTries += 1
 
-      // Progress heuristic: map elapsed time onto a slow 0→90 curve until
-      // we get a real completion signal. (Real fine-grained % comes from
-      // the WS `progress` event stream that useComfyUI listens to.)
-      const progressPct = Math.min(90, (elapsed / (15 * 60 * 1000)) * 90)
-      onProgress(progressPct)
-
       try {
+        if (elapsed > 4000 || idleFor > 2000) {
+          const presence = await comfyui.getPromptProgress(promptId)
+          if (presence?.status === 'unknown') {
+            throw new Error('ComfyUI is idle — this job is not in the queue or history. The Velorn pending state was leftover. Generate again.')
+          }
+          if (presence?.status === 'error' && presence.error && !wsReportedSuccess) {
+            const detail = typeof presence.error === 'string' ? presence.error : 'ComfyUI reported an execution error'
+            throw new Error(detail)
+          }
+        }
         const history = await comfyui.getHistory(promptId)
         consecutivePollErrors = 0
         // ComfyUI may return { [promptId]: { outputs } } or (for /history/id) { outputs } at top level
@@ -15946,18 +15994,24 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       }
 
       if (job.promptId) {
+        const presence = await comfyui.getPromptProgress(job.promptId)
+        if (presence?.status === 'unknown') {
+          throw new Error('ComfyUI is idle — this job is not in the queue or history. The Velorn pending state was leftover. Generate again.')
+        }
         markPromptHandledByApp(job.promptId)
         updateJob(job.id, {
-          status: 'running',
-          progress: Math.max(Number(job.progress) || 0, 45),
+          status: presence?.status === 'pending' ? 'queued' : 'running',
+          progress: Number(job.progress) > 0 && Number(job.progress) < 45 ? Number(job.progress) : 8,
+          progressSource: 'phase',
           error: null,
         })
         addComfyLog('status', `Reconnected to prompt ${String(job.promptId).slice(0, 8)}…`)
         const result = await pollForResult(job.promptId, job.workflowId, (p) => {
-          updateJob(job.id, (prev) => ({
-            ...prev,
-            progress: Math.max(prev.progress || 0, p)
-          }))
+          updateJob(job.id, (prev) => (
+            prev.progressSource === 'sampler'
+              ? prev
+              : { ...prev, progress: Math.max(prev.progress || 0, Math.min(20, Number(p) || 0)), progressSource: prev.progressSource || 'phase' }
+          ))
         }, outputPrefix)
 
         if (result) {
@@ -16659,6 +16713,21 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           })
           break
         default: {
+          if (String(job.workflowId || '').startsWith('cdx-')) {
+            modifiedWorkflow = modifyLocalApiWorkflow(workflowJson, {
+              prompt: job.prompt,
+              negativePrompt: job.negativePrompt,
+              inputImage: uploadedFilename,
+              inputVideo: uploadedVideoFilename,
+              width: job.resolution?.width,
+              height: job.resolution?.height,
+              duration: job.duration,
+              fps: job.fps,
+              seed: job.seed,
+              filenamePrefix: outputPrefix || `${job.category === 'video' ? 'video' : 'image'}/${job.workflowId}`,
+            })
+            break
+          }
           const nativeCheck = await import('../config/comfyNativeTemplates')
           const nativeRunner = await import('../services/comfyTemplateRunner')
           if (nativeCheck.isComfyNativeTemplate(job.workflowId)) {
@@ -16698,25 +16767,19 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         }
       }
 
-      updateJob(job.id, { status: 'queuing', progress: 40 })
+      updateJob(job.id, { status: 'queuing', progress: 12, progressSource: 'phase' })
       const promptId = await comfyui.queuePrompt(modifiedWorkflow)
       if (!promptId) throw new Error('Failed to queue prompt')
 
       // Claim this prompt ID so the ComfyUI-tab auto-import bridge
       // doesn't also try to import the same outputs into
-      // `Imported from ComfyUI/` (we're already importing them into
       // `Generated/` via saveGenerationResult below).
       markPromptHandledByApp(promptId)
 
-      updateJob(job.id, { status: 'running', progress: 45, promptId })
+      updateJob(job.id, { status: 'running', progress: 15, promptId, progressSource: 'phase' })
 
-      // Poll for completion
-      const result = await pollForResult(promptId, job.workflowId, (p) => {
-        updateJob(job.id, (prev) => ({
-          ...prev,
-          progress: Math.max(prev.progress || 0, p)
-        }))
-      }, outputPrefix)
+      // Poll for completion. Sampler % comes from the WS progress listener.
+      const result = await pollForResult(promptId, job.workflowId, () => {}, outputPrefix)
 
       // Save result to assets
       if (result) {
@@ -16733,6 +16796,14 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           progress: 100,
           resultAssetIds: importedAssets.map((asset) => asset?.id).filter(Boolean),
         })
+        try {
+          await finalizeVelornGeneration({
+            job: { ...job, status: 'done', resultAssetIds: importedAssets.map((asset) => asset?.id).filter(Boolean) },
+            importedAssets,
+          })
+        } catch (placeErr) {
+          console.warn('Velorn placement / DAM ingest failed:', placeErr)
+        }
       } else {
         const msg = 'Generation finished but the output could not be detected'
         addComfyLog('error', msg)
@@ -16741,6 +16812,9 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           error: msg,
           progress: 0
         })
+        try {
+          await finalizeVelornGeneration({ job: { ...job, status: 'error', error: msg }, importedAssets: [] })
+        } catch (_) { /* ignore */ }
       }
     } catch (err) {
       const msg = err?.message || 'Generation failed'
@@ -16750,6 +16824,9 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         error: msg,
         progress: 0
       })
+      try {
+        await finalizeVelornGeneration({ job: { ...job, status: 'error', error: msg }, importedAssets: [] })
+      } catch (_) { /* ignore */ }
     } finally {
       await finalizeStoryboardPdfBatchForJob(job, importedAssets)
     }

@@ -2810,6 +2810,17 @@ function buildAiReviewPasses(snapshot) {
         },
       },
       {
+        id: 'show_production_context',
+        title: 'Show / episode production packet',
+        goal: 'Understand show → season → episode → shot layers, then create an episode or propose a camera handle without writing until approved.',
+        prompt: 'Call get_production_context first. Read layers.show, layers.season, layers.episode, then storyboard/sequence have-vs-missing. Use list_production_catalog for lexicon ids. Create or switch episodes with previewOnly first. To suggest a new angle, use propose_shot_camera (xyz handle) — do not apply until I approve apply_shot_camera_proposal.',
+        tools: ['get_production_context', 'list_production_catalog', 'list_episodes', 'create_episode', 'switch_episode', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow'],
+        safeDefaults: {
+          previewOnlyFirst: true,
+          neverApplyCameraProposalWithoutApproval: true,
+        },
+      },
+      {
         id: 'fcpxml_interchange',
         title: 'XML Interchange Pass',
         goal: 'Export the active Velorn timeline as FCPXML for Resolve/Final Cut or XMEML v5 for Premiere Pro.',
@@ -2824,6 +2835,7 @@ function buildAiReviewPasses(snapshot) {
     ],
     recommendedWorkflow: [
       'Call get_mcp_recipes or get_ai_review_passes to choose the right pass.',
+      'For a show or episode, call get_production_context first so you know show → season → episode → shot layers before writing.',
       'Use create_project_checkpoint before risky multi-step AI edits; use restore_project_checkpoint with previewOnly before rolling back to a checkpoint.',
       'Call analyze_timeline for mechanical issues before visual review.',
       'Use find_timeline_items before targeting clips, tracks, markers, transitions, or assets from a natural-language request.',
@@ -6272,6 +6284,211 @@ function createToolDefinitions() {
         type: 'object',
         properties: {},
       },
+    },
+    {
+      name: 'get_production_context',
+      description: 'Return the layered Velorn production packet: show → season → episode → shot, plus cast, locations (plates/depth/blender), storyboard/sequence have-vs-missing, film lexicon, and optional camera xyz handles. Start here for any show or episode job.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string', description: 'Optional shot/card id to also return a focused shot packet.' },
+        },
+      },
+    },
+    {
+      name: 'list_production_catalog',
+      description: 'Return film-lexicon ids, inherit rules, motion-library pointer, and optional extensions (camera rig, pose, depth/blender, FLF, sound). Works without an open project.',
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'get_shot_packet',
+      description: 'Return one storyboard/sequence card: lexicon settings, camera xyz handle + pending AI proposal, cast, location, still/clip versions, sound, conflicts.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string', description: 'Storyboard card id (or shot order as a string).' },
+          shotId: { type: 'string', description: 'Alias for cardId.' },
+        },
+        required: ['cardId'],
+      },
+    },
+    {
+      name: 'list_episodes',
+      description: 'List seasons and episodes on the open show, marking the current live workspace episode.',
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'set_production',
+      description: 'Preview or set show-level production metadata: type (show/film/short/commercial/music-video/standalone), title, bible (concept/world/tone/visualRules), house look. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', enum: ['show', 'film', 'short', 'commercial', 'music-video', 'standalone'] },
+          slug: { type: 'string' },
+          title: { type: 'string' },
+          logline: { type: 'string' },
+          premise: { type: 'string' },
+          show: { type: 'object', description: 'Show bible fields: concept, world, tone, audience, logline, visualRules, continuityRules, houseStyle.' },
+          look: { type: 'object', description: 'Project look ids: lens_id, lighting_id, film_stock_id, mood_id.' },
+          format: { type: 'object' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'create_episode',
+      description: 'Preview or create an episode on a show (creates season 1 if needed). Snapshots the current storyboard onto the outgoing episode unless snapshotCurrent is false. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          logline: { type: 'string' },
+          synopsis: { type: 'string' },
+          seasonId: { type: 'string', description: 'season-01 or 1' },
+          number: { type: 'integer' },
+          cloneBoard: { type: 'boolean', description: 'Copy the current storyboard into the new episode instead of starting empty.' },
+          snapshotCurrent: { type: 'boolean' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'switch_episode',
+      description: 'Preview or switch the live storyboard workspace to another episode. Saves the outgoing board onto that episode first. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          episodeId: { type: 'string', description: 's01e002 or ep002' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['episodeId'],
+      },
+    },
+    {
+      name: 'update_episode',
+      description: 'Preview or patch episode title, logline, synopsis, status (bible|boarded|shooting|review|locked|delivered), notes. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          episodeId: { type: 'string' },
+          title: { type: 'string' },
+          logline: { type: 'string' },
+          synopsis: { type: 'string' },
+          status: { type: 'string', enum: ['bible', 'boarded', 'shooting', 'review', 'locked', 'delivered'] },
+          notes: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'update_shot',
+      description: 'Preview or patch a storyboard/sequence card: action, dialogue, soundNotes, motionSlug, shotSettings (framing/angle/lens/light/grade/move), locationRef, characterRefs, camera xyz, or lexiconPreset to place the numeric handle. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string' },
+          title: { type: 'string' },
+          action: { type: 'string' },
+          dialogue: { type: 'string' },
+          soundNotes: { type: 'string' },
+          motionSlug: { type: 'string' },
+          status: { type: 'string' },
+          duration: { type: 'number' },
+          shotSettings: { type: 'object' },
+          locationRef: { type: 'object' },
+          characterRefs: { type: 'array' },
+          camera: { type: 'object', description: 'Numeric handle patch: x_m, y_m, z_m, yaw_deg, pitch_deg, roll_deg, fov_deg.' },
+          lexiconPreset: { type: 'boolean', description: 'Rebuild the xyz handle from the card lexicon angle/framing/lens.' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['cardId'],
+      },
+    },
+    {
+      name: 'propose_shot_camera',
+      description: 'Preview or leave an AI camera-handle proposal on a shot (xyz / yaw / pitch / roll / fov) without applying it. Blake can apply or reject. Focuses the shot in the UI. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string' },
+          camera: { type: 'object' },
+          characters: { type: 'array', description: 'Optional stand-in xyz list.' },
+          note: { type: 'string' },
+          by: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['cardId'],
+      },
+    },
+    {
+      name: 'apply_shot_camera_proposal',
+      description: 'Preview or apply/reject the pending camera proposal on a shot. Defaults to previewOnly. Set reject=true to drop the proposal.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string' },
+          reject: { type: 'boolean' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['cardId'],
+      },
+    },
+    {
+      name: 'studio_cast_resolve',
+      description: 'Resolve series → season → episode cast with scope, defined_in, and field-level overrides. Episode guests do not leak.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          season: { type: 'string' },
+          episode: { type: 'string' },
+        },
+      },
+    },
+    {
+      name: 'studio_slots_list',
+      description: 'List CDX-ported storyboard slots (placeholder/partial/filled) and QA summary for the open project.',
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'studio_slots_mutate',
+      description: 'Preview or add/update/assign/remove a studio slot. remove requires confirm=true; frames stay in the media pool. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['add', 'update', 'assign', 'remove'] },
+          slot_id: { type: 'string' },
+          slot: { type: 'object' },
+          fields: { type: 'object' },
+          which: { type: 'string', enum: ['first', 'last'] },
+          assetId: { type: 'string' },
+          confirm: { type: 'boolean' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['op'],
+      },
+    },
+    {
+      name: 'studio_qa_record',
+      description: 'Preview or record a per-track QA verdict. fail requires a reason. unverified is first-class and is not a pass. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          shot: { type: 'string' },
+          video: { type: 'string', enum: ['pass', 'fail', 'unverified'] },
+          audio: { type: 'string', enum: ['pass', 'fail', 'unverified'] },
+          reason: { type: 'string' },
+          videoReason: { type: 'string' },
+          audioReason: { type: 'string' },
+          by: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['shot'],
+      },
+    },
+    {
+      name: 'studio_flow',
+      description: 'Return the stage rail: script → cast → scenes → storyboard → flf → video → review → edit → deliver, with stage_reached and stage_blocked_at.',
+      inputSchema: { type: 'object', properties: {} },
     },
     {
       name: 'find_timeline_items',
@@ -10656,7 +10873,7 @@ class ComfyStudioMcpServer {
               name: 'velorn',
               version: this.version,
             },
-            instructions: 'You are connected to Velorn. Use guide_comfyui_setup first for beginner local ComfyUI setup questions like "How do I connect Velorn to ComfyUI?"; it diagnoses, probes likely ports, gives Portable/Desktop/Docker/manual steps, and previews safe port fixes. Use diagnose_comfyui_connection, repair_comfyui_connection, set_comfyui_connection, control_comfyui_launcher, get_comfyui_launcher_logs, validate_comfyui_nodes, list_velorn_workflows, and inspect_velorn_workflow for deeper local ComfyUI setup/support questions. Use get_mcp_recipes or get_ai_review_passes to choose safe review workflows. For agent-guided Music Video creation, begin with get_music_video_session, preserve the multi-turn checkpoint with update_music_video_session, and use the dedicated configure/cast/pass/script/shot/generation/assembly tools so the result stays editable in the visible Director and timeline UI; preview any generation or assembly action and get explicit approval before applying it. Use find_timeline_items before targeting timeline clips, tracks, markers, transitions, or project assets from a natural-language request. Use check_media_health before delivery/relinking work, relink_asset with previewOnly before changing asset paths, and inspect_export_file after rendering when the user asks whether a file exists or has the expected codec, duration, FPS, or dimensions. Use run_mcp_action_plan with previewOnly before applying an approved multi-step edit in one checkpointed pass. Use the tools to inspect the open project, timeline, assets, generation status, music-video workflow state, the composed timeline frame at the playhead, sampled visual timeline ranges, and top-visible shot pages for fast-cut edit review. Use create_project with previewOnly first when the user wants a fresh Velorn project, and use duplicate_project with previewOnly first before risky AI experiments on an existing project. Use create_timeline with previewOnly first when the user wants a new sequence/timeline for an alternate edit, review selects, generated variations, or a fresh AI-built layout; use switch_timeline, rename_timeline, duplicate_timeline, and delete_timeline with previewOnly first for sequence management. Use update_track and remove_track with previewOnly first for track cleanup, locking/muting/showing tracks, renaming, and layer order. Use add_transition, update_transition, and remove_transitions with previewOnly first for native dissolves, fades, wipes, slides, zooms, blur transitions, and dip-to-black style edits. Use move_clips, trim_clips, and delete_clips with previewOnly first for timeline edit operations such as cleanup passes, staggered layouts, trims, and ripple deletes. Use create_asset_folder with previewOnly first when a generation batch or AI-built layout should keep its source assets organized in a named/nested project folder. Use move_assets_to_folder with previewOnly first when assets should be cleaned up or moved into a folder, for example rootOnly + constantsOnly into a Constants folder. Use queue_prompt_generation_batch with previewOnly first when the user wants new images or videos generated from a written brief; show prompts, workflows, counts, seeds, resolution, duration, FPS, and output folder, then apply only after approval. Use prepare_generation_from_timeline_context with previewOnly first when the user wants to turn a timeline frame into a Generate-tab image-to-video or keyframe request; applying it only captures the frame and prefills Generate. Use queue_prepared_generation with previewOnly first and explicit user approval before queueing a staged Generate request. Use queue_timeline_generation_batch with previewOnly first when the user asks for multiple variations or multiple workflows from the same timeline frame; show workflow counts and seeds, then apply only after approval. Use list_comfyui_templates and queue_timeline_template_generation with previewOnly first when the user asks to run an official ComfyUI template such as LTX 2.3 LoRA video outpainting on a selected timeline clip; applying may import the template and queue local GPU work. Use import_comfyui_workflow with previewOnly first when the user brings a community ComfyUI workflow (comfy.org share URL, local .json, or pasted JSON); then install_workflow_setup with previewOnly and explicit approval for missing node packs/models (poll get_workflow_install_status, restart ComfyUI via control_comfyui_launcher when recommended), and run it with queue_timeline_template_generation using importedWorkflowId. Use add_asset_to_timeline with previewOnly first when the user wants one generated/imported asset placed back into the edit, or add_assets_to_timeline with previewOnly first when placing multiple results as review lanes or a sequential strip. Use add_solid_color with previewOnly first when the user needs black/color constants or background plates; it can create a bottom video track so solids sit behind the edit. Use add_adjustment_clip with previewOnly first when the user wants a color look, blur, GLSL effect, camera shake, vignette, grain, or keyframed treatment applied to multiple clips below a single adjustment layer. Use add_text_clip, add_shape_clip, update_text_clip, and update_shape_clip with previewOnly first for titles, lower thirds, lines, boxes, circles, frames, graphic accents, and simple motion graphics; use motionBlurEnabled/motionBlurSamples/motionBlurShutter on fast animated layers when requested. Use list_glsl_effects, add_glsl_effect, update_glsl_effect, and remove_glsl_effect with previewOnly first for GPU effects such as camera shake, directional blur, lens blur, fisheye, chroma warp, digital glitch, film grain, film look, flicker, VHS, and vignette; effect parameters can also be keyframed, including when the target clip is an adjustment clip. Use set_clip_keyframes with previewOnly first for visual clip fades, dips to black, moves, blur, crop reveals, and color/transform/shape style automation. Use export_fcpxml with previewOnly first when the user wants an interchange XML for Resolve, Final Cut, or Premiere. Queue tools use the same path as the Velorn Queue button and may spend credits or start local GPU work depending on the selected workflow. The write actions currently exposed are ComfyUI setup guidance/settings, ComfyUI launcher start/stop/restart, project creation/duplication/save, agent-guided Music Video setup/cast/pass/script/shot/generation/assembly, asset folder creation, asset folder cleanup/move/relink operations, sequence/timeline creation and management, track management, native transitions, clip move/trim/delete operations, clip label coloring, clip enable/disable, timeline marker creation/removal/property updates, text/title/shape/adjustment clip creation and updates, GLSL effect add/update/remove operations, visual clip keyframes, solid color asset/clip creation, media asset placement, prompt-based generation queueing, preparing/queueing Generate from a timeline frame, official ComfyUI template generation from timeline media, checkpointed multi-step action plans, starting timeline delivery exports through Velorn export worker, export-file QC, and FCPXML interchange export. Project creation/duplication writes project folders on disk; timeline/sequence, clip/marker/text/shape/adjustment/effect/media/keyframe actions are undoable in Velorn; exports write new files to disk.',
+            instructions: 'You are connected to Velorn. For shows and episodes, start with get_production_context (show → season → episode → shot layers, cast, locations, camera xyz handles) and list_production_catalog; create_episode / switch_episode / propose_shot_camera default to previewOnly. Use guide_comfyui_setup first for beginner local ComfyUI setup questions like "How do I connect Velorn to ComfyUI?"; it diagnoses, probes likely ports, gives Portable/Desktop/Docker/manual steps, and previews safe port fixes. Use diagnose_comfyui_connection, repair_comfyui_connection, set_comfyui_connection, control_comfyui_launcher, get_comfyui_launcher_logs, validate_comfyui_nodes, list_velorn_workflows, and inspect_velorn_workflow for deeper local ComfyUI setup/support questions. Use get_mcp_recipes or get_ai_review_passes to choose safe review workflows. For agent-guided Music Video creation, begin with get_music_video_session, preserve the multi-turn checkpoint with update_music_video_session, and use the dedicated configure/cast/pass/script/shot/generation/assembly tools so the result stays editable in the visible Director and timeline UI; preview any generation or assembly action and get explicit approval before applying it. Use find_timeline_items before targeting timeline clips, tracks, markers, transitions, or project assets from a natural-language request. Use check_media_health before delivery/relinking work, relink_asset with previewOnly before changing asset paths, and inspect_export_file after rendering when the user asks whether a file exists or has the expected codec, duration, FPS, or dimensions. Use run_mcp_action_plan with previewOnly before applying an approved multi-step edit in one checkpointed pass. Use the tools to inspect the open project, timeline, assets, generation status, music-video workflow state, the composed timeline frame at the playhead, sampled visual timeline ranges, and top-visible shot pages for fast-cut edit review. Use create_project with previewOnly first when the user wants a fresh Velorn project, and use duplicate_project with previewOnly first before risky AI experiments on an existing project. Use create_timeline with previewOnly first when the user wants a new sequence/timeline for an alternate edit, review selects, generated variations, or a fresh AI-built layout; use switch_timeline, rename_timeline, duplicate_timeline, and delete_timeline with previewOnly first for sequence management. Use update_track and remove_track with previewOnly first for track cleanup, locking/muting/showing tracks, renaming, and layer order. Use add_transition, update_transition, and remove_transitions with previewOnly first for native dissolves, fades, wipes, slides, zooms, blur transitions, and dip-to-black style edits. Use move_clips, trim_clips, and delete_clips with previewOnly first for timeline edit operations such as cleanup passes, staggered layouts, trims, and ripple deletes. Use create_asset_folder with previewOnly first when a generation batch or AI-built layout should keep its source assets organized in a named/nested project folder. Use move_assets_to_folder with previewOnly first when assets should be cleaned up or moved into a folder, for example rootOnly + constantsOnly into a Constants folder. Use queue_prompt_generation_batch with previewOnly first when the user wants new images or videos generated from a written brief; show prompts, workflows, counts, seeds, resolution, duration, FPS, and output folder, then apply only after approval. Use prepare_generation_from_timeline_context with previewOnly first when the user wants to turn a timeline frame into a Generate-tab image-to-video or keyframe request; applying it only captures the frame and prefills Generate. Use queue_prepared_generation with previewOnly first and explicit user approval before queueing a staged Generate request. Use queue_timeline_generation_batch with previewOnly first when the user asks for multiple variations or multiple workflows from the same timeline frame; show workflow counts and seeds, then apply only after approval. Use list_comfyui_templates and queue_timeline_template_generation with previewOnly first when the user asks to run an official ComfyUI template such as LTX 2.3 LoRA video outpainting on a selected timeline clip; applying may import the template and queue local GPU work. Use import_comfyui_workflow with previewOnly first when the user brings a community ComfyUI workflow (comfy.org share URL, local .json, or pasted JSON); then install_workflow_setup with previewOnly and explicit approval for missing node packs/models (poll get_workflow_install_status, restart ComfyUI via control_comfyui_launcher when recommended), and run it with queue_timeline_template_generation using importedWorkflowId. Use add_asset_to_timeline with previewOnly first when the user wants one generated/imported asset placed back into the edit, or add_assets_to_timeline with previewOnly first when placing multiple results as review lanes or a sequential strip. Use add_solid_color with previewOnly first when the user needs black/color constants or background plates; it can create a bottom video track so solids sit behind the edit. Use add_adjustment_clip with previewOnly first when the user wants a color look, blur, GLSL effect, camera shake, vignette, grain, or keyframed treatment applied to multiple clips below a single adjustment layer. Use add_text_clip, add_shape_clip, update_text_clip, and update_shape_clip with previewOnly first for titles, lower thirds, lines, boxes, circles, frames, graphic accents, and simple motion graphics; use motionBlurEnabled/motionBlurSamples/motionBlurShutter on fast animated layers when requested. Use list_glsl_effects, add_glsl_effect, update_glsl_effect, and remove_glsl_effect with previewOnly first for GPU effects such as camera shake, directional blur, lens blur, fisheye, chroma warp, digital glitch, film grain, film look, flicker, VHS, and vignette; effect parameters can also be keyframed, including when the target clip is an adjustment clip. Use set_clip_keyframes with previewOnly first for visual clip fades, dips to black, moves, blur, crop reveals, and color/transform/shape style automation. Use export_fcpxml with previewOnly first when the user wants an interchange XML for Resolve, Final Cut, or Premiere. Queue tools use the same path as the Velorn Queue button and may spend credits or start local GPU work depending on the selected workflow. The write actions currently exposed are ComfyUI setup guidance/settings, ComfyUI launcher start/stop/restart, project creation/duplication/save, agent-guided Music Video setup/cast/pass/script/shot/generation/assembly, asset folder creation, asset folder cleanup/move/relink operations, sequence/timeline creation and management, track management, native transitions, clip move/trim/delete operations, clip label coloring, clip enable/disable, timeline marker creation/removal/property updates, text/title/shape/adjustment clip creation and updates, GLSL effect add/update/remove operations, visual clip keyframes, solid color asset/clip creation, media asset placement, prompt-based generation queueing, preparing/queueing Generate from a timeline frame, official ComfyUI template generation from timeline media, checkpointed multi-step action plans, starting timeline delivery exports through Velorn export worker, export-file QC, and FCPXML interchange export. Project creation/duplication writes project folders on disk; timeline/sequence, clip/marker/text/shape/adjustment/effect/media/keyframe actions are undoable in Velorn; exports write new files to disk.',
           }
           break
         case 'ping':
@@ -10713,12 +10930,46 @@ class ComfyStudioMcpServer {
       'import_comfyui_workflow',
       'install_workflow_setup',
       'get_workflow_install_status',
+      'list_production_catalog',
     ])
     if (!hasSnapshot(snapshot) && !toolsAllowedWithoutProject.has(name)) {
       return errorResult('No Velorn project is open yet.')
     }
 
     switch (name) {
+      case 'get_production_context':
+      case 'list_production_catalog':
+      case 'get_shot_packet':
+      case 'list_episodes':
+      case 'set_production':
+      case 'create_episode':
+      case 'switch_episode':
+      case 'update_episode':
+      case 'update_shot':
+      case 'propose_shot_camera':
+      case 'apply_shot_camera_proposal':
+      case 'import_shot_blocking':
+      case 'studio_cast_resolve':
+      case 'studio_slots_list':
+      case 'studio_slots_mutate':
+      case 'studio_qa_record':
+      case 'studio_flow':
+        return this.runRendererActionTool(name, args, {
+          bridgeName: 'MCP production bridge',
+          suggestedTool: name,
+          defaultPreviewOnly: [
+            'set_production',
+            'create_episode',
+            'switch_episode',
+            'update_episode',
+            'update_shot',
+            'propose_shot_camera',
+            'apply_shot_camera_proposal',
+            'import_shot_blocking',
+            'studio_slots_mutate',
+            'studio_qa_record',
+          ].includes(name),
+        })
       case 'get_project':
         return textResult({
           app: snapshot.app,
@@ -10738,6 +10989,8 @@ class ComfyStudioMcpServer {
           assetCount: snapshot.assets?.length || 0,
           assetCounts: summarizeAssetCounts(snapshot.assets || []),
           generatedAt: snapshot.generatedAt,
+          production: snapshot.production || snapshot.project?.production || null,
+          studio: snapshot.studio || null,
           mcp: this.getStatus(),
         })
       case 'get_timeline': {

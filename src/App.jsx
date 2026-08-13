@@ -383,6 +383,34 @@ function App() {
     return () => window.removeEventListener('comfystudio-open-comfyui-tab', handler)
   }, [])
 
+  useEffect(() => {
+    const handler = (event) => {
+      setHasMountedSequence(true)
+      setMainTab('sequence')
+      const cardId = event?.detail?.cardId
+      if (!cardId) return
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('comfystudio-focus-sequence-card', { detail: { cardId } }))
+      }, 80)
+    }
+    window.addEventListener('comfystudio-open-sequence-tab', handler)
+    return () => window.removeEventListener('comfystudio-open-sequence-tab', handler)
+  }, [])
+
+  useEffect(() => {
+    const handler = (event) => {
+      setHasMountedStoryboard(true)
+      setMainTab('storyboard')
+      const cardId = event?.detail?.cardId
+      if (!cardId) return
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('comfystudio-focus-storyboard-card', { detail: { cardId } }))
+      }, 80)
+    }
+    window.addEventListener('comfystudio-open-storyboard-tab', handler)
+    return () => window.removeEventListener('comfystudio-open-storyboard-tab', handler)
+  }, [])
+
   // Load persisted layout on mount (single read)
   const [layoutLoaded, setLayoutLoaded] = useState(false)
   useEffect(() => {

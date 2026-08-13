@@ -1,4 +1,4 @@
-import catalog from '../config/cinematographyCatalog.json'
+import catalog from '../config/cinematographyCatalog.json' with { type: 'json' }
 
 export const SHOT_SETTING_KEYS = [
   'framing_id',
@@ -29,6 +29,28 @@ export const PROJECT_LOOK_KEYS = ['lens_id', 'lighting_id', 'film_stock_id', 'mo
 export const SHOT_ONLY_KEYS = ['framing_id', 'camera_angle_id']
 /** Video / extend / first-last only. One primary camera action. */
 export const VIDEO_ACTION_KEYS = ['camera_movement_id']
+
+/** Common extend / i2v moves shown immediately. The rest live under Advanced. */
+export const FEATURED_CAMERA_MOVEMENTS = [
+  'locked-off-static',
+  'slow-push-in',
+  'slow-pull-back-reveal',
+  'pan-left',
+  'pan-right',
+  'handheld-micro-motion',
+  'zoom-in',
+  'zoom-out',
+]
+
+export function videoFlowKind(workflow = {}) {
+  const needs = workflow.needs || []
+  const id = String(workflow.id || '')
+  if (needs.includes('last') || id.includes('flf')) return 'flf'
+  if (needs.includes('audio') || id.includes('ia2v') || id.includes('tts')) return 'audio'
+  if (needs.includes('first') || id.includes('i2v') || id.includes('extend')) return 'extend'
+  if (id.includes('t2v')) return 't2v'
+  return 'video'
+}
 
 export const SCOPE_HELP = {
   project: 'Lens, lighting, grade, and mood default for the whole show. A shot can inherit or override.',
@@ -125,10 +147,16 @@ export function getOption(categoryId, optionId) {
   return (getCategory(categoryId)?.options || []).find((option) => option.id === optionId) || null
 }
 
-export function optionsForMode(categoryId, mode) {
+export function optionsForMode(categoryId, mode, { featuredOnly = false } = {}) {
   const options = getCategory(categoryId)?.options || []
-  if (!mode) return options
-  return options.filter((option) => (option.appliesTo || []).includes(mode))
+  const filtered = !mode
+    ? options
+    : options.filter((option) => (option.appliesTo || []).includes(mode) || (mode === 'extend' && (option.appliesTo || []).includes('i2v')))
+  if (featuredOnly && categoryId === 'camera_movement') {
+    const featured = new Set(FEATURED_CAMERA_MOVEMENTS)
+    return filtered.filter((option) => featured.has(option.id))
+  }
+  return filtered
 }
 
 export function modeFromWorkflow(workflowId = '', kind = 'still') {

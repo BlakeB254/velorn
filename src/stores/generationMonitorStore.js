@@ -8,6 +8,7 @@ function sanitizeMonitorJob(job = {}) {
     category: job.category || '',
     status: job.status || 'queued',
     progress: Math.max(0, Math.min(100, Number(job.progress) || 0)),
+    progressSource: job.progressSource || '',
     promptId: job.promptId || null,
     node: job.node ?? null,
     error: job.error || '',

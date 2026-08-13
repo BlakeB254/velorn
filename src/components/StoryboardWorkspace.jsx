@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, GripVertical, ImageOff, ImagePlus, Pencil, Plus, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Check, ChevronDown, GripVertical, ImageOff, ImagePlus, Loader2, Pencil, Plus, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 import useProjectStore from '../stores/projectStore'
 import useAssetsStore from '../stores/assetsStore'
+import useGenerationMonitorStore from '../stores/generationMonitorStore'
 import { getProjectFileUrl, importAsset } from '../services/fileSystem'
+import { ensureGenerateWorkspace } from '../services/ensureGenerateWorkspace'
 import { getComfyNativeTemplate } from '../config/comfyNativeTemplates'
 import { setPendingMaskDataUrl } from '../services/comfyTemplateRunner'
 import InpaintEditor from './storyboard/InpaintEditor'
@@ -11,15 +13,22 @@ import ShotParamsPanel from './storyboard/ShotParamsPanel'
 import ProjectLookBar from './storyboard/ProjectLookBar'
 import { findMotion, loadMotionCatalog, motionPosePrompt, POSE_STILL_WORKFLOW } from '../services/motionLibrary'
 import { modeFromWorkflow, normalizeProjectLook } from '../services/shotSettings'
+import { normalizeStudio } from '../services/studioStore'
+import { cardSlotView } from '../services/studioUi'
+import StageRail from './studio/StageRail'
+import CastPanel from './studio/CastPanel'
+import BlockingPanel from './studio/BlockingPanel'
 import {
   AssetPicker,
   DEFAULT_FRAME_WORKFLOW,
   FRAME_WORKFLOWS,
   RefChips,
   composeGenerationPrompt,
+  directorRefsForCard,
   emptyBoard,
   findFrameWorkflow,
   frameWorkflowSlots,
+  isGeneratingStatus,
   isReviewStatus,
   newCard,
   numberCards,
@@ -41,9 +50,12 @@ export default function StoryboardWorkspace() {
   const setStoryboardBoard = useProjectStore((state) => state.setStoryboardBoard)
   const updateProjectSettings = useProjectStore((state) => state.updateProjectSettings)
   const saveProject = useProjectStore((state) => state.saveProject)
+  const getStudio = useProjectStore((state) => state.getStudio)
+  const getProduction = useProjectStore((state) => state.getProduction)
   const assets = useAssetsStore((state) => state.assets)
   const folders = useAssetsStore((state) => state.folders)
   const addAsset = useAssetsStore((state) => state.addAsset)
+  const monitorJobs = useGenerationMonitorStore((state) => state.jobs)
 
   const [generateCardId, setGenerateCardId] = useState(null)
   const [motionCatalog, setMotionCatalog] = useState({ items: [] })
@@ -53,6 +65,10 @@ export default function StoryboardWorkspace() {
   const [dragId, setDragId] = useState(null)
   const [imageUrls, setImageUrls] = useState({})
   const [editCardId, setEditCardId] = useState(null)
+  const [blockingCardId, setBlockingCardId] = useState(null)
+  const cardRefs = useRef({})
+  const studio = useMemo(() => normalizeStudio(currentProject?.studio || getStudio?.()), [currentProject, getStudio])
+  const production = useMemo(() => getProduction?.() || currentProject?.production || null, [currentProject, getProduction])
 
   const board = useMemo(
     () => (currentProject ? seedFromProject(currentProject) : emptyBoard()),
@@ -61,6 +77,18 @@ export default function StoryboardWorkspace() {
 
   useEffect(() => {
     loadMotionCatalog().then(setMotionCatalog)
+  }, [])
+
+  useEffect(() => {
+    const handler = (event) => {
+      const cardId = event?.detail?.cardId
+      if (!cardId) return
+      window.setTimeout(() => {
+        cardRefs.current[cardId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 40)
+    }
+    window.addEventListener('comfystudio-focus-storyboard-card', handler)
+    return () => window.removeEventListener('comfystudio-focus-storyboard-card', handler)
   }, [])
 
   const projectLook = useMemo(
@@ -146,6 +174,25 @@ export default function StoryboardWorkspace() {
     return assets.find((item) => item.id === assetId)?.name || assetId
   }, [assets])
 
+  const jobForCard = (cardId) => (
+    [...monitorJobs]
+      .filter((job) => job.storyboardCardId === cardId)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0] || null
+  )
+
+  const buildVelornMeta = (card, placement) => {
+    const refs = directorRefsForCard(currentProject, card)
+    return {
+      placement,
+      cardId: card.id,
+      cardTitle: card.title || '',
+      cardOrder: card.order || null,
+      motionSlug: card.motionSlug || '',
+      characters: refs.characters,
+      location: refs.location,
+    }
+  }
+
   const toggleMediaPicker = (cardId, slot) => {
     setMediaPicker((current) => (
       current?.cardId === cardId && current?.slot === slot ? null : { cardId, slot }
@@ -197,7 +244,7 @@ export default function StoryboardWorkspace() {
     setMediaPicker(null)
   }
 
-  const submitGenerate = (card) => {
+  const submitGenerate = async (card) => {
     const motion = findMotion(card.motionSlug, motionCatalog)
     const workflow = findFrameWorkflow(card.workflowId)
     const prompt = composeGenerationPrompt(card, {
@@ -214,28 +261,38 @@ export default function StoryboardWorkspace() {
     updateCard(card.id, {
       status: 'generating',
       hasGeneration: true,
+      lastGenerationError: '',
       workflowId: workflow.id,
       prompt: card.prompt || prompt,
       sourceAssetId: sourceId,
     })
     setGenerateCardId(null)
     setGenerateError('')
-    window.dispatchEvent(new CustomEvent('comfystudio-open-generate-tab'))
-    window.dispatchEvent(new CustomEvent('comfystudio-mcp-prepare-generation', {
-      detail: {
-        workflowId: workflow.id,
-        category: getComfyNativeTemplate(workflow.id)?.category || 'image',
-        prompt,
-        selectedAssetId: workflow.needsImage ? sourceId : (refs.first || null),
-        referenceAssetId1: refs.first || card.refAssetId1 || null,
-        referenceAssetId2: refs.second || card.refAssetId2 || null,
-        selectedAssetFieldIds: {
-          ...(workflow.needsImage && sourceId ? { image: sourceId } : {}),
-          ...(refs.first ? { referenceImage1: refs.first } : {}),
-          ...(refs.second ? { referenceImage2: refs.second } : {}),
+    try {
+      await ensureGenerateWorkspace()
+      window.dispatchEvent(new CustomEvent('comfystudio-mcp-prepare-generation', {
+        detail: {
+          workflowId: workflow.id,
+          category: getComfyNativeTemplate(workflow.id)?.category || 'image',
+          prompt,
+          selectedAssetId: workflow.needsImage ? sourceId : (refs.first || null),
+          referenceAssetId1: refs.first || card.refAssetId1 || null,
+          referenceAssetId2: refs.second || card.refAssetId2 || null,
+          selectedAssetFieldIds: {
+            ...(workflow.needsImage && sourceId ? { image: sourceId } : {}),
+            ...(refs.first ? { referenceImage1: refs.first } : {}),
+            ...(refs.second ? { referenceImage2: refs.second } : {}),
+          },
+          storyboardCardId: card.id,
+          placement: 'storyboard-frame',
+          velornMeta: buildVelornMeta(card, 'storyboard-frame'),
+          autoQueue: true,
         },
-      },
-    }))
+      }))
+    } catch (error) {
+      setGenerateError(error?.message || 'Could not start the generation.')
+      updateCard(card.id, { status: 'draft' })
+    }
   }
 
   const submitPoseStill = async (card) => {
@@ -268,6 +325,7 @@ export default function StoryboardWorkspace() {
       updateCard(card.id, {
         status: 'generating',
         hasGeneration: true,
+        lastGenerationError: '',
         workflowId: POSE_STILL_WORKFLOW,
         prompt,
         sourceAssetId: characterId,
@@ -275,7 +333,7 @@ export default function StoryboardWorkspace() {
         motionSlug: motion.slug,
       })
       setGenerateCardId(null)
-      window.dispatchEvent(new CustomEvent('comfystudio-open-generate-tab'))
+      await ensureGenerateWorkspace()
       window.dispatchEvent(new CustomEvent('comfystudio-mcp-prepare-generation', {
         detail: {
           workflowId: POSE_STILL_WORKFLOW,
@@ -287,6 +345,10 @@ export default function StoryboardWorkspace() {
             image: characterId,
             ...(poseAsset?.id ? { referenceImage1: poseAsset.id } : {}),
           },
+          storyboardCardId: card.id,
+          placement: 'storyboard-frame',
+          velornMeta: buildVelornMeta(card, 'storyboard-frame'),
+          autoQueue: true,
         },
       }))
     } catch (error) {
@@ -294,26 +356,36 @@ export default function StoryboardWorkspace() {
     }
   }
 
-  const submitInpaint = (card, payload) => {
+  const submitInpaint = async (card, payload) => {
     if (!card.imageAssetId) return
     setPendingMaskDataUrl(payload.maskDataUrl || null)
     updateCard(card.id, {
       status: 'generating',
       hasGeneration: true,
+      lastGenerationError: '',
       workflowId: payload.workflowId,
       prompt: payload.prompt,
     })
     setEditCardId(null)
-    window.dispatchEvent(new CustomEvent('comfystudio-open-generate-tab'))
-    window.dispatchEvent(new CustomEvent('comfystudio-mcp-prepare-generation', {
-      detail: {
-        workflowId: payload.workflowId,
-        category: 'image',
-        prompt: payload.prompt,
-        selectedAssetId: card.imageAssetId,
-        selectedAssetFieldIds: { image: card.imageAssetId },
-      },
-    }))
+    try {
+      await ensureGenerateWorkspace()
+      window.dispatchEvent(new CustomEvent('comfystudio-mcp-prepare-generation', {
+        detail: {
+          workflowId: payload.workflowId,
+          category: 'image',
+          prompt: payload.prompt,
+          selectedAssetId: card.imageAssetId,
+          selectedAssetFieldIds: { image: card.imageAssetId },
+          storyboardCardId: card.id,
+          placement: 'storyboard-frame',
+          velornMeta: buildVelornMeta(card, 'storyboard-frame'),
+          autoQueue: true,
+        },
+      }))
+    } catch (error) {
+      setGenerateError(error?.message || 'Could not start the inpaint.')
+      updateCard(card.id, { status: 'draft' })
+    }
   }
 
   if (!currentProject) {
@@ -351,14 +423,27 @@ export default function StoryboardWorkspace() {
           </button>
         </div>
       </div>
-      <div className="px-5 py-2 border-b border-sf-dark-800">
+      <div className="px-5 py-2 border-b border-sf-dark-800 space-y-2">
         <ProjectLookBar
           value={projectLook}
           onChange={(look) => updateProjectSettings({ cinematography: look })}
         />
+        <StageRail
+          studio={studio}
+          extras={{ videoCount: board.cards.filter((card) => card.videoAssetId).length }}
+        />
+        <details>
+          <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Cast (series → season → episode)</summary>
+          <div className="mt-2">
+            <CastPanel studio={studio} season={production?.current?.seasonId} episode={production?.current?.episodeId} />
+          </div>
+        </details>
       </div>
 
       <div className="flex-1 overflow-auto p-5">
+        {generateError && (
+          <p className="mb-3 text-sm text-red-400">{generateError}</p>
+        )}
         {board.cards.length === 0 ? (
           <div className="max-w-md mx-auto mt-16 text-center">
             <p className="text-sf-text-primary font-medium mb-2">No storyboard cards yet</p>
@@ -381,14 +466,19 @@ export default function StoryboardWorkspace() {
           >
             {board.cards.map((card) => {
               const hasImage = Boolean(card.imageAssetId)
-              const reviewing = isReviewStatus(card)
+              const job = jobForCard(card.id)
+              const generating = isGeneratingStatus(card)
+                || (job && !['done', 'error'].includes(job.status))
+              const reviewing = isReviewStatus(card) && !generating
               const generateOpen = generateCardId === card.id
               const workflow = findFrameWorkflow(card.workflowId || DEFAULT_FRAME_WORKFLOW)
               const slots = frameWorkflowSlots(workflow)
               const pickerFor = (slot) => mediaPicker?.cardId === card.id && mediaPicker?.slot === slot
+              const slotView = cardSlotView(studio, card)
               return (
                 <article
                   key={card.id}
+                  ref={(node) => { cardRefs.current[card.id] = node }}
                   onDragOver={(event) => {
                     event.preventDefault()
                     event.dataTransfer.dropEffect = 'move'
@@ -404,6 +494,21 @@ export default function StoryboardWorkspace() {
                   }`}
                 >
                   <div className="px-3 pt-3 pb-2 space-y-1.5">
+                    {slotView && (
+                      <div className="flex flex-wrap gap-1 text-[9px] uppercase tracking-wide">
+                        <span className={`px-1.5 py-0.5 rounded border ${
+                          slotView.state === 'filled' ? 'border-emerald-500/50 text-emerald-300'
+                            : slotView.state === 'partial' ? 'border-amber-400/50 text-amber-200'
+                              : 'border-dashed border-sf-dark-500 text-sf-text-muted'
+                        }`}>{slotView.slot.slot_id} · {slotView.state}</span>
+                        <span className={slotView.qa.video.result === 'pass' ? 'text-emerald-300' : slotView.qa.video.result === 'fail' ? 'text-red-400' : 'text-sf-text-muted'}>
+                          V {slotView.qa.video.result}
+                        </span>
+                        <span className={slotView.qa.audio.result === 'pass' ? 'text-emerald-300' : slotView.qa.audio.result === 'fail' ? 'text-red-400' : 'text-sf-text-muted'}>
+                          A {slotView.qa.audio.result}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-start gap-2">
                       <span
                         draggable
@@ -477,16 +582,39 @@ export default function StoryboardWorkspace() {
                         Empty frame — add an image or generate one
                       </div>
                     )}
-                    <span className={`absolute top-2 left-2 text-[10px] px-1.5 py-0.5 rounded border ${statusTone(card.status)}`}>
-                      {card.status}
+                    {generating && (
+                      <div className="absolute inset-0 bg-black/55 flex flex-col items-center justify-center gap-2 text-white">
+                        <Loader2 className="w-6 h-6 animate-spin text-sf-accent" />
+                        <span className="text-[11px] font-medium">
+                          {job?.status === 'queued' ? 'Queued in ComfyUI' : 'Generating…'}
+                        </span>
+                        <div className="w-2/3 h-1.5 rounded bg-white/20 overflow-hidden">
+                          <div className="h-full bg-sf-accent" style={{ width: `${Math.max(8, job?.progress || 8)}%` }} />
+                        </div>
+                        {job?.workflowLabel && (
+                          <span className="text-[10px] text-white/80 px-3 text-center">{job.workflowLabel}</span>
+                        )}
+                      </div>
+                    )}
+                    <span className={`absolute top-2 left-2 text-[10px] px-1.5 py-0.5 rounded border ${statusTone(generating ? 'generating' : card.status)}`}>
+                      {generating ? 'generating' : card.status}
                     </span>
                     <span className="absolute top-2 right-2 min-w-[1.5rem] h-6 px-1 rounded bg-black/75 text-white text-[11px] font-semibold tabular-nums flex items-center justify-center">
                       {card.order}
                     </span>
+                    {card.videoAssetId && (
+                      <button
+                        type="button"
+                        onClick={() => window.dispatchEvent(new CustomEvent('comfystudio-open-sequence-tab', { detail: { cardId: card.id } }))}
+                        className="absolute bottom-2 left-2 right-2 text-[10px] rounded bg-black/75 text-amber-200 py-1"
+                      >
+                        {card.status === 'accepted' ? 'Clip accepted — open Sequence' : 'Clip ready to review — open Sequence'}
+                      </button>
+                    )}
                   </div>
 
                   <div className="p-3 space-y-2 flex-1 flex flex-col">
-                    {!reviewing && (
+                    {!reviewing && !generating && (
                       <>
                         <div className="flex flex-wrap gap-1.5">
                           <button
@@ -519,6 +647,20 @@ export default function StoryboardWorkspace() {
                           )}
                           <button
                             type="button"
+                            onClick={() => window.dispatchEvent(new CustomEvent('comfystudio-open-sequence-tab', { detail: { cardId: card.id } }))}
+                            className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-sf-dark-600 text-[11px] text-sf-text-secondary hover:text-sf-text-primary"
+                          >
+                            Sequence
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBlockingCardId((current) => (current === card.id ? null : card.id))}
+                            className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-sf-dark-600 text-[11px] text-sf-text-secondary hover:text-sf-text-primary"
+                          >
+                            Blocking
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => openGeneratePanel(card)}
                             className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-sf-accent/80 hover:bg-sf-accent text-white text-[11px] ml-auto"
                           >
@@ -527,6 +669,14 @@ export default function StoryboardWorkspace() {
                             <ChevronDown className={`w-3 h-3 transition-transform ${generateOpen ? 'rotate-180' : ''}`} />
                           </button>
                         </div>
+                        {blockingCardId === card.id && (
+                          <BlockingPanel
+                            projectPath={typeof currentProjectHandle === 'string' ? currentProjectHandle : ''}
+                            studio={studio}
+                            card={card}
+                            onApplyRig={(rig) => updateCard(card.id, { cameraRig: rig })}
+                          />
+                        )}
                         {pickerFor('frame') && (
                           <AssetPicker
                             assets={imageAssets}
@@ -540,7 +690,7 @@ export default function StoryboardWorkspace() {
                     )}
 
                     {reviewing && (
-                      <div className="grid grid-cols-3 gap-1.5 mt-auto">
+                      <div className="grid grid-cols-4 gap-1.5 mt-auto">
                         <button
                           type="button"
                           onClick={() => updateCard(card.id, { status: 'accepted' })}
@@ -563,6 +713,13 @@ export default function StoryboardWorkspace() {
                         >
                           <RefreshCw className="w-3 h-3" />
                           Regen
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => window.dispatchEvent(new CustomEvent('comfystudio-open-sequence-tab', { detail: { cardId: card.id } }))}
+                          className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-md border border-sf-dark-600 text-[11px] text-sf-text-primary"
+                        >
+                          Sequence
                         </button>
                       </div>
                     )}

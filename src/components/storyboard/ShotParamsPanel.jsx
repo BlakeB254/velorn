@@ -14,7 +14,7 @@ import {
   shotSettingConflicts,
 } from '../../services/shotSettings'
 
-const CAMERA_GROUPS = [
+const GEOMETRY_GROUPS = [
   {
     title: 'Frame (distance)',
     help: 'How close we are — one size. Not the same as optical zoom.',
@@ -25,6 +25,10 @@ const CAMERA_GROUPS = [
     help: 'Where the camera sits relative to the subject. Stacks with size and lens.',
     keys: ['camera_angle'],
   },
+]
+
+const CAMERA_GROUPS = [
+  ...GEOMETRY_GROUPS,
   {
     title: 'Lens (optical zoom)',
     help: 'Compression / FOV. 24mm vs 85mm at the same size are different pictures.',
@@ -38,9 +42,9 @@ const LOOK_GROUPS = [
   { title: 'Mood', help: 'Soft register. Stacks with light and grade.', keys: ['mood'] },
 ]
 
-function ChipRow({ categoryId, value, mode, onChange, inherited = false }) {
+function ChipRow({ categoryId, value, mode, onChange, inherited = false, featuredOnly = false }) {
   const category = getCategory(categoryId)
-  const options = optionsForMode(categoryId, mode)
+  const options = optionsForMode(categoryId, mode, { featuredOnly })
   const [urls, setUrls] = useState({})
 
   useEffect(() => {
@@ -118,6 +122,9 @@ export default function ShotParamsPanel({
   compact = false,
   projectLook = {},
   sections = 'all',
+  featuredMovement = false,
+  showNotes = true,
+  showSummary = true,
 }) {
   const cardSettings = useMemo(() => normalizeShotSettings(value), [value])
   const settings = useMemo(() => resolveShotSettings(cardSettings, projectLook), [cardSettings, projectLook])
@@ -125,22 +132,28 @@ export default function ShotParamsPanel({
   const line = assembleLexiconLine(cardSettings, mode, projectLook)
   const labels = assembleLexiconLabels(cardSettings, mode, projectLook)
   const showMovement = mode !== 'still'
+  const cameraGroups = sections === 'geometry' ? GEOMETRY_GROUPS : CAMERA_GROUPS
+  const showCamera = sections === 'all' || sections === 'camera' || sections === 'geometry'
+  const showLook = sections === 'all' || sections === 'look'
+  const showAction = showMovement && (sections === 'all' || sections === 'movement' || (sections !== 'look' && sections !== 'geometry'))
 
   const patch = (key, next) => onChange({ ...cardSettings, [key]: next })
   const settingValue = (key) => settings[key] || ''
   const inherited = (key) => isInherited(cardSettings, projectLook, key)
 
   return (
-    <div className="rounded border border-sf-dark-700 bg-sf-dark-950 p-2 space-y-2">
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-sf-text-muted">
-        {OVERLAP_NOTE.filter((note) => showMovement || note.group !== 'Camera action').map((note) => (
-          <span key={note.group}>
-            <span className="text-sf-text-secondary">{note.group}:</span> {note.rule}
-          </span>
-        ))}
-      </div>
+    <div className={`space-y-2 ${compact ? '' : 'rounded border border-sf-dark-700 bg-sf-dark-950 p-2'}`}>
+      {showNotes && !compact && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-sf-text-muted">
+          {OVERLAP_NOTE.filter((note) => showMovement || note.group !== 'Camera action').map((note) => (
+            <span key={note.group}>
+              <span className="text-sf-text-secondary">{note.group}:</span> {note.rule}
+            </span>
+          ))}
+        </div>
+      )}
 
-      {(sections === 'all' || sections === 'camera') && CAMERA_GROUPS.map((group) => (
+      {showCamera && cameraGroups.map((group) => (
         <Section key={group.title} title={group.title} help={group.help}>
           {group.keys.map((categoryId) => (
             <ChipRow
@@ -155,7 +168,7 @@ export default function ShotParamsPanel({
         </Section>
       ))}
 
-      {(sections === 'all' || sections === 'look') && LOOK_GROUPS.map((group) => (
+      {showLook && LOOK_GROUPS.map((group) => (
         <Section key={group.title} title={group.title} help={group.help}>
           {group.keys.map((categoryId) => (
             <ChipRow
@@ -170,14 +183,15 @@ export default function ShotParamsPanel({
         </Section>
       ))}
 
-      {showMovement && sections !== 'look' && (
+      {showAction && (
         <Section
-          title="Camera action (video)"
-          help="One primary move. Zoom is optical over time; push/pull is the camera traveling. They replace each other — they do not combine."
+          title="Camera action"
+          help="One primary move. Zoom is optical; push/pull is the camera traveling. They replace each other."
         >
           <ChipRow
             categoryId="camera_movement"
             mode={mode === 'extend' ? 'i2v' : mode}
+            featuredOnly={featuredMovement}
             value={settingValue('camera_movement_id')}
             onChange={(next) => patch('camera_movement_id', next)}
           />
@@ -197,12 +211,14 @@ export default function ShotParamsPanel({
         </ul>
       )}
 
-      <div className="rounded bg-black/20 px-2 py-1.5">
-        <div className="text-[10px] text-sf-text-secondary">{labels || 'Pick size, angle, and lens.'}</div>
-        {!compact && line && (
-          <p className="mt-0.5 text-[10px] text-sf-text-muted whitespace-pre-wrap">{line}</p>
-        )}
-      </div>
+      {showSummary && (
+        <div className="rounded bg-black/20 px-2 py-1.5">
+          <div className="text-[10px] text-sf-text-secondary">{labels || 'Using project look / unset.'}</div>
+          {!compact && line && (
+            <p className="mt-0.5 text-[10px] text-sf-text-muted whitespace-pre-wrap">{line}</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
