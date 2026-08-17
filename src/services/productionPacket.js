@@ -19,6 +19,7 @@ import {
   productionSummary,
 } from './productionStore.js'
 import { resolveCast, normalizeStudio } from './studioStore.js'
+import { checkCastRefs } from './castLock.js'
 import { routeShotFromCard } from './shotRouting.js'
 import { generateResolution, listOutputTargets, resolveOutput } from './outputRatio.js'
 import {
@@ -299,6 +300,10 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
     look,
     characters,
     locations,
+    castLock: checkCastRefs(studio, {
+      season: production.current.seasonId,
+      episode: production.current.episodeId,
+    }),
     storyboard: {
       cardCount: cards.length,
       cards: cards.map((card) => summarizeCard(card, { projectLook: look, assets, project })),

@@ -55,6 +55,14 @@ import {
   updateSlot,
   removeSlot,
 } from './studioStore.js'
+import {
+  addShotCharacter,
+  appendGraphEdges,
+  checkCastRefs,
+  gateGeneration,
+  lockCastMembers,
+  unlockCastMembers,
+} from './castLock.js'
 import { normalizeProjectLook, normalizeShotSettings } from './shotSettings.js'
 import { applyOutputTargetToSettings, generateResolution } from './outputRatio.js'
 import { routeShot, routeShotFromCard, routeStudioShots } from './shotRouting.js'
@@ -542,11 +550,101 @@ export function handleStudioCastResolve(payload = {}) {
   const project = requireProject()
   const studio = normalizeStudio(project.studio)
   const production = hydrateProductionFromProject(project)
-  const members = resolveCast(studio, {
+  const season = payload.season || production.current.seasonId
+  const episode = payload.episode || production.current.episodeId
+  const members = resolveCast(studio, { season, episode })
+  const lock = checkCastRefs(studio, { season, episode, projectDir: project.path || project.projectDir || null })
+  return { action: 'studio_cast_resolve', season, episode, members, lock }
+}
+
+function castScope(payload = {}) {
+  const project = requireProject()
+  const production = hydrateProductionFromProject(project)
+  return {
+    project,
+    studio: normalizeStudio(project.studio),
     season: payload.season || production.current.seasonId,
     episode: payload.episode || production.current.episodeId,
+    projectDir: payload.projectDir || project.path || project.projectDir || null,
+  }
+}
+
+export function handleStudioRefGate(payload = {}) {
+  const { project, studio, season, episode, projectDir } = castScope(payload)
+  let castIds = Array.isArray(payload.castIds) ? payload.castIds : (payload.castId ? [payload.castId] : null)
+  let card = null
+  if (payload.cardId) {
+    card = findCard(project, payload.cardId)
+    if (!castIds) {
+      const gate = gateGeneration(studio, { season, episode, card, projectDir })
+      return { action: 'studio_ref_gate', season, episode, cardId: card.id, ...gate }
+    }
+  }
+  const report = checkCastRefs(studio, { season, episode, castIds, projectDir })
+  return { action: 'studio_ref_gate', season, episode, ok: report.ok, skipped: report.empty, reason: report.summary, report }
+}
+
+export function handleStudioCastLock(payload = {}) {
+  const { studio, season, episode, projectDir } = castScope(payload)
+  const op = String(payload.op || payload.action || 'status').trim()
+  const castIds = Array.isArray(payload.castIds) ? payload.castIds : (payload.castId ? [payload.castId] : null)
+  if (op === 'status' || payload.previewOnly !== false) {
+    const report = checkCastRefs(studio, { season, episode, castIds, projectDir })
+    return {
+      previewOnly: payload.previewOnly !== false && op !== 'status',
+      action: 'studio_cast_lock',
+      op,
+      season,
+      episode,
+      report,
+    }
+  }
+  const next = op === 'unlock'
+    ? unlockCastMembers(studio, { season, episode, castIds, by: payload.by || 'agent' })
+    : lockCastMembers(studio, { season, episode, castIds, by: payload.by || 'agent', projectDir })
+  persistStudio(next)
+  return {
+    success: true,
+    action: 'studio_cast_lock',
+    op,
+    season,
+    episode,
+    report: checkCastRefs(next, { season, episode, castIds, projectDir }),
+    graph: next.graph,
+  }
+}
+
+export function handleStudioBlockingAddCharacter(payload = {}) {
+  const { project, studio, season, episode, projectDir } = castScope(payload)
+  const cardId = String(payload.cardId || payload.shotId || '').trim()
+  if (!cardId) throw new Error('studio_blocking_add_character needs cardId')
+  const card = findCard(project, cardId)
+  if (payload.previewOnly !== false) {
+    const preview = addShotCharacter(card, studio, payload.castId || payload.cast_id, { season, episode, projectDir })
+    return {
+      previewOnly: true,
+      action: 'studio_blocking_add_character',
+      cardId: card.id,
+      member: preview.member,
+      report: preview.report,
+    }
+  }
+  const added = addShotCharacter(card, studio, payload.castId || payload.cast_id, {
+    season,
+    episode,
+    projectDir,
+    by: payload.by || 'agent',
   })
-  return { action: 'studio_cast_resolve', season: payload.season || production.current.seasonId, episode: payload.episode || production.current.episodeId, members }
+  replaceCard(project, card.id, () => added.card)
+  persistStudio(appendGraphEdges(studio, [added.edge], { by: payload.by || 'agent' }))
+  return {
+    success: true,
+    action: 'studio_blocking_add_character',
+    cardId: card.id,
+    castId: added.member.cast_id,
+    cameraRig: added.card.cameraRig,
+    edge: added.edge,
+  }
 }
 
 export function handleStudioSlotsList() {
@@ -696,6 +794,12 @@ export function handleProductionAction(action, payload = {}) {
       return handleImportShotBlocking(payload)
     case 'studio_cast_resolve':
       return handleStudioCastResolve(payload)
+    case 'studio_ref_gate':
+      return handleStudioRefGate(payload)
+    case 'studio_cast_lock':
+      return handleStudioCastLock(payload)
+    case 'studio_blocking_add_character':
+      return handleStudioBlockingAddCharacter(payload)
     case 'studio_slots_list':
       return handleStudioSlotsList()
     case 'studio_slots_mutate':

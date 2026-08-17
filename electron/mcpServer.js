@@ -2881,8 +2881,7 @@ function buildAiReviewPasses(snapshot) {
         title: 'Show / episode production packet',
         goal: 'Understand show → season → episode → shot layers, then create an episode or propose a camera handle without writing until approved.',
         prompt: 'Call get_production_context first. Read layers.show, layers.season, layers.episode, then storyboard/sequence have-vs-missing. Use list_production_catalog for lexicon ids. Create or switch episodes with previewOnly first. To suggest a new angle, use propose_shot_camera (xyz handle) — do not apply until I approve apply_shot_camera_proposal.',
-        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'studio_route_shot', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow'],
-        safeDefaults: {
+        tools: [discover_production, get_production_context, list_production_catalog, list_episodes, list_cuts, create_episode, switch_episode, save_cut, checkout_cut, watch_cut, promote_cut, get_shot_packet, studio_route_shot, propose_shot_camera, studio_cast_resolve, studio_ref_gate, studio_cast_lock, studio_blocking_add_character, studio_flow],        safeDefaults: {
           previewOnlyFirst: true,
           neverApplyCameraProposalWithoutApproval: true,
         },
@@ -6603,13 +6602,59 @@ function createToolDefinitions() {
     },
     {
       name: 'studio_cast_resolve',
-      description: 'Resolve series → season → episode cast with scope, defined_in, and field-level overrides. Episode guests do not leak.',
+      description: 'Resolve series → season → episode cast with scope, defined_in, and field-level overrides. Episode guests do not leak. Includes the current ref-gate report.',
       inputSchema: {
         type: 'object',
         properties: {
           season: { type: 'string' },
           episode: { type: 'string' },
         },
+      },
+    },
+    {
+      name: 'studio_ref_gate',
+      description: 'Check whether assigned cast members have individual curated identity refs. Blocks group sheets, missing files, and generated-output canon. Crowd shots with no assigned cast pass.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          season: { type: 'string' },
+          episode: { type: 'string' },
+          cardId: { type: 'string' },
+          castId: { type: 'string' },
+          castIds: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    {
+      name: 'studio_cast_lock',
+      description: 'Preview or freeze/unfreeze identity refs after the ref gate passes. Defaults to previewOnly. op=status|lock|unlock.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['status', 'lock', 'unlock'] },
+          season: { type: 'string' },
+          episode: { type: 'string' },
+          castId: { type: 'string' },
+          castIds: { type: 'array', items: { type: 'string' } },
+          by: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'studio_blocking_add_character',
+      description: 'Preview or add a resolved cast member as a stand-in on a shot. Unknown, duplicate, or invalid (unlocked/group-sheet/output-derived) casts are refused. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string' },
+          castId: { type: 'string' },
+          season: { type: 'string' },
+          episode: { type: 'string' },
+          by: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['cardId', 'castId'],
       },
     },
     {
@@ -11161,6 +11206,9 @@ class ComfyStudioMcpServer {
       case 'apply_shot_camera_proposal':
       case 'import_shot_blocking':
       case 'studio_cast_resolve':
+      case 'studio_ref_gate':
+      case 'studio_cast_lock':
+      case 'studio_blocking_add_character':
       case 'studio_slots_list':
       case 'studio_slots_mutate':
       case 'studio_qa_record':
@@ -11182,6 +11230,8 @@ class ComfyStudioMcpServer {
             'propose_shot_camera',
             'apply_shot_camera_proposal',
             'import_shot_blocking',
+            'studio_cast_lock',
+            'studio_blocking_add_character',
             'studio_slots_mutate',
             'studio_qa_record',
           ].includes(name),
