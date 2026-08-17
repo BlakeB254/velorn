@@ -23,7 +23,6 @@ import {
 
 export const DEFAULT_LEDGER_ROOTS = Object.freeze([
   '/home/codex450/cdx-platform/out/_creative_ops',
-  '/home/codex450/cdx-platform/services/cdx-video-director/out/_creative_ops',
   '/home/codex450/creative/out/_creative_ops',
 ])
 

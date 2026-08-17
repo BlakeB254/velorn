@@ -78,6 +78,7 @@ import {
   buildProductionGraph,
   ledgerProductions,
 } from './productionGraph.js'
+import {
   applyCloneVoice,
   applyFoley,
   applyVoiceover,
@@ -865,6 +866,8 @@ export function handleSyncProductionGraph(payload = {}) {
   }
   persistCreativeOps(workspace, { productionGraph: snapshot })
   return { success: true, action: 'sync_production_graph', graph: snapshot }
+}
+
 export function handleStudioRouteShot(payload = {}) {
   const cardId = String(payload.cardId || payload.shotId || payload.id || '').trim()
   if (cardId) {
