@@ -17,13 +17,16 @@ import { generateResolution } from '../services/outputRatio'
 import OutputRatioBar from './storyboard/OutputRatioBar'
 import CutBar from './storyboard/CutBar'
 import { normalizeStudio } from '../services/studioStore'
-import { cardSlotView } from '../services/studioUi'
+import { cardSlotView, slotForCard } from '../services/studioUi'
+import { routeShotFromCard } from '../services/shotRouting'
 import StageRail from './studio/StageRail'
 import CastPanel from './studio/CastPanel'
 import BlockingPanel from './studio/BlockingPanel'
+import RouteChip from './studio/RouteChip'
 import {
   AssetPicker,
   DEFAULT_FRAME_WORKFLOW,
+  DEFAULT_VIDEO_WORKFLOW,
   FRAME_WORKFLOWS,
   RefChips,
   composeGenerationPrompt,
@@ -235,9 +238,21 @@ export default function StoryboardWorkspace() {
   }
 
   const openGeneratePanel = (card) => {
-    const workflow = findFrameWorkflow(card.workflowId)
+    const route = routeShotFromCard(card, {
+      slot: slotForCard(studio, card),
+      productionType: production?.type,
+    })
+    const routedStill = route.stillWorkflowId || (route.workflowId && FRAME_WORKFLOWS.some((item) => item.id === route.workflowId) ? route.workflowId : null)
+    const workflow = findFrameWorkflow(
+      card.workflowId && card.workflowId !== DEFAULT_FRAME_WORKFLOW
+        ? card.workflowId
+        : (routedStill || card.workflowId)
+    )
     const patch = {}
-    if (!card.workflowId) patch.workflowId = workflow.id
+    if (!card.workflowId || card.workflowId === DEFAULT_FRAME_WORKFLOW) patch.workflowId = workflow.id
+    if (route.videoWorkflowId && (!card.videoWorkflowId || card.videoWorkflowId === DEFAULT_VIDEO_WORKFLOW)) {
+      patch.videoWorkflowId = route.videoWorkflowId
+    }
     if (workflow.needsImage && !card.sourceAssetId && card.imageAssetId) {
       patch.sourceAssetId = card.imageAssetId
     }
@@ -495,6 +510,10 @@ export default function StoryboardWorkspace() {
               const slots = frameWorkflowSlots(workflow)
               const pickerFor = (slot) => mediaPicker?.cardId === card.id && mediaPicker?.slot === slot
               const slotView = cardSlotView(studio, card)
+              const route = routeShotFromCard(card, {
+                slot: slotView?.slot || null,
+                productionType: production?.type,
+              })
               return (
                 <article
                   key={card.id}
@@ -527,6 +546,12 @@ export default function StoryboardWorkspace() {
                         <span className={slotView.qa.audio.result === 'pass' ? 'text-emerald-300' : slotView.qa.audio.result === 'fail' ? 'text-red-400' : 'text-sf-text-muted'}>
                           A {slotView.qa.audio.result}
                         </span>
+                        <RouteChip route={route} />
+                      </div>
+                    )}
+                    {!slotView && (
+                      <div className="flex flex-wrap gap-1 text-[9px] uppercase tracking-wide">
+                        <RouteChip route={route} />
                       </div>
                     )}
                     <div className="flex items-start gap-2">
@@ -758,7 +783,12 @@ export default function StoryboardWorkspace() {
                             ))}
                           </select>
                         </label>
-                        <p className="text-[10px] text-sf-text-muted">{workflow.description}</p>
+                        <p className="text-[10px] text-sky-200/90">
+                          Routed: {route.label} → {route.workflowId}
+                          {route.draftWorkflowId && route.draftWorkflowId !== route.workflowId ? ` · draft ${route.draftWorkflowId}` : ''}
+                          {' · '}GPU serial, drafts only
+                        </p>
+                        <p className="text-[10px] text-sf-text-muted">{route.notes || workflow.description}</p>
                         <label className="block space-y-1">
                           <span className="text-[10px] uppercase tracking-wide text-sf-text-muted">Prompt</span>
                           <textarea
