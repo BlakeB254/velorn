@@ -35,6 +35,7 @@
     "test:take-chain": "node --test ./tests/takeChain.test.js ./tests/takeChainPacket.test.js",
     "test:shot-routing": "node --test ./tests/shotRouting.test.js",
     "test:style-packs-bible": "node --test ./tests/stylePacksBible.test.js",
+    "test:core-trace": "node --test ./tests/coreTraceBridge.test.js",
     "test:cdx-workflows": "node --test ./tests/cdxWorkflowPort.test.js",
     "test:cdx-isolation": "node --test ./tests/cdxStudioIsolation.test.js",
     "test:output-ratio": "node --test ./tests/outputRatio.test.js",

@@ -8589,6 +8589,10 @@ async function handleMcpAction(request = {}) {
     case 'studio_style_pack':
     case 'studio_franchise':
     case 'studio_bible':
+    case 'studio_core_trace':
+    case 'studio_skill_context':
+    case 'studio_entity_resolve':
+    case 'studio_map_receipt':
     case 'list_cuts':
     case 'save_cut':
     case 'checkout_cut':
