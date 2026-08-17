@@ -2881,7 +2881,7 @@ function buildAiReviewPasses(snapshot) {
         title: 'Show / episode production packet',
         goal: 'Understand show → season → episode → shot layers, then create an episode or propose a camera handle without writing until approved.',
         prompt: 'Call get_production_context first. Read layers.show, layers.season, layers.episode, then storyboard/sequence have-vs-missing. Use list_production_catalog for lexicon ids. Create or switch episodes with previewOnly first. To suggest a new angle, use propose_shot_camera (xyz handle) — do not apply until I approve apply_shot_camera_proposal.',
-        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow'],
+        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow', 'studio_core_trace', 'studio_skill_context', 'studio_entity_resolve', 'studio_map_receipt'],
         safeDefaults: {
           previewOnlyFirst: true,
           neverApplyCameraProposalWithoutApproval: true,
@@ -6657,6 +6657,72 @@ function createToolDefinitions() {
       name: 'studio_flow',
       description: 'Return the stage rail: script → cast → scenes → storyboard → flf → video → review → edit → deliver, with stage_reached and stage_blocked_at.',
       inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'studio_core_trace',
+      description: 'Velorn-native Core trace bridge. Plan or record a generation/feedback/MCP ledger write with skill_version_id. Defaults to previewOnly. Does not depend on CDX Studio.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['get', 'plan', 'record', 'feedback', 'mcp'] },
+          generation_id: { type: 'string' },
+          slug: { type: 'string' },
+          asset_type: { type: 'string', enum: ['image', 'video', 'audio', 'voice', 'music', 'foley'] },
+          skill_version_id: { type: 'integer' },
+          skill: { type: 'object' },
+          entity_id: { type: 'integer' },
+          approved: { type: 'boolean' },
+          verdict: { type: 'string', enum: ['up', 'down', 'neutral', 'best'] },
+          reason: { type: 'string' },
+          action: { type: 'string', description: 'MCP action name when op=mcp.' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'studio_skill_context',
+      description: 'Cite or attach a Skills Registry version. Receipts and traces must include skill_version_id. get/cite are read-only; attach defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['get', 'cite', 'attach'] },
+          slug: { type: 'string' },
+          version: { type: ['integer', 'string'] },
+          skill_version_id: { type: 'integer' },
+          skill: { type: 'object' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'studio_entity_resolve',
+      description: 'Search-before-create entity link for the open production. Never invent an entity_id. Ambiguous matches stay unowned.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['get', 'search', 'apply'] },
+          query: { type: 'string' },
+          entity_id: { type: 'integer' },
+          matches: { type: 'array' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'studio_map_receipt',
+      description: 'Build a Core map receipt that cites skill_version_id and used_skill. previewOnly by default. Posting THE MAP is a bridge/CLI step.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          card_id: { type: 'string' },
+          board: { type: 'string' },
+          summary: { type: 'string' },
+          skill_version_id: { type: 'integer' },
+          skill: { type: 'object' },
+          entity_id: { type: 'integer' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
     },
     {
       name: 'find_timeline_items',
@@ -11107,6 +11173,8 @@ class ComfyStudioMcpServer {
       'get_workflow_install_status',
       'list_production_catalog',
       'discover_production',
+      'studio_skill_context',
+      'studio_map_receipt',
     ])
     if (!hasSnapshot(snapshot) && !toolsAllowedWithoutProject.has(name)) {
       return errorResult('No Velorn project is open yet.')
@@ -11136,6 +11204,10 @@ class ComfyStudioMcpServer {
       case 'studio_slots_mutate':
       case 'studio_qa_record':
       case 'studio_flow':
+      case 'studio_core_trace':
+      case 'studio_skill_context':
+      case 'studio_entity_resolve':
+      case 'studio_map_receipt':
         return this.runRendererActionTool(name, args, {
           bridgeName: 'MCP production bridge',
           suggestedTool: name,
@@ -11154,6 +11226,10 @@ class ComfyStudioMcpServer {
             'import_shot_blocking',
             'studio_slots_mutate',
             'studio_qa_record',
+            'studio_core_trace',
+            'studio_skill_context',
+            'studio_entity_resolve',
+            'studio_map_receipt',
           ].includes(name),
         })
       case 'get_project':

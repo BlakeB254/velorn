@@ -20,6 +20,7 @@ import {
 } from './productionStore.js'
 import { resolveCast, normalizeStudio } from './studioStore.js'
 import { generateResolution, listOutputTargets, resolveOutput } from './outputRatio.js'
+import { attachCoreToPacket } from './coreTraceBridge.js'
 import {
   assembleLexiconLabels,
   assembleLexiconLine,
@@ -226,6 +227,7 @@ export function listProductionCatalog() {
       { id: 'flf-last-frame', required: false, when: 'first/last or extend continuity', use: 'lastFrameAssetId + videoWorkflowId' },
       { id: 'sound', required: false, when: 'VO / lipsync / music bed', use: 'dialogue, soundNotes, audioAssetId, musicAssetId' },
       { id: 'multi-angles', required: false, when: 'need 8 coverage angles from one still', use: 'workflow multi-angles / multi-angles-scene' },
+      { id: 'core-trace', required: false, when: 'any generation or MCP production op', use: 'studio_core_trace + skill_version_id + studio_map_receipt' },
     ],
     layers: CONTEXT_LAYERS,
   }
@@ -271,7 +273,7 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
   const locations = (Array.isArray(director.locations) ? director.locations : Object.values(studio.locations || {}))
     .map((entry) => locationResources(entry, assets))
 
-  return {
+  const packet = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     howToRead: [
@@ -308,4 +310,5 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
       },
     },
   }
+  return attachCoreToPacket(packet, project)
 }

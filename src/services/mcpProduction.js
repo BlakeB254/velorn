@@ -57,6 +57,18 @@ import {
 } from './studioStore.js'
 import { normalizeProjectLook, normalizeShotSettings } from './shotSettings.js'
 import { applyOutputTargetToSettings, generateResolution } from './outputRatio.js'
+import {
+  applyResolvedEntity,
+  buildDirectFeedbackTrace,
+  buildFeedbackTrace,
+  buildGenerationTrace,
+  buildMapReceipt,
+  buildMcpCallTrace,
+  citeSkillVersion,
+  decorateWithMcpTrace,
+  entitySearchPlan,
+  normalizeCoreBridge,
+} from './coreTraceBridge.js'
 
 function requireProject() {
   const project = useProjectStore.getState().currentProject
@@ -81,6 +93,24 @@ function persistProduction(production, extra = {}) {
 
 function persistStudio(studio) {
   return useProjectStore.getState().setStudio(studio)
+}
+
+function persistCore(core, extra = {}) {
+  const store = useProjectStore.getState()
+  if (!store.currentProject) return null
+  useProjectStore.setState((state) => ({
+    currentProject: state.currentProject ? {
+      ...state.currentProject,
+      core,
+      ...extra,
+      modified: new Date().toISOString(),
+    } : null,
+  }))
+  return core
+}
+
+function coreFromProject(project) {
+  return normalizeCoreBridge(project?.core || {}, project || {})
 }
 
 function findCard(project, cardId) {
@@ -599,7 +629,120 @@ export function handleStudioFlow(payload = {}) {
   }
 }
 
+export function handleStudioCoreTrace(payload = {}) {
+  const op = String(payload.op || 'get')
+  const project = useProjectStore.getState().currentProject
+  const core = project ? coreFromProject(project) : normalizeCoreBridge(payload, {})
+  if (op === 'get') {
+    return { action: 'studio_core_trace', op: 'get', core }
+  }
+  const record = {
+    ...payload,
+    slug: payload.slug || project?.production?.slug || project?.cdxMigration?.slug || project?.name || 'velorn',
+    entity_id: payload.entity_id || core.entity_id,
+    skill: payload.skill || core.skill,
+    skill_version_id: payload.skill_version_id || core.skill?.skill_version_id,
+  }
+  const plan = op === 'feedback'
+    ? (payload.verdict ? buildDirectFeedbackTrace(record) : buildFeedbackTrace(record))
+    : op === 'mcp'
+      ? buildMcpCallTrace(record)
+      : buildGenerationTrace(record)
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, action: 'studio_core_trace', op, plan }
+  }
+  const next = {
+    ...core,
+    lastTrace: plan.receipt,
+    traces: [...(core.traces || []), plan.receipt].slice(-50),
+  }
+  if (project) persistCore(next)
+  return { success: true, action: 'studio_core_trace', op, plan, core: next }
+}
+
+export function handleStudioSkillContext(payload = {}) {
+  const op = String(payload.op || 'get')
+  const project = useProjectStore.getState().currentProject
+  const core = project ? coreFromProject(project) : normalizeCoreBridge({}, {})
+  if (op === 'get') {
+    return { action: 'studio_skill_context', op: 'get', skill: core.skill, endpoints: { runContext: '/api/v1/skills/<slug>/run-context' } }
+  }
+  const citation = citeSkillVersion(payload.skill || payload)
+  if (payload.previewOnly !== false && op !== 'cite') {
+    return { previewOnly: true, action: 'studio_skill_context', op, skill: citation }
+  }
+  if (op === 'cite') {
+    return { action: 'studio_skill_context', op: 'cite', skill: citation }
+  }
+  if (op === 'attach') {
+    const next = { ...core, skill: citation }
+    if (project) persistCore(next)
+    return { success: true, action: 'studio_skill_context', op: 'attach', skill: citation, core: next }
+  }
+  throw new Error('studio_skill_context op must be get, cite, or attach')
+}
+
+export function handleStudioEntityResolve(payload = {}) {
+  const op = String(payload.op || 'get')
+  const project = useProjectStore.getState().currentProject
+  const core = project ? coreFromProject(project) : normalizeCoreBridge({}, {})
+  if (op === 'get') {
+    return { action: 'studio_entity_resolve', op: 'get', entity_id: core.entity_id, entity_name: core.entity_name, unowned: core.unowned }
+  }
+  if (op === 'search') {
+    const query = payload.query || payload.q || project?.name || project?.cdxMigration?.slug || ''
+    return { action: 'studio_entity_resolve', op: 'search', plan: entitySearchPlan(query), note: 'search-before-create; do not invent' }
+  }
+  if (op === 'apply') {
+    const linked = applyResolvedEntity(core, payload, { matches: payload.matches || payload.docs })
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_entity_resolve', op: 'apply', link: linked }
+    }
+    if (linked.unowned && !linked.entity_id) {
+      return { success: false, action: 'studio_entity_resolve', op: 'apply', link: linked, note: 'left unowned; no unique entity' }
+    }
+    const next = { ...core, entity_id: linked.entity_id, entity_name: linked.entity_name, unowned: !linked.entity_id }
+    if (project) persistCore(next)
+    return { success: true, action: 'studio_entity_resolve', op: 'apply', link: linked, core: next }
+  }
+  throw new Error('studio_entity_resolve op must be get, search, or apply')
+}
+
+export function handleStudioMapReceipt(payload = {}) {
+  const project = useProjectStore.getState().currentProject
+  const core = project ? coreFromProject(project) : normalizeCoreBridge({}, {})
+  const receipt = buildMapReceipt({
+    ...payload,
+    slug: payload.slug || project?.production?.slug || project?.cdxMigration?.slug || 'velorn-production',
+    production_name: payload.production_name || project?.name,
+    skill: payload.skill || core.skill,
+    skill_version_id: payload.skill_version_id || core.skill?.skill_version_id,
+    entity_id: payload.entity_id || core.entity_id,
+    entity_name: payload.entity_name || core.entity_name,
+    entity_key: payload.entity_key || (core.entity_name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-') || undefined,
+    trace_id: payload.trace_id || core.lastTrace?.trace_id,
+    board: payload.board || 'cdx-creative',
+  })
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, action: 'studio_map_receipt', receipt, note: 'POST http://127.0.0.1:7028/kanban/receipt to apply' }
+  }
+  return { success: true, action: 'studio_map_receipt', receipt, posted: false, note: 'Local plan only. CLI/bridge posts THE MAP.' }
+}
+
 export function handleProductionAction(action, payload = {}) {
+  const project = useProjectStore.getState().currentProject
+  const core = project ? coreFromProject(project) : {}
+  const result = dispatchProductionAction(action, payload)
+  return decorateWithMcpTrace(action, payload, result, {
+    slug: project?.production?.slug || project?.cdxMigration?.slug || project?.name,
+    entity_id: core.entity_id,
+    skill: core.skill,
+    skill_version_id: core.skill?.skill_version_id,
+    started: String(Date.now()),
+  })
+}
+
+function dispatchProductionAction(action, payload = {}) {
   switch (action) {
     case 'get_production_context':
       return handleGetProductionContext(payload)
@@ -637,6 +780,14 @@ export function handleProductionAction(action, payload = {}) {
       return handleStudioQaRecord(payload)
     case 'studio_flow':
       return handleStudioFlow(payload)
+    case 'studio_core_trace':
+      return handleStudioCoreTrace(payload)
+    case 'studio_skill_context':
+      return handleStudioSkillContext(payload)
+    case 'studio_entity_resolve':
+      return handleStudioEntityResolve(payload)
+    case 'studio_map_receipt':
+      return handleStudioMapReceipt(payload)
     case 'list_cuts':
       return handleListCuts(payload)
     case 'save_cut':

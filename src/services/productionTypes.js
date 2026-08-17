@@ -74,7 +74,7 @@ export const PRODUCTION_TYPE_CATALOG = Object.freeze({
     maxHoldS: 4,
     runtime: '30-60s / episode',
     skills: ['velorn-production', 'cdx-video-production', 'cdx-viral-pacing', 'cdx-cast-lock', 'cdx-ltx25'],
-    startTools: ['get_production_context', 'list_episodes', 'list_cuts', 'studio_cast_resolve'],
+    startTools: ['get_production_context', 'list_episodes', 'list_cuts', 'studio_cast_resolve', 'studio_skill_context'],
     flow: 'show-episode',
   }),
   movie: typeDef({
@@ -303,9 +303,10 @@ export const PRODUCTION_FLOWS = Object.freeze([
       'analyze_timeline + check_media_health',
       'inspect_visible_shots — mark issues, previewOnly',
       'watch_cut / promote_cut',
+      'studio_core_trace + studio_map_receipt — cite skill_version_id, drafts only',
       'export_timeline or export_delivery_batch',
     ],
-    tools: ['analyze_timeline', 'check_media_health', 'inspect_visible_shots', 'watch_cut', 'promote_cut', 'export_timeline'],
+    tools: ['analyze_timeline', 'check_media_health', 'inspect_visible_shots', 'watch_cut', 'promote_cut', 'studio_core_trace', 'studio_map_receipt', 'export_timeline'],
   },
 ])
 

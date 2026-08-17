@@ -159,7 +159,42 @@ if (cmd === 'context') {
   const packet = productionPacket.buildShotPacket(project, cardId, { assets: project.assets || [] })
   if (!packet) throw new Error(`Shot ${cardId} not found`)
   console.log(JSON.stringify(packet, null, 2))
+} else if (cmd === 'trace-plan' || cmd === 'skill-cite' || cmd === 'receipt-plan') {
+  const core = await import(pathToFileURL(join(resolve(fileURLToPath(new URL('..', import.meta.url))), 'src/services/coreTraceBridge.js')).href)
+  if (cmd === 'skill-cite') {
+    console.log(JSON.stringify(core.citeSkillVersion({
+      slug: argValue('--slug') || 'velorn-production',
+      version: argValue('--version') || 1,
+      skill_version_id: argValue('--skill-version-id') ? Number(argValue('--skill-version-id')) : undefined,
+    }), null, 2))
+  } else if (cmd === 'receipt-plan') {
+    console.log(JSON.stringify(core.buildMapReceipt({
+      card_id: argValue('--card') || 'local',
+      board: argValue('--board') || 'cdx-creative',
+      slug: project.production?.slug || project.cdxMigration?.slug || project.name,
+      production_name: project.name,
+      skill_version_id: argValue('--skill-version-id') ? Number(argValue('--skill-version-id')) : undefined,
+      slug_skill: argValue('--slug') || undefined,
+      skill: argValue('--skill-version-id') || argValue('--slug')
+        ? { slug: argValue('--slug') || 'velorn-production', skill_version_id: argValue('--skill-version-id') ? Number(argValue('--skill-version-id')) : undefined }
+        : undefined,
+      entity_id: argValue('--entity') ? Number(argValue('--entity')) : project.core?.entity_id,
+      summary: argValue('--summary') || 'Velorn Core trace receipt plan',
+    }), null, 2))
+  } else {
+    console.log(JSON.stringify(core.buildGenerationTrace({
+      generation_id: argValue('--generation') || 'preview-1',
+      slug: project.production?.slug || project.cdxMigration?.slug || project.name,
+      asset_type: argValue('--asset') || 'video',
+      skill_version_id: argValue('--skill-version-id') ? Number(argValue('--skill-version-id')) : undefined,
+      skill: argValue('--skill-version-id')
+        ? { slug: argValue('--slug') || 'velorn-production', skill_version_id: Number(argValue('--skill-version-id')) }
+        : undefined,
+      entity_id: argValue('--entity') ? Number(argValue('--entity')) : project.core?.entity_id,
+      created_at: new Date().toISOString(),
+    }), null, 2))
+  }
 } else {
-  console.error(`Unknown command ${cmd}. Use: context | catalog | episodes | seed-show | create-episode | cuts | save-cut | checkout-cut | promote-cut | shot`)
+  console.error(`Unknown command ${cmd}. Use: context | catalog | episodes | seed-show | create-episode | cuts | save-cut | checkout-cut | promote-cut | shot | trace-plan | skill-cite | receipt-plan`)
   process.exit(2)
 }
