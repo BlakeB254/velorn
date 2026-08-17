@@ -21,6 +21,24 @@ import {
 import { resolveCast, normalizeStudio } from './studioStore.js'
 import { generateResolution, listOutputTargets, resolveOutput } from './outputRatio.js'
 import {
+  bibleForPacket,
+} from './productionBible.js'
+import {
+  checkFranchiseConsistency,
+  franchiseForApi,
+  listFranchises,
+  loadFranchise,
+} from './franchises.js'
+import {
+  listStylePacks,
+  loadStylePack,
+  stylePackForApi,
+} from './stylePacks.js'
+import {
+  animationStylesForApi,
+  getAnimationStyle,
+} from './animationStyles.js'
+import {
   assembleLexiconLabels,
   assembleLexiconLine,
   FEATURED_CAMERA_MOVEMENTS,
@@ -209,6 +227,9 @@ export function listProductionCatalog() {
     },
     outputTargets: listOutputTargets(),
     types: listProductionTypes(),
+    stylePacks: listStylePacks().map(stylePackForApi),
+    franchises: listFranchises().map((item) => ({ slug: item.slug, name: item.name, style_pack: item.style_pack, animation_style: item.animation_style })),
+    animationStyles: animationStylesForApi(),
     aliases: {
       advertisement: 'commercial',
       ad: 'commercial',
@@ -226,6 +247,9 @@ export function listProductionCatalog() {
       { id: 'flf-last-frame', required: false, when: 'first/last or extend continuity', use: 'lastFrameAssetId + videoWorkflowId' },
       { id: 'sound', required: false, when: 'VO / lipsync / music bed', use: 'dialogue, soundNotes, audioAssetId, musicAssetId' },
       { id: 'multi-angles', required: false, when: 'need 8 coverage angles from one still', use: 'workflow multi-angles / multi-angles-scene' },
+      { id: 'style-pack', required: false, when: 'any still or clip that must match house look', use: 'studio_style_pack + production.stylePack LoRAs/prompt tails/palette' },
+      { id: 'franchise-bible', required: false, when: 'shared IP / series identity', use: 'studio_franchise + studio_bible; seal before generating identity shots' },
+      { id: 'animation-style', required: false, when: 'animated or graded film look', use: 'studio_animation_styles card on production.animationStyle' },
     ],
     layers: CONTEXT_LAYERS,
   }
@@ -281,6 +305,7 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
       'cuts[] are named drafts of this episode. save_cut / checkout_cut / watch_cut / promote_cut. Primary is the official version; checkout is what is on the live board.',
       'Each shot inherits show look unless it overrides. Framing/angle never inherit.',
       'camera.x_m/y_m/z_m is the handle. Propose with propose_shot_camera; Blake can apply or drag.',
+      'style / franchise / bible live on production. Load them before generating. Beat prompts describe action; the pack carries look.',
       'extensions listed in catalog are optional. Use them when the shot needs them, do not dump them into every prompt.',
     ],
     production: productionSummary(production),
@@ -292,6 +317,13 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
     look,
     characters,
     locations,
+    style: {
+      pack: production.stylePack ? stylePackForApi(loadStylePack(production.stylePack)) : null,
+      animation: production.animationStyle ? getAnimationStyle(production.animationStyle) : null,
+    },
+    franchise: production.franchiseSlug ? franchiseForApi(loadFranchise(production.franchiseSlug)) : null,
+    franchiseConsistency: checkFranchiseConsistency(production),
+    bible: bibleForPacket(project, production),
     storyboard: {
       cardCount: cards.length,
       cards: cards.map((card) => summarizeCard(card, { projectLook: look, assets, project })),

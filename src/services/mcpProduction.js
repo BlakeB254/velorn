@@ -57,6 +57,33 @@ import {
 } from './studioStore.js'
 import { normalizeProjectLook, normalizeShotSettings } from './shotSettings.js'
 import { applyOutputTargetToSettings, generateResolution } from './outputRatio.js'
+import {
+  animationStylesForApi,
+  getAnimationStyle,
+} from './animationStyles.js'
+import {
+  applyGenerationStyle,
+  listStylePacks,
+  loadStylePack,
+  stylePackForApi,
+} from './stylePacks.js'
+import {
+  bindFranchise,
+  checkFranchiseConsistency,
+  franchiseForApi,
+  listFranchises,
+  loadFranchise,
+} from './franchises.js'
+import {
+  applyBibleToPrompt,
+  bibleForPacket,
+  buildBible,
+  hydrateIdentityFromProject,
+  importStudioBible,
+  sealBible,
+  shotBrief,
+  unsealBible,
+} from './productionBible.js'
 
 function requireProject() {
   const project = useProjectStore.getState().currentProject
@@ -583,6 +610,154 @@ export function handleStudioQaRecord(payload = {}) {
   return { success: true, action: 'studio_qa_record', qa: qaSummary(studio) }
 }
 
+export function handleStudioAnimationStyles(payload = {}) {
+  const op = String(payload.op || payload.action || 'list').trim().toLowerCase()
+  if (op === 'get') {
+    const style = getAnimationStyle(payload.id || payload.styleId || payload.style)
+    if (!style) throw new Error(`animation style '${payload.id || payload.styleId || ''}' not found`)
+    return { action: 'studio_animation_styles', op: 'get', style }
+  }
+  return {
+    action: 'studio_animation_styles',
+    op: 'list',
+    ...animationStylesForApi({
+      category: payload.category,
+      family: payload.family,
+    }),
+  }
+}
+
+export function handleStudioStylePack(payload = {}) {
+  const op = String(payload.op || payload.action || 'list').trim().toLowerCase()
+  if (op === 'get') {
+    const pack = loadStylePack(payload.name || payload.id || payload.pack)
+    if (!pack) throw new Error(`style pack '${payload.name || payload.id || ''}' not found`)
+    return { action: 'studio_style_pack', op: 'get', pack: stylePackForApi(pack) }
+  }
+  if (op === 'apply') {
+    const project = requireProject()
+    const production = hydrateProductionFromProject(project)
+    const name = payload.name || payload.id || payload.pack || production.stylePack
+    const styled = applyGenerationStyle(payload.prompt || '', {
+      packName: name,
+      kind: payload.kind || 'video',
+      negative: payload.negative || '',
+    })
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_style_pack', op: 'apply', ...styled }
+    }
+    const next = setProductionMeta(production, { stylePack: name })
+    persistProduction(next)
+    return { success: true, action: 'studio_style_pack', op: 'apply', production: next, ...styled }
+  }
+  return {
+    action: 'studio_style_pack',
+    op: 'list',
+    packs: listStylePacks().map(stylePackForApi),
+  }
+}
+
+export function handleStudioFranchise(payload = {}) {
+  const op = String(payload.op || payload.action || 'list').trim().toLowerCase()
+  if (op === 'get') {
+    const franchise = loadFranchise(payload.slug || payload.id)
+    if (!franchise) throw new Error(`franchise '${payload.slug || payload.id || ''}' not found`)
+    return { action: 'studio_franchise', op: 'get', franchise: franchiseForApi(franchise) }
+  }
+  if (op === 'consistency') {
+    const project = requireProject()
+    const production = hydrateProductionFromProject(project)
+    return {
+      action: 'studio_franchise',
+      op: 'consistency',
+      ...checkFranchiseConsistency(production, { franchise: loadFranchise(payload.slug || production.franchiseSlug) }),
+    }
+  }
+  if (op === 'bind') {
+    const project = requireProject()
+    const production = hydrateProductionFromProject(project)
+    const bound = bindFranchise(production, payload.slug || payload.id)
+    if (!bound.ok) throw new Error(bound.reason)
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_franchise', op: 'bind', franchise: bound.franchise, next: bound.production }
+    }
+    persistProduction(bound.production)
+    return { success: true, action: 'studio_franchise', op: 'bind', franchise: bound.franchise, production: bound.production }
+  }
+  return {
+    action: 'studio_franchise',
+    op: 'list',
+    franchises: listFranchises().map(franchiseForApi),
+  }
+}
+
+export function handleStudioBible(payload = {}) {
+  const project = requireProject()
+  const op = String(payload.op || payload.action || 'build').trim().toLowerCase()
+  const production = hydrateIdentityFromProject(project)
+  if (op === 'import') {
+    const imported = importStudioBible(payload.bible || payload.doc || project.shortFilmDirector?.bible || project.importedBible)
+    if (!imported) throw new Error('studio_bible import needs a bible object')
+    const next = setProductionMeta(production, {
+      franchiseSlug: imported.franchiseSlug || production.franchiseSlug,
+      stylePack: imported.stylePack || production.stylePack,
+      animationStyle: imported.animationStyle || production.animationStyle,
+      bible: imported.sealed ? { sealed: true, snapshot: imported.raw, source: 'import', contentHash: imported.contentHash } : production.bible,
+    })
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_bible', op: 'import', imported, next }
+    }
+    persistProduction(next)
+    return { success: true, action: 'studio_bible', op: 'import', imported, production: next }
+  }
+  if (op === 'seal') {
+    const sealed = sealBible(project, { sealedBy: payload.sealedBy || payload.by || 'agent', production })
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_bible', op: 'seal', bible: sealed.bible, meta: sealed.meta }
+    }
+    persistProduction(sealed.production)
+    return { success: true, action: 'studio_bible', op: 'seal', bible: sealed.bible, meta: sealed.meta }
+  }
+  if (op === 'unseal') {
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_bible', op: 'unseal' }
+    }
+    persistProduction(unsealBible(production))
+    return { success: true, action: 'studio_bible', op: 'unseal', production: unsealBible(production) }
+  }
+  if (op === 'shot_brief' || op === 'brief') {
+    const bible = buildBible(project, { production })
+    return {
+      action: 'studio_bible',
+      op: 'shot_brief',
+      brief: shotBrief(bible, {
+        shotSlug: payload.shot || payload.shotSlug || payload.cardId,
+        description: payload.description,
+        action: payload.shotAction || payload.actionLine,
+        castIds: payload.castIds,
+      }),
+    }
+  }
+  if (op === 'apply') {
+    const bible = buildBible(project, { production })
+    return {
+      action: 'studio_bible',
+      op: 'apply',
+      ...applyBibleToPrompt(payload.prompt || '', bible, {
+        kind: payload.kind || 'video',
+        negative: payload.negative || '',
+      }),
+      bible: bibleForPacket(project, production),
+    }
+  }
+  return {
+    action: 'studio_bible',
+    op: 'build',
+    bible: buildBible(project, { production }),
+    packet: bibleForPacket(project, production),
+  }
+}
+
 export function handleStudioFlow(payload = {}) {
   const project = requireProject()
   const cards = project.storyboardBoard?.cards || []
@@ -637,6 +812,14 @@ export function handleProductionAction(action, payload = {}) {
       return handleStudioQaRecord(payload)
     case 'studio_flow':
       return handleStudioFlow(payload)
+    case 'studio_animation_styles':
+      return handleStudioAnimationStyles(payload)
+    case 'studio_style_pack':
+      return handleStudioStylePack(payload)
+    case 'studio_franchise':
+      return handleStudioFranchise(payload)
+    case 'studio_bible':
+      return handleStudioBible(payload)
     case 'list_cuts':
       return handleListCuts(payload)
     case 'save_cut':

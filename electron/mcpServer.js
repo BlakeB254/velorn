@@ -2881,7 +2881,7 @@ function buildAiReviewPasses(snapshot) {
         title: 'Show / episode production packet',
         goal: 'Understand show → season → episode → shot layers, then create an episode or propose a camera handle without writing until approved.',
         prompt: 'Call get_production_context first. Read layers.show, layers.season, layers.episode, then storyboard/sequence have-vs-missing. Use list_production_catalog for lexicon ids. Create or switch episodes with previewOnly first. To suggest a new angle, use propose_shot_camera (xyz handle) — do not apply until I approve apply_shot_camera_proposal.',
-        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow'],
+        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow', 'studio_animation_styles', 'studio_style_pack', 'studio_franchise', 'studio_bible'],
         safeDefaults: {
           previewOnlyFirst: true,
           neverApplyCameraProposalWithoutApproval: true,
@@ -6657,6 +6657,63 @@ function createToolDefinitions() {
       name: 'studio_flow',
       description: 'Return the stage rail: script → cast → scenes → storyboard → flf → video → review → edit → deliver, with stage_reached and stage_blocked_at.',
       inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'studio_animation_styles',
+      description: 'List or get Velorn animation/film style cards (studio_animation_styles parity). Read-only catalog.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['list', 'get'] },
+          id: { type: 'string' },
+          category: { type: 'string' },
+          family: { type: 'string', enum: ['film', 'animation', 'other'] },
+        },
+      },
+    },
+    {
+      name: 'studio_style_pack',
+      description: 'List, get, or apply a house style pack (prompt tails, negatives, LoRAs, palette). apply defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['list', 'get', 'apply'] },
+          name: { type: 'string' },
+          prompt: { type: 'string' },
+          negative: { type: 'string' },
+          kind: { type: 'string', enum: ['still', 'video', 'i2v', 'flf', 'extend'] },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'studio_franchise',
+      description: 'List, get, bind, or consistency-check a franchise. bind inherits house pack / animation style / aspect. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['list', 'get', 'bind', 'consistency'] },
+          slug: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'studio_bible',
+      description: 'Build, import, seal, unseal, or shot-brief the production bible. seal/import/unseal default to previewOnly. GPU serial; drafts only.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['build', 'import', 'seal', 'unseal', 'shot_brief', 'apply'] },
+          bible: { type: 'object' },
+          shot: { type: 'string' },
+          description: { type: 'string' },
+          prompt: { type: 'string' },
+          kind: { type: 'string' },
+          sealedBy: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
     },
     {
       name: 'find_timeline_items',
@@ -11136,6 +11193,10 @@ class ComfyStudioMcpServer {
       case 'studio_slots_mutate':
       case 'studio_qa_record':
       case 'studio_flow':
+      case 'studio_animation_styles':
+      case 'studio_style_pack':
+      case 'studio_franchise':
+      case 'studio_bible':
         return this.runRendererActionTool(name, args, {
           bridgeName: 'MCP production bridge',
           suggestedTool: name,
@@ -11154,6 +11215,9 @@ class ComfyStudioMcpServer {
             'import_shot_blocking',
             'studio_slots_mutate',
             'studio_qa_record',
+            'studio_style_pack',
+            'studio_franchise',
+            'studio_bible',
           ].includes(name),
         })
       case 'get_project':

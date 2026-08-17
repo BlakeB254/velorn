@@ -13,6 +13,7 @@ import ShotParamsPanel from './storyboard/ShotParamsPanel'
 import ProjectLookBar from './storyboard/ProjectLookBar'
 import OutputRatioBar from './storyboard/OutputRatioBar'
 import CutBar from './storyboard/CutBar'
+import StyleBiblePanel from './studio/StyleBiblePanel'
 import { generateResolution } from '../services/outputRatio'
 import { findMotion, loadMotionCatalog } from '../services/motionLibrary'
 import { assembleLexiconLabels, modeFromWorkflow, normalizeProjectLook } from '../services/shotSettings'
@@ -52,6 +53,7 @@ export default function SequenceWorkspace() {
   const setStoryboardBoard = useProjectStore((state) => state.setStoryboardBoard)
   const updateProjectSettings = useProjectStore((state) => state.updateProjectSettings)
   const saveProject = useProjectStore((state) => state.saveProject)
+  const getProduction = useProjectStore((state) => state.getProduction)
   const createTimeline = useProjectStore((state) => state.createTimeline)
   const switchTimeline = useProjectStore((state) => state.switchTimeline)
   const addClip = useTimelineStore((state) => state.addClip)
@@ -85,6 +87,10 @@ export default function SequenceWorkspace() {
   const projectLook = useMemo(
     () => normalizeProjectLook(currentProject?.settings?.cinematography),
     [currentProject?.settings?.cinematography]
+  )
+  const production = useMemo(
+    () => getProduction?.() || currentProject?.production || null,
+    [currentProject, getProduction],
   )
 
   useEffect(() => {
@@ -253,6 +259,9 @@ export default function SequenceWorkspace() {
       motionTitle: motion?.title || '',
       mode: modeFromWorkflow(workflow.id, 'video'),
       projectLook,
+      stylePack: production?.stylePack,
+      animationStyle: production?.animationStyle,
+      kind: 'video',
       bridge: needs.includes('last') && nextCard
         ? `Last frame is shot ${nextCard.order}: ${nextCard.title}. ${nextCard.description || ''}`
         : '',
@@ -584,6 +593,7 @@ export default function SequenceWorkspace() {
           value={projectLook}
           onChange={(look) => updateProjectSettings({ cinematography: look })}
         />
+        <StyleBiblePanel production={production} />
       </div>
       <div className="flex-1 overflow-auto p-5 space-y-3">
         {error && <p className="text-sm text-red-400">{error}</p>}
@@ -601,7 +611,11 @@ export default function SequenceWorkspace() {
           const clipUrl = mediaUrl(card.videoAssetId)
           const clipStatus = shotClipStatus(card)
           const needsReview = Boolean(card.videoAssetId) && card.status !== 'accepted' && card.status !== 'generating'
-          const promptPreview = composeGenerationPrompt(card)
+          const promptPreview = composeGenerationPrompt(card, {
+            stylePack: production?.stylePack,
+            animationStyle: production?.animationStyle,
+            kind: 'video',
+          })
           const included = [
             { label: 'Workflow', value: workflow.label },
             { label: 'Duration', value: `${card.duration || 5}s` },

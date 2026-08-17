@@ -18,6 +18,7 @@ import {
   getProductionType,
   normalizeProductionType,
 } from './productionTypes.js'
+import { loadFranchise } from './franchises.js'
 
 export { PRODUCTION_TYPES } from './productionTypes.js'
 
@@ -119,6 +120,34 @@ function emptyShow() {
   }
 }
 
+function emptyBibleSeal() {
+  return {
+    sealed: false,
+    sealedAt: '',
+    sealedBy: '',
+    contentHash: '',
+    snapshot: null,
+    source: '',
+  }
+}
+
+function normalizeBibleSeal(raw) {
+  if (!isPlainObject(raw)) return emptyBibleSeal()
+  const snapshot = isPlainObject(raw.snapshot) ? raw.snapshot : (isPlainObject(raw.bible) ? raw.bible : null)
+  return {
+    sealed: Boolean(raw.sealed || snapshot?.sealed),
+    sealedAt: asString(raw.sealedAt || raw.sealed_at || snapshot?.sealed_at),
+    sealedBy: asString(raw.sealedBy || raw.sealed_by || snapshot?.sealed_by),
+    contentHash: asString(raw.contentHash || raw.content_hash || snapshot?.content_hash),
+    snapshot,
+    source: asString(raw.source),
+  }
+}
+
+function packStem(value) {
+  return asString(value).trim().replace(/`/g, '').split(/[\\/]/).pop().replace(/\.ya?ml$/i, '')
+}
+
 function emptyEpisode(partial = {}) {
   const seasonNumber = asNumber(partial.seasonNumber, 1) || 1
   const number = asNumber(partial.number, 1) || 1
@@ -167,6 +196,10 @@ export function emptyProduction() {
     format: { aspect: '', outputTarget: '', durationHint: '', fps: null },
     look: emptyProjectLook(),
     show: emptyShow(),
+    franchiseSlug: '',
+    stylePack: '',
+    animationStyle: '',
+    bible: emptyBibleSeal(),
     current: { seasonId: '', episodeId: '', cutId: '' },
     seasons: [],
     updatedAt: '',
@@ -216,6 +249,10 @@ export function normalizeProduction(raw) {
     }),
     look: normalizeProjectLook(raw.look),
     show: normalizeShow(raw.show),
+    franchiseSlug: asString(raw.franchiseSlug || raw.franchise),
+    stylePack: packStem(raw.stylePack || raw.style_pack),
+    animationStyle: asString(raw.animationStyle || raw.animation_style),
+    bible: normalizeBibleSeal(raw.bible),
     current: {
       seasonId: currentSeasonId,
       episodeId: currentEpisodeId,
@@ -294,6 +331,22 @@ export function hydrateProductionFromProject(project) {
   const currentSeasonId = existing.current.seasonId || seasons[0]?.id || ''
   const currentEpisodeId = existing.current.episodeId || seasons[0]?.episodes[0]?.id || ''
 
+  const importedBible = isPlainObject(director.bible)
+    ? director.bible
+    : (isPlainObject(project?.importedBible) ? project.importedBible : {})
+  const importedFranchise = asString(
+    existing.franchiseSlug
+    || migration.franchise
+    || importedBible?.identity?.franchise?.slug
+    || importedBible?.franchise?.slug,
+  )
+  const guessedFranchise = loadFranchise(importedFranchise || slug)
+  const franchiseSlug = importedFranchise || (guessedFranchise ? guessedFranchise.slug : '')
+  const stylePack = existing.stylePack
+    || packStem(migration.style_pack || importedBible?.style?.style_pack || guessedFranchise?.style_pack)
+  const animationStyle = existing.animationStyle
+    || asString(migration.animation_style || importedBible?.style?.animation_style || guessedFranchise?.animation_style)
+
   return {
     schemaVersion: PRODUCTION_VERSION,
     type,
@@ -304,6 +357,12 @@ export function hydrateProductionFromProject(project) {
     format,
     look,
     show,
+    franchiseSlug,
+    stylePack,
+    animationStyle,
+    bible: existing.bible.snapshot || existing.bible.sealed
+      ? existing.bible
+      : normalizeBibleSeal(importedBible.sealed ? { sealed: true, snapshot: importedBible, source: 'import' } : existing.bible),
     current: { seasonId: currentSeasonId, episodeId: currentEpisodeId, cutId: existing.current.cutId || '' },
     seasons,
     updatedAt: existing.updatedAt || nowIso(),
@@ -460,6 +519,16 @@ export function setProductionMeta(production, fields = {}) {
   }
   if (isPlainObject(fields.look)) next.look = normalizeProjectLook({ ...next.look, ...fields.look })
   if (isPlainObject(fields.show)) next.show = normalizeShow({ ...next.show, ...fields.show })
+  if (fields.franchiseSlug !== undefined || fields.franchise !== undefined) {
+    next.franchiseSlug = asString(fields.franchiseSlug || fields.franchise)
+  }
+  if (fields.stylePack !== undefined || fields.style_pack !== undefined) {
+    next.stylePack = packStem(fields.stylePack || fields.style_pack)
+  }
+  if (fields.animationStyle !== undefined || fields.animation_style !== undefined) {
+    next.animationStyle = asString(fields.animationStyle || fields.animation_style)
+  }
+  if (fields.bible !== undefined) next.bible = normalizeBibleSeal(fields.bible)
   return next
 }
 
@@ -489,6 +558,10 @@ export function productionSummary(production) {
     currentCutId: norm.current.cutId || '',
     currentEpisodeTitle: current?.episode?.title || '',
     currentEpisodeStatus: current?.episode?.status || '',
+    franchiseSlug: norm.franchiseSlug,
+    stylePack: norm.stylePack,
+    animationStyle: norm.animationStyle,
+    bibleSealed: Boolean(norm.bible?.sealed),
     layers: CONTEXT_LAYERS.map((layer) => layer.id),
   }
 }
@@ -506,6 +579,10 @@ export function layeredContext(production) {
       premise: norm.premise,
       format: norm.format,
       look: norm.look,
+      franchiseSlug: norm.franchiseSlug,
+      stylePack: norm.stylePack,
+      animationStyle: norm.animationStyle,
+      bibleSealed: Boolean(norm.bible?.sealed),
       ...norm.show,
     },
     season: current?.season

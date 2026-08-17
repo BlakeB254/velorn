@@ -1,9 +1,13 @@
 import { resolveCast, castCounts } from '../../services/studioStore'
+import { loadFranchise } from '../../services/franchises'
+import { loadStylePack } from '../../services/stylePacks'
 
-export default function CastPanel({ studio, season, episode }) {
+export default function CastPanel({ studio, season, episode, production }) {
   const members = resolveCast(studio, { season, episode })
   const counts = castCounts(studio)
-  if (!members.length) {
+  const franchise = production?.franchiseSlug ? loadFranchise(production.franchiseSlug) : null
+  const pack = production?.stylePack ? loadStylePack(production.stylePack) : null
+  if (!members.length && !franchise) {
     return <p className="text-[11px] text-sf-text-muted">No series cast in the studio block yet.</p>
   }
   return (
@@ -12,6 +16,9 @@ export default function CastPanel({ studio, season, episode }) {
         Series {counts.series}
         {Object.keys(counts.seasons).length ? ` · seasons ${Object.keys(counts.seasons).join(', ')}` : ''}
         {episode ? ` · resolving ${episode}` : ''}. Editing series changes every episode.
+        {franchise ? ` · franchise ${franchise.name}` : ''}
+        {pack ? ` · pack ${pack.name}` : ''}
+        {production?.bible?.sealed ? ' · bible sealed' : ''}
       </p>
       <div className="flex flex-wrap gap-2">
         {members.map((member) => (
