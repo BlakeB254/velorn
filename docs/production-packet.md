@@ -27,11 +27,11 @@ shot: lexicon + camera xyz handle + 1 location + 0–N characters + pose/motion 
 
 ## MCP (Velorn app on :19790)
 
-Read: `discover_production`, `get_production_context`, `get_shot_packet`, `studio_route_shot`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_ref_gate`, `studio_slots_list`, `studio_flow`, `list_line_takes`, `list_voice_profiles`, `production_readiness`, `studio_graph_ledger`
+Read: `discover_production`, `get_production_context`, `get_shot_packet`, `studio_route_shot`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_ref_gate`, `studio_slots_list`, `studio_flow`, `list_line_takes`, `list_voice_profiles`, `production_readiness`, `studio_graph_ledger`, `studio_animation_styles`, `studio_style_pack`, `studio_franchise`, `studio_bible`
 
 Types (CDX Studio set): `show`, `commercial` (advertisement/ad), `music-video`, `ig-short`, `skit`, `movie` (film), `psa`, `website-tour`, `hype-video`, `site-update`, `documentary`, `animated`, `narrative` (standalone).
 
-Write (previewOnly first): `set_production`, `create_episode`, `switch_episode`, `save_cut`, `checkout_cut`, `watch_cut`, `promote_cut`, `update_shot`, `propose_shot_camera`, `apply_shot_camera_proposal`, `studio_cast_lock`, `studio_blocking_add_character`, `studio_slots_mutate`, `studio_qa_record`, `synthesize_voiceover`, `clone_voice`, `mark_take_canonical`, `finalize_take`, `generate_lipsync_clip`, `generate_foley`, `studio_creative_ops`, `sync_production_graph`
+Write (previewOnly first): `set_production`, `create_episode`, `switch_episode`, `save_cut`, `checkout_cut`, `watch_cut`, `promote_cut`, `update_shot`, `propose_shot_camera`, `apply_shot_camera_proposal`, `studio_cast_lock`, `studio_blocking_add_character`, `studio_slots_mutate`, `studio_qa_record`, `synthesize_voiceover`, `clone_voice`, `mark_take_canonical`, `finalize_take`, `generate_lipsync_clip`, `generate_foley`, `studio_creative_ops`, `sync_production_graph`, `studio_style_pack`, `studio_franchise`, `studio_bible`
 
 ## Episode cuts (drafts)
 
@@ -77,6 +77,7 @@ node ~/opensource/velorn/scripts/app_graph_sync.py --app studio
 - Stage rail + cast panel on Storyboard. Cast chips show ready / blocked / frozen.
 - Ref gate refuses group sheets, missing refs, and generated-output canon before generate or `studio_blocking_add_character`.
 - `studio.graph.edges` records `cast_lock`, `ref_gate`, and `shot_cast` production edges.
+- Style / bible / franchise strip on Storyboard + Sequence (house pack, palette, sealed bible).
 - Slot state + video/audio QA pips on each card.
 - Take chain chip on dialogue cards (canonical stage). Foley assign on Sequence.
 - Shot routing chip: script call → ONE ecosystem + Velorn workflow (Grok draft first; GPU serial; drafts only). `studio_route_shot` / `studio_flow.routing`.

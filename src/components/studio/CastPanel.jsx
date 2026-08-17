@@ -1,5 +1,7 @@
 import { resolveCast, castCounts } from '../../services/studioStore'
 import { checkCastRefs, lockCastMembers, unlockCastMembers } from '../../services/castLock'
+import { loadFranchise } from '../../services/franchises'
+import { loadStylePack } from '../../services/stylePacks'
 
 function badgeFor(status) {
   if (!status) return { label: 'open', tone: 'text-sf-text-muted border-sf-dark-600' }
@@ -8,11 +10,13 @@ function badgeFor(status) {
   return { label: 'blocked', tone: 'text-red-300 border-red-500/40' }
 }
 
-export default function CastPanel({ studio, season, episode, onStudioChange }) {
+export default function CastPanel({ studio, season, episode, production, onStudioChange }) {
   const members = resolveCast(studio, { season, episode })
   const counts = castCounts(studio)
   const report = checkCastRefs(studio, { season, episode })
   const byId = Object.fromEntries(report.characters.map((item) => [item.cast_id, item]))
+  const franchise = production?.franchiseSlug ? loadFranchise(production.franchiseSlug) : null
+  const pack = production?.stylePack ? loadStylePack(production.stylePack) : null
 
   const mutate = (op, castId) => {
     if (typeof onStudioChange !== 'function') return
@@ -26,7 +30,7 @@ export default function CastPanel({ studio, season, episode, onStudioChange }) {
     }
   }
 
-  if (!members.length) {
+  if (!members.length && !franchise) {
     return <p className="text-[11px] text-sf-text-muted">No series cast in the studio block yet.</p>
   }
   return (
@@ -36,6 +40,9 @@ export default function CastPanel({ studio, season, episode, onStudioChange }) {
         {Object.keys(counts.seasons).length ? ` · seasons ${Object.keys(counts.seasons).join(', ')}` : ''}
         {episode ? ` · resolving ${episode}` : ''}. Editing series changes every episode.
         {report.ok ? ' · refs ready' : ` · gate: ${report.blockers.length} blocker${report.blockers.length === 1 ? '' : 's'}`}
+        {franchise ? ` · franchise ${franchise.name}` : ''}
+        {pack ? ` · pack ${pack.name}` : ''}
+        {production?.bible?.sealed ? ' · bible sealed' : ''}
       </p>
       <div className="flex flex-wrap gap-2">
         {members.map((member) => {
