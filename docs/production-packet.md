@@ -27,11 +27,11 @@ shot: lexicon + camera xyz handle + 1 location + 0–N characters + pose/motion 
 
 ## MCP (Velorn app on :19790)
 
-Read: `discover_production`, `get_production_context`, `get_shot_packet`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_slots_list`, `studio_flow`
+Read: `discover_production`, `get_production_context`, `get_shot_packet`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_slots_list`, `studio_flow`, `list_line_takes`, `list_voice_profiles`, `production_readiness`
 
 Types (CDX Studio set): `show`, `commercial` (advertisement/ad), `music-video`, `ig-short`, `skit`, `movie` (film), `psa`, `website-tour`, `hype-video`, `site-update`, `documentary`, `animated`, `narrative` (standalone).
 
-Write (previewOnly first): `set_production`, `create_episode`, `switch_episode`, `save_cut`, `checkout_cut`, `watch_cut`, `promote_cut`, `update_shot`, `propose_shot_camera`, `apply_shot_camera_proposal`, `studio_slots_mutate`, `studio_qa_record`
+Write (previewOnly first): `set_production`, `create_episode`, `switch_episode`, `save_cut`, `checkout_cut`, `watch_cut`, `promote_cut`, `update_shot`, `propose_shot_camera`, `apply_shot_camera_proposal`, `studio_slots_mutate`, `studio_qa_record`, `synthesize_voiceover`, `clone_voice`, `mark_take_canonical`, `finalize_take`, `generate_lipsync_clip`, `generate_foley`
 
 ## Episode cuts (drafts)
 
@@ -74,6 +74,7 @@ node ~/opensource/velorn/scripts/velorn-production.mjs create-episode --title "E
 
 - Stage rail + cast panel on Storyboard.
 - Slot state + video/audio QA pips on each card.
+- Take chain chip on dialogue cards (canonical stage). Foley assign on Sequence.
 - Blocking: 2D ENU handle (drag camera, edit xyz). Save `docs/blocking/<shot>/blocking.json`. Generate from blocking queues `cdx-ltx-union-control-flf`.
 
 ## CDX workflow pack
@@ -95,4 +96,4 @@ MCP: `set_production` with `outputTarget: "computer"` or `update_shot` with `out
 
 ## Optional extensions
 
-Lexicon, camera xyz, pose/motion, location depth→Blender, FLF last-frame, sound/VO/music, multi-angles. Use them when the shot needs them. Do not dump every extension into every prompt.
+Lexicon, camera xyz, pose/motion, location depth→Blender, FLF last-frame, sound/VO/take-chain/lipsync/foley, multi-angles. Use them when the shot needs them. Do not dump every extension into every prompt.

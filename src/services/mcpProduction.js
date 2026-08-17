@@ -57,6 +57,28 @@ import {
 } from './studioStore.js'
 import { normalizeProjectLook, normalizeShotSettings } from './shotSettings.js'
 import { applyOutputTargetToSettings, generateResolution } from './outputRatio.js'
+import {
+  applyCloneVoice,
+  applyFoley,
+  applyVoiceover,
+  attachAudio,
+  attachVoiceover,
+  bindCanonicalAudio,
+  buildVseAudioPlan,
+  canonicalTake,
+  expectedLinesFromCards,
+  finalizeTake,
+  findTake,
+  lineSlugForCard,
+  listVoiceProfiles,
+  markCanonical,
+  planCloneVoice,
+  planFoley,
+  planLipsyncClip,
+  planVoiceover,
+  readinessFor,
+  takesForLine,
+} from './takeChain.js'
 
 function requireProject() {
   const project = useProjectStore.getState().currentProject
@@ -592,11 +614,195 @@ export function handleStudioFlow(payload = {}) {
     editClips: payload.editClips,
     deliverables: payload.deliverables,
   }
+  const studio = normalizeStudio(project.studio)
+  const lines = expectedLinesFromCards(cards)
   return {
     action: 'studio_flow',
     flow: flowView(project.studio, extras),
+    audio: {
+      takeChain: readinessFor(studio.voiceover, lines.map((line) => line.lineSlug)),
+      vse: buildVseAudioPlan({ cards, manifest: studio.voiceover, audio: studio.audio }),
+    },
     production: hydrateProductionFromProject(project),
   }
+}
+
+function voiceoverStudio(project) {
+  return normalizeStudio(project.studio)
+}
+
+function persistVoiceover(studio, manifest, audio = null) {
+  let next = attachVoiceover(studio, manifest)
+  if (audio) next = attachAudio(next, audio)
+  persistStudio(next)
+  return next
+}
+
+function resolveLineCard(project, payload = {}) {
+  const cards = project.storyboardBoard?.cards || []
+  const cardId = String(payload.cardId || payload.shotId || '').trim()
+  if (cardId) return findCard(project, cardId)
+  const slug = String(payload.lineSlug || payload.line_slug || '').trim()
+  if (!slug) return null
+  return cards.find((card) => lineSlugForCard(card) === slug) || null
+}
+
+export function handleListLineTakes(payload = {}) {
+  const project = requireProject()
+  const studio = voiceoverStudio(project)
+  const card = resolveLineCard(project, payload)
+  const lineSlug = String(payload.lineSlug || payload.line_slug || (card ? lineSlugForCard(card) : '')).trim()
+  if (!lineSlug) throw new Error('list_line_takes needs lineSlug or cardId')
+  return {
+    action: 'list_line_takes',
+    lineSlug,
+    cardId: card?.id || null,
+    takes: takesForLine(studio.voiceover, lineSlug),
+    canonical: canonicalTake(studio.voiceover, lineSlug),
+  }
+}
+
+export function handleListVoiceProfiles() {
+  return { action: 'list_voice_profiles', profiles: listVoiceProfiles() }
+}
+
+export function handleProductionReadiness(payload = {}) {
+  const project = requireProject()
+  const studio = voiceoverStudio(project)
+  const cards = project.storyboardBoard?.cards || []
+  const lines = expectedLinesFromCards(cards)
+  const slugs = Array.isArray(payload.lineSlugs) && payload.lineSlugs.length
+    ? payload.lineSlugs
+    : lines.map((line) => line.lineSlug)
+  return {
+    action: 'production_readiness',
+    ...readinessFor(studio.voiceover, slugs),
+    lines,
+  }
+}
+
+export function handleSynthesizeVoiceover(payload = {}) {
+  const project = requireProject()
+  const card = resolveLineCard(project, payload)
+  const plan = planVoiceover({
+    lineSlug: payload.lineSlug || payload.line_slug || (card ? lineSlugForCard(card) : ''),
+    text: payload.text || card?.dialogue,
+    engine: payload.engine,
+    targetVoice: payload.targetVoice || payload.target_voice,
+    card,
+  })
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, ...plan, queued: false }
+  }
+  if (!plan.ok) throw new Error(plan.reason)
+  const studio = voiceoverStudio(project)
+  const applied = applyVoiceover(studio.voiceover, plan, {
+    cardId: card?.id,
+    assetId: payload.assetId,
+    audioPath: payload.audioPath,
+  })
+  persistVoiceover(studio, applied.manifest)
+  if (card && payload.bind !== false) {
+    replaceCard(project, card.id, (current) => bindCanonicalAudio(current, applied.take))
+  }
+  return { success: true, ...plan, take: applied.take, queued: false }
+}
+
+export function handleCloneVoice(payload = {}) {
+  const project = requireProject()
+  const studio = voiceoverStudio(project)
+  const card = resolveLineCard(project, payload)
+  const plan = planCloneVoice(studio.voiceover, {
+    lineSlug: payload.lineSlug || payload.line_slug || (card ? lineSlugForCard(card) : ''),
+    sourceTakeId: payload.sourceTakeId || payload.source_take_id,
+    targetVoice: payload.targetVoice || payload.target_voice,
+    engine: payload.engine,
+  })
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, ...plan, queued: false }
+  }
+  if (!plan.ok) throw new Error(plan.reason)
+  const applied = applyCloneVoice(studio.voiceover, plan, { audioPath: payload.audioPath })
+  persistVoiceover(studio, applied.manifest)
+  return { success: true, ...plan, take: applied.take, queued: false }
+}
+
+export function handleMarkTakeCanonical(payload = {}) {
+  const project = requireProject()
+  const takeId = String(payload.takeId || payload.take_id || '').trim()
+  if (!takeId) throw new Error('mark_take_canonical needs takeId')
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, action: 'mark_take_canonical', takeId }
+  }
+  const studio = voiceoverStudio(project)
+  const marked = markCanonical(studio.voiceover, takeId)
+  persistVoiceover(studio, marked.manifest)
+  return { success: true, action: 'mark_take_canonical', take: marked.take }
+}
+
+export function handleFinalizeTake(payload = {}) {
+  const project = requireProject()
+  const takeId = String(payload.takeId || payload.take_id || '').trim()
+  if (!takeId) throw new Error('finalize_take needs takeId')
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, action: 'finalize_take', takeId }
+  }
+  const studio = voiceoverStudio(project)
+  const locked = finalizeTake(studio.voiceover, takeId)
+  persistVoiceover(studio, locked.manifest)
+  const card = resolveLineCard(project, { lineSlug: locked.take.line_slug, cardId: payload.cardId })
+  if (card) replaceCard(project, card.id, (current) => bindCanonicalAudio(current, locked.take))
+  return { success: true, action: 'finalize_take', take: locked.take }
+}
+
+export function handleGenerateLipsyncClip(payload = {}) {
+  const project = requireProject()
+  const card = resolveLineCard(project, payload)
+  if (!card && !payload.takeId) throw new Error('generate_lipsync_clip needs cardId or lineSlug')
+  const studio = voiceoverStudio(project)
+  const take = payload.takeId
+    ? findTake(studio.voiceover, payload.takeId)
+    : canonicalTake(studio.voiceover, lineSlugForCard(card || { title: payload.lineSlug }))
+  const plan = planLipsyncClip({
+    card: card || {},
+    take,
+    offScreen: payload.offScreen,
+  })
+  return {
+    previewOnly: payload.previewOnly !== false,
+    ...plan,
+    queued: false,
+    note: 'Does not queue GPU. Use queue_prompt_generation_batch with workflowId after approval.',
+  }
+}
+
+export function handleGenerateFoley(payload = {}) {
+  const project = requireProject()
+  const card = resolveLineCard(project, payload)
+  if (!card) throw new Error('generate_foley needs cardId or lineSlug')
+  const plan = planFoley({
+    card: { ...card, silentVideoPath: payload.silentVideoPath },
+    tags: payload.tags,
+  })
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, ...plan, queued: false }
+  }
+  if (!plan.ok) {
+    const err = new Error(plan.reason)
+    err.status = plan.status
+    throw err
+  }
+  const studio = voiceoverStudio(project)
+  const applied = applyFoley(studio.audio, plan, {
+    cardId: card.id,
+    assetId: payload.assetId,
+    path: payload.audioPath,
+  })
+  persistVoiceover(studio, studio.voiceover, applied.audio)
+  if (payload.bind !== false) {
+    replaceCard(project, card.id, (current) => ({ ...current, foleyAssetId: applied.track.assetId || current.foleyAssetId }))
+  }
+  return { success: true, ...plan, track: applied.track, queued: false }
 }
 
 export function handleProductionAction(action, payload = {}) {
@@ -637,6 +843,24 @@ export function handleProductionAction(action, payload = {}) {
       return handleStudioQaRecord(payload)
     case 'studio_flow':
       return handleStudioFlow(payload)
+    case 'list_line_takes':
+      return handleListLineTakes(payload)
+    case 'list_voice_profiles':
+      return handleListVoiceProfiles()
+    case 'production_readiness':
+      return handleProductionReadiness(payload)
+    case 'synthesize_voiceover':
+      return handleSynthesizeVoiceover(payload)
+    case 'clone_voice':
+      return handleCloneVoice(payload)
+    case 'mark_take_canonical':
+      return handleMarkTakeCanonical(payload)
+    case 'finalize_take':
+      return handleFinalizeTake(payload)
+    case 'generate_lipsync_clip':
+      return handleGenerateLipsyncClip(payload)
+    case 'generate_foley':
+      return handleGenerateFoley(payload)
     case 'list_cuts':
       return handleListCuts(payload)
     case 'save_cut':

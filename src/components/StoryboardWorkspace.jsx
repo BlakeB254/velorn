@@ -21,6 +21,7 @@ import { cardSlotView } from '../services/studioUi'
 import StageRail from './studio/StageRail'
 import CastPanel from './studio/CastPanel'
 import BlockingPanel from './studio/BlockingPanel'
+import TakeChip from './studio/TakeChip'
 import {
   AssetPicker,
   DEFAULT_FRAME_WORKFLOW,
@@ -527,6 +528,12 @@ export default function StoryboardWorkspace() {
                         <span className={slotView.qa.audio.result === 'pass' ? 'text-emerald-300' : slotView.qa.audio.result === 'fail' ? 'text-red-400' : 'text-sf-text-muted'}>
                           A {slotView.qa.audio.result}
                         </span>
+                        <TakeChip card={card} studio={studio} />
+                      </div>
+                    )}
+                    {!slotView && card.dialogue && (
+                      <div className="flex flex-wrap gap-1 text-[9px] uppercase tracking-wide">
+                        <TakeChip card={card} studio={studio} />
                       </div>
                     )}
                     <div className="flex items-start gap-2">

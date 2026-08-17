@@ -101,7 +101,7 @@ export default function SequenceWorkspace() {
       const next = {}
       for (const card of board.cards) {
         const versionIds = (card.videoVersions || []).map((item) => item.assetId)
-        const ids = [card.imageAssetId, card.lastFrameAssetId, card.videoAssetId, card.audioAssetId, card.musicAssetId, ...versionIds]
+        const ids = [card.imageAssetId, card.lastFrameAssetId, card.videoAssetId, card.audioAssetId, card.musicAssetId, card.foleyAssetId, ...versionIds]
         for (const assetId of ids) {
           if (!assetId || next[assetId]) continue
           const asset = assets.find((item) => item.id === assetId)
@@ -203,6 +203,7 @@ export default function SequenceWorkspace() {
     if (!card) return
     if (slot === 'audio') updateCard(cardId, { audioAssetId: asset.id })
     else if (slot === 'music') updateCard(cardId, { musicAssetId: asset.id })
+    else if (slot === 'foley') updateCard(cardId, { foleyAssetId: asset.id })
     else if (slot === 'last') updateCard(cardId, { lastFrameAssetId: asset.id })
     else if (slot === 'character') updateCard(cardId, { characterRefs: addRef(card, 'characterRefs', asset) })
     else if (slot === 'location' || slot === 'scene') updateCard(cardId, { locationRef: { assetId: asset.id, name: asset.name }, sceneRefs: [{ assetId: asset.id, name: asset.name }] })
@@ -833,6 +834,24 @@ export default function SequenceWorkspace() {
                         accept="audio/*"
                         empty="No audio clips yet."
                         onPick={(asset) => applyPickedAsset(card.id, 'music', asset)}
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase tracking-wide text-sf-text-muted">Foley / SFX</span>
+                      <button type="button" onClick={() => togglePicker(card.id, 'foley')} className="text-[10px] text-sf-accent hover:underline">
+                        {card.foleyAssetId ? 'Change' : 'Assign'}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-sf-text-secondary">{assetName(card.foleyAssetId) || 'Optional synced SFX for this shot'}</p>
+                    {pickerFor('foley') && (
+                      <AssetPicker
+                        assets={audioAssets}
+                        type="audio"
+                        accept="audio/*"
+                        empty="No audio clips yet."
+                        onPick={(asset) => applyPickedAsset(card.id, 'foley', asset)}
                       />
                     )}
                   </div>

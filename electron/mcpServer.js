@@ -2881,7 +2881,7 @@ function buildAiReviewPasses(snapshot) {
         title: 'Show / episode production packet',
         goal: 'Understand show → season → episode → shot layers, then create an episode or propose a camera handle without writing until approved.',
         prompt: 'Call get_production_context first. Read layers.show, layers.season, layers.episode, then storyboard/sequence have-vs-missing. Use list_production_catalog for lexicon ids. Create or switch episodes with previewOnly first. To suggest a new angle, use propose_shot_camera (xyz handle) — do not apply until I approve apply_shot_camera_proposal.',
-        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow'],
+        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow', 'list_line_takes', 'list_voice_profiles', 'production_readiness', 'synthesize_voiceover', 'clone_voice', 'finalize_take', 'generate_lipsync_clip', 'generate_foley'],
         safeDefaults: {
           previewOnlyFirst: true,
           neverApplyCameraProposalWithoutApproval: true,
@@ -6655,8 +6655,115 @@ function createToolDefinitions() {
     },
     {
       name: 'studio_flow',
-      description: 'Return the stage rail: script → cast → scenes → storyboard → flf → video → review → edit → deliver, with stage_reached and stage_blocked_at.',
+      description: 'Return the stage rail: script → cast → scenes → storyboard → flf → video → review → edit → deliver, with stage_reached and stage_blocked_at. Includes take-chain readiness and the VSE audio plan.',
       inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'list_line_takes',
+      description: 'List every VO take for a dialogue line, with stage, engine, parent_take_id, and the canonical take.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          lineSlug: { type: 'string' },
+          cardId: { type: 'string' },
+        },
+      },
+    },
+    {
+      name: 'list_voice_profiles',
+      description: 'List Velorn voice profiles. Studio Qwen3/Chatterbox map onto the ElevenLabs TTS workflow. blake-recorded means do not TTS.',
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'production_readiness',
+      description: 'Halt condition for the VO loop. ready=true only when every dialogue line has a finalized canonical take.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          lineSlugs: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    {
+      name: 'synthesize_voiceover',
+      description: 'Plan or persist a TTS take for a line. Defaults to previewOnly. Does not queue GPU. Velorn lane is elevenlabs-tts; outward stays draft.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          lineSlug: { type: 'string' },
+          cardId: { type: 'string' },
+          text: { type: 'string' },
+          engine: { type: 'string' },
+          targetVoice: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'clone_voice',
+      description: 'Plan or persist a converted take from the canonical (or source) parent. Defaults to previewOnly. Does not queue GPU.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          lineSlug: { type: 'string' },
+          cardId: { type: 'string' },
+          sourceTakeId: { type: 'string' },
+          targetVoice: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'mark_take_canonical',
+      description: 'Promote a take to canonical without changing its stage. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          takeId: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['takeId'],
+      },
+    },
+    {
+      name: 'finalize_take',
+      description: 'Lock a take as stage=finalized and is_canonical=true. The renderer uses this take. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          takeId: { type: 'string' },
+          cardId: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['takeId'],
+      },
+    },
+    {
+      name: 'generate_lipsync_clip',
+      description: 'Plan Flow A talking-head (ltx23-id-lora) or Flow B ffmpeg bake from the canonical take. Never queues GPU. previewOnly first.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string' },
+          lineSlug: { type: 'string' },
+          takeId: { type: 'string' },
+          offScreen: { type: 'boolean' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'generate_foley',
+      description: 'Plan LTX 2.3 Foley V2A for a silent shot. Returns 503 semantics when the LoRA is missing. Defaults to previewOnly. Does not queue GPU.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string' },
+          lineSlug: { type: 'string' },
+          tags: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
     },
     {
       name: 'find_timeline_items',
@@ -11136,6 +11243,15 @@ class ComfyStudioMcpServer {
       case 'studio_slots_mutate':
       case 'studio_qa_record':
       case 'studio_flow':
+      case 'list_line_takes':
+      case 'list_voice_profiles':
+      case 'production_readiness':
+      case 'synthesize_voiceover':
+      case 'clone_voice':
+      case 'mark_take_canonical':
+      case 'finalize_take':
+      case 'generate_lipsync_clip':
+      case 'generate_foley':
         return this.runRendererActionTool(name, args, {
           bridgeName: 'MCP production bridge',
           suggestedTool: name,
@@ -11154,6 +11270,12 @@ class ComfyStudioMcpServer {
             'import_shot_blocking',
             'studio_slots_mutate',
             'studio_qa_record',
+            'synthesize_voiceover',
+            'clone_voice',
+            'mark_take_canonical',
+            'finalize_take',
+            'generate_lipsync_clip',
+            'generate_foley',
           ].includes(name),
         })
       case 'get_project':
