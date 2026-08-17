@@ -2881,7 +2881,7 @@ function buildAiReviewPasses(snapshot) {
         title: 'Show / episode production packet',
         goal: 'Understand show → season → episode → shot layers, then create an episode or propose a camera handle without writing until approved.',
         prompt: 'Call get_production_context first. Read layers.show, layers.season, layers.episode, then storyboard/sequence have-vs-missing. Use list_production_catalog for lexicon ids. Create or switch episodes with previewOnly first. To suggest a new angle, use propose_shot_camera (xyz handle) — do not apply until I approve apply_shot_camera_proposal.',
-        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'studio_route_shot', 'propose_shot_camera', 'studio_cast_resolve', 'studio_ref_gate', 'studio_cast_lock', 'studio_blocking_add_character', 'studio_flow', 'list_line_takes', 'list_voice_profiles', 'production_readiness', 'synthesize_voiceover', 'clone_voice', 'finalize_take', 'generate_lipsync_clip', 'generate_foley', 'studio_creative_ops', 'studio_graph_ledger', 'sync_production_graph', 'studio_animation_styles', 'studio_style_pack', 'studio_franchise', 'studio_bible', 'studio_audit'],
+        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'studio_route_shot', 'propose_shot_camera', 'studio_cast_resolve', 'studio_ref_gate', 'studio_cast_lock', 'studio_blocking_add_character', 'studio_flow', 'list_line_takes', 'list_voice_profiles', 'production_readiness', 'synthesize_voiceover', 'clone_voice', 'finalize_take', 'generate_lipsync_clip', 'generate_foley', 'studio_creative_ops', 'studio_graph_ledger', 'sync_production_graph', 'studio_animation_styles', 'studio_style_pack', 'studio_franchise', 'studio_bible', 'studio_audit', 'studio_core_trace', 'studio_skill_context', 'studio_entity_resolve', 'studio_map_receipt'],
         safeDefaults: {
           previewOnlyFirst: true,
           neverApplyCameraProposalWithoutApproval: true,
@@ -6880,8 +6880,7 @@ function createToolDefinitions() {
           promote_to_ready_pool: { type: 'boolean' },
           caption_pack: { type: 'object' },
           path: { type: 'string' },
-          kind: { type: 'string', description: 'Source link kind, e.g. hyperframes.' },          previewOnly: { type: 'boolean' },
-        },
+          kind: { type: 'string', description: 'Source link kind, e.g. hyperframes.' },          previewOnly: { type: 'boolean' },        },
       },
     },
     {
@@ -6958,8 +6957,71 @@ function createToolDefinitions() {
           description: { type: 'string' },
           prompt: { type: 'string' },
           kind: { type: 'string' },
-          sealedBy: { type: 'string' },          previewOnly: { type: 'boolean' },
+          sealedBy: { type: 'string' },          previewOnly: { type: 'boolean' },        },
+      },
+    },
+    {
+      name: 'studio_core_trace',
+      description: 'Velorn-native Core trace bridge. Plan or record a generation/feedback/MCP ledger write with skill_version_id. Defaults to previewOnly. Does not depend on CDX Studio.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['get', 'plan', 'record', 'feedback', 'mcp'] },
+          generation_id: { type: 'string' },
+          slug: { type: 'string' },
+          asset_type: { type: 'string', enum: ['image', 'video', 'audio', 'voice', 'music', 'foley'] },
+          skill_version_id: { type: 'integer' },
+          skill: { type: 'object' },
+          entity_id: { type: 'integer' },
+          approved: { type: 'boolean' },
+          verdict: { type: 'string', enum: ['up', 'down', 'neutral', 'best'] },
+          reason: { type: 'string' },
+          action: { type: 'string', description: 'MCP action name when op=mcp.' },
+          previewOnly: { type: 'boolean' },        },
+      },
+    },
+    {
+      name: 'studio_skill_context',
+      description: 'Cite or attach a Skills Registry version. Receipts and traces must include skill_version_id. get/cite are read-only; attach defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['get', 'cite', 'attach'] },
+          slug: { type: 'string' },
+          version: { type: ['integer', 'string'] },
+          skill_version_id: { type: 'integer' },
+          skill: { type: 'object' },
+          previewOnly: { type: 'boolean' },
         },
+      },
+    },
+    {
+      name: 'studio_entity_resolve',
+      description: 'Search-before-create entity link for the open production. Never invent an entity_id. Ambiguous matches stay unowned.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['get', 'search', 'apply'] },
+          query: { type: 'string' },
+          entity_id: { type: 'integer' },
+          matches: { type: 'array' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'studio_map_receipt',
+      description: 'Build a Core map receipt that cites skill_version_id and used_skill. previewOnly by default. Posting THE MAP is a bridge/CLI step.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          card_id: { type: 'string' },
+          board: { type: 'string' },
+          summary: { type: 'string' },
+          skill_version_id: { type: 'integer' },
+          skill: { type: 'object' },
+          entity_id: { type: 'integer' },
+          previewOnly: { type: 'boolean' },        },
       },
     },
     {
@@ -11411,6 +11473,8 @@ class ComfyStudioMcpServer {
       'get_workflow_install_status',
       'list_production_catalog',
       'discover_production',
+      'studio_skill_context',
+      'studio_map_receipt',
     ])
     if (!hasSnapshot(snapshot) && !toolsAllowedWithoutProject.has(name)) {
       return errorResult('No Velorn project is open yet.')
@@ -11461,6 +11525,10 @@ class ComfyStudioMcpServer {
       case 'studio_style_pack':
       case 'studio_franchise':
       case 'studio_bible':
+      case 'studio_core_trace':
+      case 'studio_skill_context':
+      case 'studio_entity_resolve':
+      case 'studio_map_receipt':
         return this.runRendererActionTool(name, args, {
           bridgeName: 'MCP production bridge',
           suggestedTool: name,
@@ -11492,6 +11560,10 @@ class ComfyStudioMcpServer {
             'studio_style_pack',
             'studio_franchise',
             'studio_bible',
+            'studio_core_trace',
+            'studio_skill_context',
+            'studio_entity_resolve',
+            'studio_map_receipt',
           ].includes(name),
         })
       case 'get_project':
