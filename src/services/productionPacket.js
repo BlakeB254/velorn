@@ -18,7 +18,8 @@ import {
   listEpisodes,
   productionSummary,
 } from './productionStore.js'
-import { resolveCast, normalizeStudio } from './studioStore.js'
+import { resolveCast, normalizeStudio, qaSummary } from './studioStore.js'
+import { auditProject } from './studioAudit.js'
 import { generateResolution, listOutputTargets, resolveOutput } from './outputRatio.js'
 import {
   assembleLexiconLabels,
@@ -298,6 +299,8 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
     },
     sequence: sequenceRollup(cards),
     catalog: listProductionCatalog(),
+    qa: qaSummary(studio),
+    audit: auditProject(project, { assets }),
     source: {
       cdxSlug: project?.cdxMigration?.slug || production.slug,
       hasDirector: Boolean(director.draft || director.characters),

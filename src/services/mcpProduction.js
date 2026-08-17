@@ -55,6 +55,8 @@ import {
   updateSlot,
   removeSlot,
 } from './studioStore.js'
+import { auditProject } from './studioAudit.js'
+import { listRubrics } from './evaluationRubrics.js'
 import { normalizeProjectLook, normalizeShotSettings } from './shotSettings.js'
 import { applyOutputTargetToSettings, generateResolution } from './outputRatio.js'
 
@@ -576,11 +578,53 @@ export function handleStudioSlotsMutate(payload = {}) {
 export function handleStudioQaRecord(payload = {}) {
   const project = requireProject()
   if (payload.previewOnly !== false) {
-    return { previewOnly: true, action: 'studio_qa_record', shot: payload.shot, video: payload.video, audio: payload.audio }
+    return {
+      previewOnly: true,
+      action: 'studio_qa_record',
+      shot: payload.shot,
+      video: payload.video,
+      audio: payload.audio,
+      rubric: payload.videoRubric || payload.audioRubric || payload.rubric || null,
+    }
   }
-  const studio = recordVerdict(project.studio, payload.shot, payload)
+  const studio = recordVerdict(project.studio, payload.shot || payload.shot_slug, {
+    ...payload,
+    production: project.production,
+  })
   persistStudio(studio)
-  return { success: true, action: 'studio_qa_record', qa: qaSummary(studio) }
+  const audit = auditProject({ ...project, studio }, { assets: assets() })
+  const shot = payload.shot || payload.shot_slug
+  return {
+    success: true,
+    action: 'studio_qa_record',
+    qa: qaSummary(studio),
+    graph: studio.qaGraph,
+    shot: audit.shots.find((row) => row.shot === shot) || null,
+  }
+}
+
+export function handleStudioAudit(payload = {}) {
+  const project = requireProject()
+  const report = auditProject(project, {
+    assets: assets(),
+    verdict: payload.verdict,
+    canonicalShots: payload.canonicalShots,
+    missingCanonical: payload.missingCanonical,
+    dialogueShots: payload.dialogueShots,
+    vo: payload.vo,
+    includeGraph: payload.includeGraph,
+  })
+  return {
+    action: 'studio_audit',
+    rubrics: listRubrics().map((item) => ({
+      mediaKind: item.mediaKind,
+      version: item.version,
+      technicalChecks: item.technicalChecks,
+      dimensions: item.dimensions,
+      passThreshold: item.passThreshold,
+    })),
+    ...report,
+  }
 }
 
 export function handleStudioFlow(payload = {}) {
@@ -635,6 +679,8 @@ export function handleProductionAction(action, payload = {}) {
       return handleStudioSlotsMutate(payload)
     case 'studio_qa_record':
       return handleStudioQaRecord(payload)
+    case 'studio_audit':
+      return handleStudioAudit(payload)
     case 'studio_flow':
       return handleStudioFlow(payload)
     case 'list_cuts':

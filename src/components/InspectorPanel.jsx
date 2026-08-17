@@ -76,6 +76,9 @@ import {
   normalizeClipCompositeMode,
 } from '../utils/layerCompositing'
 import { DEFAULT_LINE_THICKNESS, DEFAULT_POLYGON_SIDES, DEFAULT_SHAPE_PROPERTIES, SHAPE_FILL_TYPES, SHAPE_TYPES, normalizeShapeProperties } from '../utils/shapes'
+import QaPanel from './studio/QaPanel'
+import { normalizeStudio } from '../services/studioStore'
+import { matchSlot, shotIdForClip } from '../services/studioAudit'
 
 const TRANSITION_DEFAULT_DURATION_KEY = 'comfystudio-transition-default-duration-frames'
 const INSPECTOR_EXPANDED_SECTIONS_KEY = 'comfystudio-inspector-expanded-sections-v1'
@@ -623,7 +626,9 @@ function InspectorPanel({ isExpanded, onToggleExpanded, isFullHeight = false, on
   // Get assets store functions (needed for render cache)
   const { assets, getAssetById, getAllMasks, updateAsset } = useAssetsStore()
   const timelineSettings = useProjectStore(state => state.getCurrentTimelineSettings?.())
-  const { currentProjectHandle, getCurrentTimelineSettings } = useProjectStore()
+  const { currentProjectHandle, currentProject, updateStudio, getCurrentTimelineSettings } = useProjectStore()
+  const studio = useMemo(() => normalizeStudio(currentProject?.studio), [currentProject])
+  const storyboardCards = currentProject?.storyboardBoard?.cards || []
   const currentTimelineSettings = getCurrentTimelineSettings?.() || null
   const timecodeFps = Math.max(1, Math.round(Number(currentTimelineSettings?.fps) || FRAME_RATE))
   
@@ -3244,6 +3249,24 @@ function InspectorPanel({ isExpanded, onToggleExpanded, isFullHeight = false, on
             },
           ],
         })}
+
+        {(() => {
+          const shot = shotIdForClip(studio, storyboardCards, selectedClip)
+          if (!shot) return null
+          const card = storyboardCards.find((item) => item.id === shot) || { id: shot }
+          return (
+            <div className="px-3 pt-2">
+              <QaPanel
+                shot={shot}
+                card={card}
+                slot={matchSlot(studio, card)}
+                studio={studio}
+                onRecord={(next) => updateStudio?.(() => next)}
+                compact
+              />
+            </div>
+          )
+        })()}
 
         {renderInspectorTabBar(videoTabs, activeTab)}
 

@@ -2881,7 +2881,7 @@ function buildAiReviewPasses(snapshot) {
         title: 'Show / episode production packet',
         goal: 'Understand show → season → episode → shot layers, then create an episode or propose a camera handle without writing until approved.',
         prompt: 'Call get_production_context first. Read layers.show, layers.season, layers.episode, then storyboard/sequence have-vs-missing. Use list_production_catalog for lexicon ids. Create or switch episodes with previewOnly first. To suggest a new angle, use propose_shot_camera (xyz handle) — do not apply until I approve apply_shot_camera_proposal.',
-        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow'],
+        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow', 'studio_audit'],
         safeDefaults: {
           previewOnlyFirst: true,
           neverApplyCameraProposalWithoutApproval: true,
@@ -6637,7 +6637,7 @@ function createToolDefinitions() {
     },
     {
       name: 'studio_qa_record',
-      description: 'Preview or record a per-track QA verdict. fail requires a reason. unverified is first-class and is not a pass. Defaults to previewOnly.',
+      description: 'Preview or record a per-track QA verdict, optionally with a MediaRubric evaluation. fail requires a reason. unverified is first-class and is not a pass. Rubric technical_fail / automated_fail force that track to fail. Defaults to previewOnly.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -6648,9 +6648,29 @@ function createToolDefinitions() {
           videoReason: { type: 'string' },
           audioReason: { type: 'string' },
           by: { type: 'string' },
+          videoChecks: { type: 'object', description: 'video.v1 technical checks (file_valid, dimensions, duration, encoding, dropped_frames)' },
+          audioChecks: { type: 'object', description: 'audio.v1 technical checks' },
+          videoScores: { type: 'object', description: 'video.v1 dimension scores 0-1' },
+          audioScores: { type: 'object', description: 'audio.v1 dimension scores 0-1' },
+          evaluator: { type: 'object', properties: { provider: { type: 'string' }, model: { type: 'string' }, revision: { type: 'string' } } },
+          generator: { type: 'object', properties: { provider: { type: 'string' }, model: { type: 'string' }, revision: { type: 'string' } } },
           previewOnly: { type: 'boolean' },
         },
         required: ['shot'],
+      },
+    },
+    {
+      name: 'studio_audit',
+      description: 'Join slots, clips, QA verdicts, rubrics, and dialogue into per-shot Studio verdicts (NEEDS_REGEN / READY_TO_GENERATE / DIALOGUE_BLOCKED / NEEDS_FLF / DONE). DONE ≠ PASSED. Read-only. Uses Velorn project data, not cdx-video-director.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          verdict: { type: 'string', enum: ['NEEDS_REGEN', 'READY_TO_GENERATE', 'DIALOGUE_BLOCKED', 'NEEDS_FLF', 'DONE'] },
+          canonicalShots: { type: 'array', items: { type: 'string' } },
+          missingCanonical: { type: 'array', items: { type: 'string' } },
+          dialogueShots: { type: 'array', items: { type: 'string' } },
+          includeGraph: { type: 'boolean' },
+        },
       },
     },
     {
@@ -11135,6 +11155,7 @@ class ComfyStudioMcpServer {
       case 'studio_slots_list':
       case 'studio_slots_mutate':
       case 'studio_qa_record':
+      case 'studio_audit':
       case 'studio_flow':
         return this.runRendererActionTool(name, args, {
           bridgeName: 'MCP production bridge',

@@ -8544,6 +8544,7 @@ async function handleMcpAction(request = {}) {
     case 'studio_slots_list':
     case 'studio_slots_mutate':
     case 'studio_qa_record':
+    case 'studio_audit':
     case 'studio_flow':
     case 'list_cuts':
     case 'save_cut':

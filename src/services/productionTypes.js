@@ -218,9 +218,9 @@ export const PRODUCTION_FLOWS = Object.freeze([
       'update_shot / propose_shot_camera — write action, dialogue, xyz',
       'queue_prompt_generation_batch or generate-from-blocking — GPU serial, previewOnly first',
       'import_asset_from_path + save_cut — attach clips, snapshot the draft',
-      'watch_cut then studio_qa_record — review before promote_cut',
+      'watch_cut then studio_qa_record / studio_audit — review before promote_cut',
     ],
-    tools: ['get_production_context', 'list_episodes', 'list_cuts', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'studio_cast_resolve', 'update_shot', 'propose_shot_camera', 'queue_prompt_generation_batch', 'studio_qa_record'],
+    tools: ['get_production_context', 'list_episodes', 'list_cuts', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'studio_cast_resolve', 'update_shot', 'propose_shot_camera', 'queue_prompt_generation_batch', 'studio_qa_record', 'studio_audit'],
   },
   {
     id: 'commercial',
@@ -257,7 +257,7 @@ export const PRODUCTION_FLOWS = Object.freeze([
       'board premise → escalate → punch → optional promo tag ≤3s',
       'same generate + cut + QA loop as show, without seasons',
     ],
-    tools: ['set_production', 'update_shot', 'queue_prompt_generation_batch', 'save_cut', 'studio_qa_record'],
+    tools: ['set_production', 'update_shot', 'queue_prompt_generation_batch', 'save_cut', 'studio_qa_record', 'studio_audit'],
   },
   {
     id: 'music-video',
