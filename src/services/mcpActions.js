@@ -8572,6 +8572,15 @@ async function handleMcpAction(request = {}) {
     case 'studio_qa_record':
     case 'studio_flow':
     case 'studio_route_shot':
+    case 'list_line_takes':
+    case 'list_voice_profiles':
+    case 'production_readiness':
+    case 'synthesize_voiceover':
+    case 'clone_voice':
+    case 'mark_take_canonical':
+    case 'finalize_take':
+    case 'generate_lipsync_clip':
+    case 'generate_foley':
     case 'list_cuts':
     case 'save_cut':
     case 'checkout_cut':

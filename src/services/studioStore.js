@@ -25,6 +25,8 @@
  * is never modified.
  */
 
+import { normalizeAudio, normalizeVoiceover } from './takeChain.js'
+
 export const STUDIO_VERSION = 1
 
 export const QA_TRACKS = Object.freeze(['video', 'audio'])
@@ -66,6 +68,8 @@ export function emptyStudio() {
     edls: [],
     blockingIndex: [],
     locations: {},
+    voiceover: { concept: '', version: 2, takes: [], lines: [] },
+    audio: { tracks: [] },
     graph: { edges: [] },
   }
 }
@@ -186,6 +190,8 @@ export function normalizeStudio(raw) {
     edls: Array.isArray(raw.edls) ? raw.edls.filter(Boolean).map(asString) : [],
     blockingIndex: Array.isArray(raw.blockingIndex) ? raw.blockingIndex.filter(Boolean).map(asString) : [],
     locations: isPlainObject(raw.locations) ? clone(raw.locations) : {},
+    voiceover: normalizeVoiceover(raw.voiceover, asString(raw.voiceover?.concept)),
+    audio: normalizeAudio(raw.audio),
     graph: normalizeStudioGraph(raw.graph),
   }
 }

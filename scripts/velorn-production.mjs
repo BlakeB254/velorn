@@ -159,7 +159,10 @@ if (cmd === 'context') {
   const packet = productionPacket.buildShotPacket(project, cardId, { assets: project.assets || [] })
   if (!packet) throw new Error(`Shot ${cardId} not found`)
   console.log(JSON.stringify(packet, null, 2))
+} else if (cmd === 'readiness') {
+  const packet = productionPacket.buildProductionPacket(project, { assets: project.assets || [] })
+  console.log(JSON.stringify(packet.audio, null, 2))
 } else {
-  console.error(`Unknown command ${cmd}. Use: context | catalog | episodes | seed-show | create-episode | cuts | save-cut | checkout-cut | promote-cut | shot`)
+  console.error(`Unknown command ${cmd}. Use: context | catalog | episodes | seed-show | create-episode | cuts | save-cut | checkout-cut | promote-cut | shot | readiness`)
   process.exit(2)
 }

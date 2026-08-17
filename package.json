@@ -31,6 +31,7 @@
     "test:studio-store": "node --test ./tests/studioStore.test.js",
     "test:cast-lock": "node --test ./tests/castLock.test.js",
     "test:production-store": "node --test ./tests/productionStore.test.js",
+    "test:take-chain": "node --test ./tests/takeChain.test.js ./tests/takeChainPacket.test.js",
     "test:shot-routing": "node --test ./tests/shotRouting.test.js",
     "test:cdx-workflows": "node --test ./tests/cdxWorkflowPort.test.js",
     "test:cdx-isolation": "node --test ./tests/cdxStudioIsolation.test.js",
