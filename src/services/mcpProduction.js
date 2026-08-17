@@ -57,6 +57,7 @@ import {
 } from './studioStore.js'
 import { normalizeProjectLook, normalizeShotSettings } from './shotSettings.js'
 import { applyOutputTargetToSettings, generateResolution } from './outputRatio.js'
+import { routeShot, routeShotFromCard, routeStudioShots } from './shotRouting.js'
 
 function requireProject() {
   const project = useProjectStore.getState().currentProject
@@ -592,10 +593,76 @@ export function handleStudioFlow(payload = {}) {
     editClips: payload.editClips,
     deliverables: payload.deliverables,
   }
+  const production = hydrateProductionFromProject(project)
   return {
     action: 'studio_flow',
     flow: flowView(project.studio, extras),
-    production: hydrateProductionFromProject(project),
+    routing: routeStudioShots(project.studio, cards, {
+      productionType: production.type,
+      clientSafe: payload.clientSafe,
+    }),
+    production,
+  }
+}
+
+export function handleStudioRouteShot(payload = {}) {
+  const cardId = String(payload.cardId || payload.shotId || payload.id || '').trim()
+  if (cardId) {
+    const project = requireProject()
+    const cards = project.storyboardBoard?.cards || []
+    const card = cards.find((item) => item.id === cardId || String(item.order) === cardId)
+    if (!card) throw new Error(`Shot '${cardId}' not found`)
+    const production = hydrateProductionFromProject(project)
+    const studio = normalizeStudio(project.studio)
+    const hay = `${card.id || ''} ${card.title || ''} ${card.action || ''}`.toLowerCase()
+    const slot = studio.slots.find((item) => (
+      item.board_shot === card.id
+      || item.slot_id === card.id
+      || hay.includes(String(item.slot_id || '').toLowerCase())
+      || (item.board_shot && hay.includes(String(item.board_shot).toLowerCase()))
+    )) || null
+    return {
+      action: 'studio_route_shot',
+      ...routeShotFromCard(card, {
+        slot,
+        productionType: payload.productionType || production.type,
+        clientSafe: payload.clientSafe,
+        intent: payload.intent,
+        stage: payload.stage,
+        offScreen: payload.offScreen,
+        hasBlocking: payload.hasBlocking,
+        hasControlVideo: payload.hasControlVideo,
+        class: payload.class,
+        lane: payload.lane,
+      }),
+    }
+  }
+  if (!String(payload.description || payload.title || payload.action || payload.dialogue || '').trim()) {
+    throw new Error('studio_route_shot needs description or cardId')
+  }
+  return {
+    action: 'studio_route_shot',
+    ...routeShot({
+      description: payload.description,
+      title: payload.title,
+      action: payload.action,
+      audio: payload.audio,
+      dialogue: payload.dialogue,
+      notes: payload.notes,
+      lane: payload.lane,
+      class: payload.class,
+      intent: payload.intent,
+      stage: payload.stage,
+      offScreen: payload.offScreen,
+      hasNamedFaces: payload.hasNamedFaces,
+      characterCount: payload.characterCount,
+      productionType: payload.productionType,
+      clientSafe: payload.clientSafe,
+      hasStill: payload.hasStill,
+      hasLastFrame: payload.hasLastFrame,
+      hasBlocking: payload.hasBlocking,
+      hasControlVideo: payload.hasControlVideo,
+    }),
   }
 }
 
@@ -637,6 +704,8 @@ export function handleProductionAction(action, payload = {}) {
       return handleStudioQaRecord(payload)
     case 'studio_flow':
       return handleStudioFlow(payload)
+    case 'studio_route_shot':
+      return handleStudioRouteShot(payload)
     case 'list_cuts':
       return handleListCuts(payload)
     case 'save_cut':

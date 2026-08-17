@@ -27,7 +27,7 @@ shot: lexicon + camera xyz handle + 1 location + 0–N characters + pose/motion 
 
 ## MCP (Velorn app on :19790)
 
-Read: `discover_production`, `get_production_context`, `get_shot_packet`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_slots_list`, `studio_flow`
+Read: `discover_production`, `get_production_context`, `get_shot_packet`, `studio_route_shot`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_slots_list`, `studio_flow`
 
 Types (CDX Studio set): `show`, `commercial` (advertisement/ad), `music-video`, `ig-short`, `skit`, `movie` (film), `psa`, `website-tour`, `hype-video`, `site-update`, `documentary`, `animated`, `narrative` (standalone).
 
@@ -74,6 +74,7 @@ node ~/opensource/velorn/scripts/velorn-production.mjs create-episode --title "E
 
 - Stage rail + cast panel on Storyboard.
 - Slot state + video/audio QA pips on each card.
+- Shot routing chip: script call → ONE ecosystem + Velorn workflow (Grok draft first; GPU serial; drafts only). `studio_route_shot` / `studio_flow.routing`.
 - Blocking: 2D ENU handle (drag camera, edit xyz). Save `docs/blocking/<shot>/blocking.json`. Generate from blocking queues `cdx-ltx-union-control-flf`.
 
 ## CDX workflow pack
