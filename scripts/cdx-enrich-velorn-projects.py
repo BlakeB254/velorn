@@ -13,7 +13,8 @@ from pathlib import Path
 
 INDEX = Path("/home/codex450/VelornProjects/MIGRATION-INDEX.json")
 CREATIVE = Path("/home/codex450/creative")
-DIRECTOR_OUT = Path("/home/codex450/cdx-platform/services/cdx-video-director/out")
+_STUDIO_OUT = os.environ.get("CDX_STUDIO_OUT", "").strip()
+DIRECTOR_OUT = Path(_STUDIO_OUT) if _STUDIO_OUT else None
 RENDERS = Path("/home/codex450/creative/commercial-renders-2026")
 HYPER = Path("/home/codex450/creative/hyperframes")
 FFMPEG = Path("/home/codex450/.local/bin/ffmpeg")
@@ -150,11 +151,14 @@ def sources_for(slug: str) -> list[Path]:
         CREATIVE / "parable-shorts" / slug,
         CREATIVE / "commercials" / slug,
         CREATIVE / "hyperframes" / slug,
-        DIRECTOR_OUT / slug,
-        DIRECTOR_OUT / "vo" / slug,
-        DIRECTOR_OUT / "_creative_ops" / slug,
         Path("/home/codex450/cdx-platform/out/_creative_ops") / slug,
     ]
+    if DIRECTOR_OUT:
+        roots.extend([
+            DIRECTOR_OUT / slug,
+            DIRECTOR_OUT / "vo" / slug,
+            DIRECTOR_OUT / "_creative_ops" / slug,
+        ])
     if (CREATIVE / "commercials").is_dir():
         roots += list((CREATIVE / "commercials").glob(f"{slug}*"))
     if HYPER.is_dir():
@@ -275,10 +279,11 @@ def storyboard_images(slug: str) -> list[Path]:
         CREATIVE / slug / "ep001" / "storyboard",
         CREATIVE / slug / "storyboard",
         CREATIVE / "parable-shorts" / slug / "storyboard",
-        DIRECTOR_OUT / slug / "storyboard_v2",
     ]
-    if (DIRECTOR_OUT / slug).is_dir():
-        cands += list((DIRECTOR_OUT / slug).glob("versions/*/storyboard"))
+    if DIRECTOR_OUT:
+        cands.append(DIRECTOR_OUT / slug / "storyboard_v2")
+        if (DIRECTOR_OUT / slug).is_dir():
+            cands += list((DIRECTOR_OUT / slug).glob("versions/*/storyboard"))
     best: list[Path] = []
     for d in cands:
         if not d.is_dir():

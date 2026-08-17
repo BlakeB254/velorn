@@ -1,4 +1,5 @@
 import { slotState, verdictForShot } from './studioStore.js'
+import { auditShot } from './studioAudit.js'
 
 export function slotForCard(studio, card) {
   const slots = studio?.slots || []
@@ -16,9 +17,11 @@ export function cardSlotView(studio, card, approvedAssetIds = null) {
   const slot = slotForCard(studio, card)
   if (!slot) return null
   const qa = verdictForShot(studio, slot.board_shot || slot.slot_id)
+  const audit = auditShot({ card, slot, studio })
   return {
     slot,
     state: slotState(slot, approvedAssetIds),
     qa,
+    audit,
   }
 }

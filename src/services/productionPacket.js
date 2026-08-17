@@ -18,8 +18,41 @@ import {
   listEpisodes,
   productionSummary,
 } from './productionStore.js'
-import { resolveCast, normalizeStudio } from './studioStore.js'
+import { resolveCast, normalizeStudio, qaSummary } from './studioStore.js'
+import { auditProject } from './studioAudit.js'
+import {
+  AUDIO_POLICY,
+  buildVseAudioPlan,
+  canonicalTake,
+  expectedLinesFromCards,
+  lineSlugForCard,
+  planFoley,
+  planLipsyncClip,
+  readinessFor,
+} from './takeChain.js'
+import { checkCastRefs } from './castLock.js'
+import { routeShotFromCard } from './shotRouting.js'
 import { generateResolution, listOutputTargets, resolveOutput } from './outputRatio.js'
+import { conceptFromProject, normalizeWorkspace, summarize } from './creativeOps.js'
+import { buildProductionGraph, ledgerProductions } from './productionGraph.js'
+import {
+  bibleForPacket,
+} from './productionBible.js'
+import {
+  checkFranchiseConsistency,
+  franchiseForApi,
+  listFranchises,
+  loadFranchise,
+} from './franchises.js'
+import {
+  listStylePacks,
+  loadStylePack,
+  stylePackForApi,
+} from './stylePacks.js'
+import {
+  animationStylesForApi,
+  getAnimationStyle,
+} from './animationStyles.js'
 import { attachCoreToPacket } from './coreTraceBridge.js'
 import {
   assembleLexiconLabels,
@@ -99,7 +132,7 @@ function characterPacket(entry = {}, assets = [], scope = 'series') {
   }
 }
 
-function summarizeCard(card, { projectLook = {}, assets = [], project = null } = {}) {
+function summarizeCard(card, { projectLook = {}, assets = [], project = null, extras = {} } = {}) {
   const mode = modeFromWorkflow(card.videoWorkflowId || card.workflowId || '', card.videoAssetId ? 'video' : 'still')
   const settings = resolveShotSettings(card.shotSettings, projectLook)
   const rig = normalizeCameraRig(card.cameraRig)
@@ -133,6 +166,12 @@ function summarizeCard(card, { projectLook = {}, assets = [], project = null } =
     audio: {
       voAssetId: card.audioAssetId || null,
       musicAssetId: card.musicAssetId || null,
+      foleyAssetId: card.foleyAssetId || null,
+      lineSlug: lineSlugForCard(card),
+      takeId: extras.canonicalTake?.take_id || card.canonicalTakeId || null,
+      takeStage: extras.canonicalTake?.stage || null,
+      lipsync: extras.lipsync || null,
+      foley: extras.foley || null,
     },
     settings,
     lexicon: assembleLexiconLabels(settings, mode, projectLook),
@@ -142,6 +181,12 @@ function summarizeCard(card, { projectLook = {}, assets = [], project = null } =
     cameraHint: cameraPromptHint(rig),
     workflowId: card.workflowId || '',
     videoWorkflowId: card.videoWorkflowId || '',
+    routing: routeShotFromCard(card, {
+      productionType: project?.production?.type,
+      slot: Array.isArray(project?.studio?.slots)
+        ? project.studio.slots.find((slot) => slot.board_shot === card.id || slot.slot_id === card.id) || null
+        : null,
+    }),
     output: project ? resolveOutput(project, card) : null,
     generate: project ? generateResolution(project, card) : null,
   }
@@ -210,6 +255,9 @@ export function listProductionCatalog() {
     },
     outputTargets: listOutputTargets(),
     types: listProductionTypes(),
+    stylePacks: listStylePacks().map(stylePackForApi),
+    franchises: listFranchises().map((item) => ({ slug: item.slug, name: item.name, style_pack: item.style_pack, animation_style: item.animation_style })),
+    animationStyles: animationStylesForApi(),
     aliases: {
       advertisement: 'commercial',
       ad: 'commercial',
@@ -225,16 +273,34 @@ export function listProductionCatalog() {
       { id: 'pose-motion', required: false, when: 'character action must match a rig', use: 'motionSlug + pose still + skeleton/depth movies' },
       { id: 'location-depth', required: false, when: 'plate → depth → Blender env → top-down', use: 'location reconstruction fields' },
       { id: 'flf-last-frame', required: false, when: 'first/last or extend continuity', use: 'lastFrameAssetId + videoWorkflowId' },
-      { id: 'sound', required: false, when: 'VO / lipsync / music bed', use: 'dialogue, soundNotes, audioAssetId, musicAssetId' },
+      { id: 'sound', required: false, when: 'VO / lipsync / music bed / foley', use: 'dialogue, soundNotes, audioAssetId, musicAssetId, foleyAssetId, take chain' },
+      { id: 'take-chain', required: false, when: 'dialogue or VO', use: 'studio_list_line_takes / synthesize_voiceover / finalize_take' },
+      { id: 'lipsync', required: false, when: 'on-screen speaker', use: 'generate_lipsync_clip Flow A (Talkvid) or Flow B (ffmpeg bake)' },
+      { id: 'foley', required: false, when: 'synced SFX on a silent clip', use: 'generate_foley + VSE foley lane' },
+      { id: 'creative-ops', required: false, when: 'generation attempts, review/regen queues, ready pool', use: 'studio_creative_ops + out/_creative_ops/<slug>' },
+      { id: 'production-graph', required: false, when: 'map ledger facts to World Twin / Beat Lab / Studio edges', use: 'studio_graph_ledger / sync_production_graph' },
       { id: 'multi-angles', required: false, when: 'need 8 coverage angles from one still', use: 'workflow multi-angles / multi-angles-scene' },
+      { id: 'style-pack', required: false, when: 'any still or clip that must match house look', use: 'studio_style_pack + production.stylePack LoRAs/prompt tails/palette' },
+      { id: 'franchise-bible', required: false, when: 'shared IP / series identity', use: 'studio_franchise + studio_bible; seal before generating identity shots' },
+      { id: 'animation-style', required: false, when: 'animated or graded film look', use: 'studio_animation_styles card on production.animationStyle' },
       { id: 'core-trace', required: false, when: 'any generation or MCP production op', use: 'studio_core_trace + skill_version_id + studio_map_receipt' },
     ],
     layers: CONTEXT_LAYERS,
   }
 }
 
+function cardAudioExtras(card, studio) {
+  const take = canonicalTake(studio.voiceover, lineSlugForCard(card))
+  return {
+    canonicalTake: take,
+    lipsync: planLipsyncClip({ card, take, offScreen: card.offScreen }),
+    foley: planFoley({ card }),
+  }
+}
+
 export function buildShotPacket(project, cardId, { assets = [] } = {}) {
   const production = hydrateProductionFromProject(project)
+  const studio = normalizeStudio(project?.studio)
   const look = normalizeProjectLook(project?.settings?.cinematography || production.look)
   const cards = project?.storyboardBoard?.cards || []
   const card = cards.find((item) => item.id === cardId) || null
@@ -242,7 +308,7 @@ export function buildShotPacket(project, cardId, { assets = [] } = {}) {
   return {
     production: productionSummary(production),
     layers: layeredContext(production),
-    shot: summarizeCard(card, { projectLook: look, assets, project }),
+    shot: summarizeCard(card, { projectLook: look, assets, project, extras: cardAudioExtras(card, studio) }),
     cameraRig: normalizeCameraRig(card.cameraRig),
     neighbors: {
       prev: cards.find((item) => item.order === card.order - 1)?.id || null,
@@ -283,7 +349,9 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
       'cuts[] are named drafts of this episode. save_cut / checkout_cut / watch_cut / promote_cut. Primary is the official version; checkout is what is on the live board.',
       'Each shot inherits show look unless it overrides. Framing/angle never inherit.',
       'camera.x_m/y_m/z_m is the handle. Propose with propose_shot_camera; Blake can apply or drag.',
+      'style / franchise / bible live on production. Load them before generating. Beat prompts describe action; the pack carries look.',
       'extensions listed in catalog are optional. Use them when the shot needs them, do not dump them into every prompt.',
+      'audio.takeChain is the VO version chain. A line is ship-ready only with a finalized canonical take. generate_lipsync_clip / generate_foley stay previewOnly and drafts-only.',
     ],
     production: productionSummary(production),
     layers: current,
@@ -294,12 +362,34 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
     look,
     characters,
     locations,
+    castLock: checkCastRefs(studio, {
+      season: production.current.seasonId,
+      episode: production.current.episodeId,
+    }),
+    style: {
+      pack: production.stylePack ? stylePackForApi(loadStylePack(production.stylePack)) : null,
+      animation: production.animationStyle ? getAnimationStyle(production.animationStyle) : null,
+    },
+    franchise: production.franchiseSlug ? franchiseForApi(loadFranchise(production.franchiseSlug)) : null,
+    franchiseConsistency: checkFranchiseConsistency(production),
+    bible: bibleForPacket(project, production),
     storyboard: {
       cardCount: cards.length,
-      cards: cards.map((card) => summarizeCard(card, { projectLook: look, assets, project })),
+      cards: cards.map((card) => summarizeCard(card, { projectLook: look, assets, project, extras: cardAudioExtras(card, studio) })),
     },
     sequence: sequenceRollup(cards),
+    audio: {
+      policy: AUDIO_POLICY,
+      takeChain: readinessFor(studio.voiceover, expectedLinesFromCards(cards).map((line) => line.lineSlug)),
+      vse: buildVseAudioPlan({ cards, manifest: studio.voiceover, audio: studio.audio }),
+    },
     catalog: listProductionCatalog(),
+    qa: qaSummary(studio),
+    audit: auditProject(project, { assets }),
+    creativeOps: summarize(normalizeWorkspace(project?.creativeOps, conceptFromProject(project))),
+    productionGraph: project?.productionGraph || buildProductionGraph({
+      studio: ledgerProductions([normalizeWorkspace(project?.creativeOps, conceptFromProject(project))]),
+    }),
     source: {
       cdxSlug: project?.cdxMigration?.slug || production.slug,
       hasDirector: Boolean(director.draft || director.characters),

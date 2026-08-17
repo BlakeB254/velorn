@@ -6,7 +6,7 @@ docs/EDLs, blocking records) into each Velorn project's project.comfystudio,
 and closes the known pass-1/2 gaps (audio folder taxonomy, orphan assets
 already sitting unregistered in the project's assets/ tree).
 
-Semantics mirror cdx-video-director/app/studio (storyboard_slots.py,
+Semantics mirror CDX Studio (storyboard_slots.py,
 qa_verdicts.py, cast_resolver.py); the in-app model lives in
 src/services/studioStore.js.
 
