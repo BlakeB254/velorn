@@ -20,6 +20,7 @@ import {
 } from './productionStore.js'
 import { resolveCast, normalizeStudio } from './studioStore.js'
 import { checkCastRefs } from './castLock.js'
+import { routeShotFromCard } from './shotRouting.js'
 import { generateResolution, listOutputTargets, resolveOutput } from './outputRatio.js'
 import {
   assembleLexiconLabels,
@@ -142,6 +143,12 @@ function summarizeCard(card, { projectLook = {}, assets = [], project = null } =
     cameraHint: cameraPromptHint(rig),
     workflowId: card.workflowId || '',
     videoWorkflowId: card.videoWorkflowId || '',
+    routing: routeShotFromCard(card, {
+      productionType: project?.production?.type,
+      slot: Array.isArray(project?.studio?.slots)
+        ? project.studio.slots.find((slot) => slot.board_shot === card.id || slot.slot_id === card.id) || null
+        : null,
+    }),
     output: project ? resolveOutput(project, card) : null,
     generate: project ? generateResolution(project, card) : null,
   }

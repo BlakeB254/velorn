@@ -1,0 +1,58 @@
+{
+  "_comment": "PRODUCTION identity lock: loads a PREBUILT face model (cast.yaml `face_model`) and swaps only the face on TARGET, preserving pose, expression, staging and lighting \u2014 use this to normalise a character across frames that are otherwise good, instead of regenerating and losing them. Batch-cheap because the model is loaded, not rebuilt; contrast reactor_faceswap.json which builds a model inline from 6 images per run (ad-hoc only). CRITICAL: build models from LOCKED refs, never from production frames \u2014 the 07-24 CTT models were built from already-polluted frames and so averaged in the very drift they were meant to fix. GOTCHA: models/facerestore_models/codeformer.pth is a BROKEN SYMLINK on this box; ReActor torch.loads it, gets None, and dies with a cryptic 'NoneType has no attribute seek' \u2014 hence GFPGANv1.4.pth. Calibration per reference_reactor-facelock-calibration: face_restore_visibility 0.5 (NOT 0.8), gender detection off (unreliable on AI faces). ReActor orders faces LARGE-SMALL (closest first), NOT left-to-right.",
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{TARGET}}"
+    },
+    "_meta": {
+      "title": "frame to face-lock"
+    }
+  },
+  "2": {
+    "class_type": "ReActorLoadFaceModel",
+    "inputs": {
+      "face_model": "{{FACE_MODEL}}"
+    },
+    "_meta": {
+      "title": "locked identity (cast.yaml face_model)"
+    }
+  },
+  "3": {
+    "class_type": "ReActorFaceSwap",
+    "inputs": {
+      "enabled": true,
+      "input_image": [
+        "1",
+        0
+      ],
+      "face_model": [
+        "2",
+        0
+      ],
+      "swap_model": "inswapper_128.onnx",
+      "facedetection": "retinaface_resnet50",
+      "face_restore_model": "GFPGANv1.4.pth",
+      "face_restore_visibility": 0.5,
+      "codeformer_weight": 0.5,
+      "detect_gender_input": "no",
+      "detect_gender_source": "no",
+      "input_faces_index": "{{FACE_INDEX}}",
+      "source_faces_index": "0",
+      "console_log_level": 1
+    },
+    "_meta": {
+      "title": "swap \u2014 input_faces_index selects WHICH face in a multi-person frame"
+    }
+  },
+  "4": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "3",
+        0
+      ],
+      "filename_prefix": "{{PREFIX}}"
+    }
+  }
+}
