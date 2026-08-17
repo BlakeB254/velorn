@@ -1,6 +1,6 @@
 /**
  * Studio data model — the canonical in-app shape of the `studio` block in
- * project.comfystudio, ported from CDX Studio (cdx-video-director/app/studio).
+ * project.comfystudio, ported from CDX Studio.
  *
  * Semantics mirrored from the Python sources (NOT their implementation):
  *
@@ -70,6 +70,7 @@ export function emptyStudio() {
     locations: {},
     voiceover: { concept: '', version: 2, takes: [], lines: [] },
     audio: { tracks: [] },
+    graph: { edges: [] },
   }
 }
 
@@ -191,6 +192,24 @@ export function normalizeStudio(raw) {
     locations: isPlainObject(raw.locations) ? clone(raw.locations) : {},
     voiceover: normalizeVoiceover(raw.voiceover, asString(raw.voiceover?.concept)),
     audio: normalizeAudio(raw.audio),
+    graph: normalizeStudioGraph(raw.graph),
+  }
+}
+
+function normalizeStudioGraph(raw) {
+  if (!isPlainObject(raw) || !Array.isArray(raw.edges)) return { edges: [] }
+  return {
+    edges: raw.edges
+      .filter((edge) => isPlainObject(edge) && edge.type && edge.from && edge.to)
+      .map((edge) => ({
+        type: asString(edge.type),
+        from: isPlainObject(edge.from) ? { kind: asString(edge.from.kind), id: asString(edge.from.id) } : { kind: '', id: asString(edge.from) },
+        to: isPlainObject(edge.to) ? { kind: asString(edge.to.kind), id: asString(edge.to.id) } : { kind: '', id: asString(edge.to) },
+        result: edge.result ? asString(edge.result) : '',
+        reason: asString(edge.reason),
+        at: asString(edge.at),
+        by: asString(edge.by),
+      })),
   }
 }
 
@@ -519,8 +538,16 @@ export function flowView(studio, extras = {}) {
     },
     {
       id: 'cast',
-      ok: Object.keys(norm.cast.series).length > 0,
-      blockers: Object.keys(norm.cast.series).length > 0 ? [] : ['no series cast defined'],
+      ok: extras.enforceRefGate
+        ? Object.keys(norm.cast.series).length > 0 && !(extras.castLockReport?.blockers || []).length
+        : Object.keys(norm.cast.series).length > 0,
+      blockers: extras.enforceRefGate && extras.castLockReport
+        ? [
+          ...(Object.keys(norm.cast.series).length > 0 ? [] : ['no series cast defined']),
+          ...(extras.castLockReport.blockers || []),
+        ]
+        : (Object.keys(norm.cast.series).length > 0 ? [] : ['no series cast defined']),
+      lock: extras.castLockReport || null,
     },
     {
       id: 'scenes',

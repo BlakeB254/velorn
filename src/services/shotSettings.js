@@ -1,5 +1,23 @@
 import catalog from '../config/cinematographyCatalog.json' with { type: 'json' }
 
+const ASSET_BASE = (() => {
+  const rawBase = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
+    ? String(import.meta.env.BASE_URL)
+    : './'
+  return rawBase.endsWith('/') ? rawBase : `${rawBase}/`
+})()
+
+/** Resolve a catalog preview path to a URL that works in Vite and Electron. */
+export function getLexiconPreviewUrl(preview) {
+  const value = String(preview || '').trim()
+  if (!value) return ''
+  if (/^(https?:|comfystudio:|file:|blob:|data:)/i.test(value)) return value
+  if (value.startsWith('/previews/') || value.startsWith('previews/')) {
+    return `${ASSET_BASE}${value.replace(/^\/+/, '')}`
+  }
+  return value
+}
+
 export const SHOT_SETTING_KEYS = [
   'framing_id',
   'camera_angle_id',

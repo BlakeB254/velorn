@@ -30,7 +30,7 @@ Update this checklist + Core #396 as each child lands. Final deletion card after
 | 6 | Studio cast resolve (studio_cast_resolve) | ✅ | director | merged | Cast tiers, slots | - |
 | 7 | Studio slots mutate / list | ✅ | programmer | merged | Slot state on cards | - |
 | 8 | **Cast lock / ref gate** | ❌ | director+programmer | tbd (t_510ae56d) | cdx-cast-lock skill + ref gate logic from cdx-video-director | t_510ae56d |
-| 9 | **Shot routing matrix (cdx-shot-routing)** | ❌ | director+programmer | tbd (t_d9d90abe) | cdx-shot-routing skill; model/workflow router per shot desc | t_d9d90abe |
+| 9 | **Shot routing matrix (cdx-shot-routing)** | ❌ | director+programmer | [PR #2](https://github.com/BlakeB254/velorn/pull/2) | Velorn-native router in `studio_flow` / `studio_route_shot` / storyboard UI. Flip ✅ after merge. | t_d9d90abe |
 | 10 | **CreativeOps ledger → production graph** | ❌ | director+programmer | tbd (t_d34b92db) | Append-only _creative_ops/<slug>, map to Velorn production graph edges | t_d34b92db |
 | 11 | **Take chain / VO / lipsync / foley** | ❌ | director+programmer | [PR #4](https://github.com/BlakeB254/velorn/pull/4) | Velorn-native take chain in `studio.voiceover` / `synthesize_voiceover` / `generate_lipsync_clip` / `generate_foley` / VSE lanes. Flip ✅ after merge. | t_f3e76d3f |
 | 12 | **Style packs / bible / franchises** | ❌ | director+programmer | tbd (t_978f5101) | style packs, bible import, franchise consistency | t_978f5101 |
