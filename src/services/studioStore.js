@@ -1,6 +1,6 @@
 /**
  * Studio data model — the canonical in-app shape of the `studio` block in
- * project.comfystudio, ported from CDX Studio (cdx-video-director/app/studio).
+ * project.comfystudio, ported from CDX Studio.
  *
  * Semantics mirrored from the Python sources (NOT their implementation):
  *

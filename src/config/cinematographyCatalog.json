@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "source": "/home/codex450/cdx-platform/services/cdx-video-director/config/cinematography_vocab.yaml",
+  "source": "src/config/cinematography_vocab.yaml",
   "assemblyOrder": [
     "framing",
     "camera_angle",
@@ -55,7 +55,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/extreme-close-up.png"
+          "preview": "/previews/lexicon/extreme-close-up.png"
         },
         {
           "id": "tight-medium",
@@ -69,7 +69,7 @@
             "i2v"
           ],
           "isDefault": true,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/tight-medium.png"
+          "preview": "/previews/lexicon/tight-medium.png"
         },
         {
           "id": "medium-close-up",
@@ -83,7 +83,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/medium-close-up.png"
+          "preview": "/previews/lexicon/medium-close-up.png"
         },
         {
           "id": "medium-shot",
@@ -97,7 +97,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/medium-shot.png"
+          "preview": "/previews/lexicon/medium-shot.png"
         },
         {
           "id": "wide-medium",
@@ -111,7 +111,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/wide-medium.png"
+          "preview": "/previews/lexicon/wide-medium.png"
         },
         {
           "id": "full-shot",
@@ -125,7 +125,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/full-shot.png"
+          "preview": "/previews/lexicon/full-shot.png"
         },
         {
           "id": "wide-establishing",
@@ -139,7 +139,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/wide-establishing.png"
+          "preview": "/previews/lexicon/wide-establishing.png"
         },
         {
           "id": "extreme-wide",
@@ -153,7 +153,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/extreme-wide.png"
+          "preview": "/previews/lexicon/extreme-wide.png"
         },
         {
           "id": "wide-low-angle",
@@ -167,7 +167,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/wide-low-angle.png"
+          "preview": "/previews/lexicon/wide-low-angle.png"
         },
         {
           "id": "face-stack-vertical",
@@ -181,7 +181,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/face-stack-vertical.png"
+          "preview": "/previews/lexicon/face-stack-vertical.png"
         },
         {
           "id": "over-the-shoulder",
@@ -195,7 +195,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/over-the-shoulder.png"
+          "preview": "/previews/lexicon/over-the-shoulder.png"
         },
         {
           "id": "two-shot",
@@ -209,7 +209,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/two-shot.png"
+          "preview": "/previews/lexicon/two-shot.png"
         },
         {
           "id": "shot-reverse-shot",
@@ -223,7 +223,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/shot-reverse-shot.png"
+          "preview": "/previews/lexicon/shot-reverse-shot.png"
         },
         {
           "id": "hidden-cam-static",
@@ -237,7 +237,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/hidden-cam-static.png"
+          "preview": "/previews/lexicon/hidden-cam-static.png"
         },
         {
           "id": "insert-detail",
@@ -251,7 +251,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/insert-detail.png"
+          "preview": "/previews/lexicon/insert-detail.png"
         }
       ]
     },
@@ -274,7 +274,7 @@
             "i2v"
           ],
           "isDefault": true,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/eye-level.png"
+          "preview": "/previews/lexicon/eye-level.png"
         },
         {
           "id": "high-angle",
@@ -288,7 +288,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/high-angle.png"
+          "preview": "/previews/lexicon/high-angle.png"
         },
         {
           "id": "low-angle",
@@ -302,7 +302,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/low-angle.png"
+          "preview": "/previews/lexicon/low-angle.png"
         },
         {
           "id": "birds-eye",
@@ -316,7 +316,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/birds-eye.png"
+          "preview": "/previews/lexicon/birds-eye.png"
         },
         {
           "id": "worms-eye",
@@ -330,7 +330,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/worms-eye.png"
+          "preview": "/previews/lexicon/worms-eye.png"
         },
         {
           "id": "dutch-angle",
@@ -344,7 +344,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/dutch-angle.png"
+          "preview": "/previews/lexicon/dutch-angle.png"
         },
         {
           "id": "profile-90",
@@ -358,7 +358,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/profile-90.png"
+          "preview": "/previews/lexicon/profile-90.png"
         },
         {
           "id": "three-quarter",
@@ -372,7 +372,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/three-quarter.png"
+          "preview": "/previews/lexicon/three-quarter.png"
         },
         {
           "id": "frontal-flat",
@@ -386,7 +386,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/frontal-flat.png"
+          "preview": "/previews/lexicon/frontal-flat.png"
         },
         {
           "id": "pov",
@@ -400,7 +400,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/pov.png"
+          "preview": "/previews/lexicon/pov.png"
         }
       ]
     },
@@ -424,7 +424,7 @@
             "extend"
           ],
           "isDefault": true,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/35mm-anamorphic.png"
+          "preview": "/previews/lexicon/35mm-anamorphic.png"
         },
         {
           "id": "24mm-wide",
@@ -438,7 +438,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/24mm-wide.png"
+          "preview": "/previews/lexicon/24mm-wide.png"
         },
         {
           "id": "50mm-normal",
@@ -452,7 +452,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/50mm-normal.png"
+          "preview": "/previews/lexicon/50mm-normal.png"
         },
         {
           "id": "85mm-portrait",
@@ -466,7 +466,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/85mm-portrait.png"
+          "preview": "/previews/lexicon/85mm-portrait.png"
         },
         {
           "id": "135mm-long",
@@ -480,7 +480,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/135mm-long.png"
+          "preview": "/previews/lexicon/135mm-long.png"
         },
         {
           "id": "wide-low-angle-lens",
@@ -494,7 +494,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/wide-low-angle-lens.png"
+          "preview": "/previews/lexicon/wide-low-angle-lens.png"
         },
         {
           "id": "dutch-tilt",
@@ -508,7 +508,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/dutch-tilt.png"
+          "preview": "/previews/lexicon/dutch-tilt.png"
         },
         {
           "id": "macro-ecu",
@@ -522,7 +522,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/macro-ecu.png"
+          "preview": "/previews/lexicon/macro-ecu.png"
         },
         {
           "id": "fish-eye",
@@ -536,7 +536,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/fish-eye.png"
+          "preview": "/previews/lexicon/fish-eye.png"
         },
         {
           "id": "spherical-clean",
@@ -550,7 +550,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/spherical-clean.png"
+          "preview": "/previews/lexicon/spherical-clean.png"
         },
         {
           "id": "vintage-soft",
@@ -564,7 +564,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/vintage-soft.png"
+          "preview": "/previews/lexicon/vintage-soft.png"
         }
       ]
     },
@@ -588,7 +588,7 @@
             "extend"
           ],
           "isDefault": true,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/kodak-5219-teal-orange.png"
+          "preview": "/previews/lexicon/kodak-5219-teal-orange.png"
         },
         {
           "id": "black-and-white",
@@ -603,7 +603,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/black-and-white.png"
+          "preview": "/previews/lexicon/black-and-white.png"
         },
         {
           "id": "film-noir-bw",
@@ -617,7 +617,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/film-noir-bw.png"
+          "preview": "/previews/lexicon/film-noir-bw.png"
         },
         {
           "id": "bleach-bypass",
@@ -631,7 +631,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/bleach-bypass.png"
+          "preview": "/previews/lexicon/bleach-bypass.png"
         },
         {
           "id": "kodak-5219-cool-cyan",
@@ -645,7 +645,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/kodak-5219-cool-cyan.png"
+          "preview": "/previews/lexicon/kodak-5219-cool-cyan.png"
         },
         {
           "id": "golden-hour-grade",
@@ -659,7 +659,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/golden-hour-grade.png"
+          "preview": "/previews/lexicon/golden-hour-grade.png"
         },
         {
           "id": "70s-saturation-push",
@@ -673,7 +673,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/70s-saturation-push.png"
+          "preview": "/previews/lexicon/70s-saturation-push.png"
         },
         {
           "id": "belly-red-blue",
@@ -687,7 +687,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/belly-red-blue.png"
+          "preview": "/previews/lexicon/belly-red-blue.png"
         },
         {
           "id": "narcos-vintage",
@@ -701,7 +701,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/narcos-vintage.png"
+          "preview": "/previews/lexicon/narcos-vintage.png"
         },
         {
           "id": "monochrome-cyan",
@@ -715,7 +715,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/monochrome-cyan.png"
+          "preview": "/previews/lexicon/monochrome-cyan.png"
         },
         {
           "id": "prismatic-chromatic",
@@ -729,7 +729,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/prismatic-chromatic.png"
+          "preview": "/previews/lexicon/prismatic-chromatic.png"
         },
         {
           "id": "technicolor-vintage",
@@ -743,7 +743,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/technicolor-vintage.png"
+          "preview": "/previews/lexicon/technicolor-vintage.png"
         },
         {
           "id": "arthouse-muted",
@@ -757,7 +757,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/arthouse-muted.png"
+          "preview": "/previews/lexicon/arthouse-muted.png"
         },
         {
           "id": "clean-commercial",
@@ -771,7 +771,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/clean-commercial.png"
+          "preview": "/previews/lexicon/clean-commercial.png"
         },
         {
           "id": "neon-night-grade",
@@ -785,7 +785,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/neon-night-grade.png"
+          "preview": "/previews/lexicon/neon-night-grade.png"
         }
       ]
     },
@@ -808,7 +808,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/monitor-blue-tungsten-amber.png"
+          "preview": "/previews/lexicon/monitor-blue-tungsten-amber.png"
         },
         {
           "id": "tungsten-warm-key",
@@ -822,7 +822,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/tungsten-warm-key.png"
+          "preview": "/previews/lexicon/tungsten-warm-key.png"
         },
         {
           "id": "sodium-vapor-streetlight",
@@ -836,7 +836,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/sodium-vapor-streetlight.png"
+          "preview": "/previews/lexicon/sodium-vapor-streetlight.png"
         },
         {
           "id": "hard-noon-daylight",
@@ -850,7 +850,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/hard-noon-daylight.png"
+          "preview": "/previews/lexicon/hard-noon-daylight.png"
         },
         {
           "id": "stadium-rim-lights",
@@ -864,7 +864,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/stadium-rim-lights.png"
+          "preview": "/previews/lexicon/stadium-rim-lights.png"
         },
         {
           "id": "golden-hour-rim",
@@ -878,7 +878,7 @@
             "i2v"
           ],
           "isDefault": true,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/golden-hour-rim.png"
+          "preview": "/previews/lexicon/golden-hour-rim.png"
         },
         {
           "id": "chandelier-fireplace-amber",
@@ -892,7 +892,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/chandelier-fireplace-amber.png"
+          "preview": "/previews/lexicon/chandelier-fireplace-amber.png"
         },
         {
           "id": "fluorescent-overhead-overlit",
@@ -906,7 +906,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/fluorescent-overhead-overlit.png"
+          "preview": "/previews/lexicon/fluorescent-overhead-overlit.png"
         },
         {
           "id": "red-blue-strobe",
@@ -919,7 +919,7 @@
             "flf"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/red-blue-strobe.png"
+          "preview": "/previews/lexicon/red-blue-strobe.png"
         },
         {
           "id": "gobo-shadows-chain-link",
@@ -933,7 +933,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/gobo-shadows-chain-link.png"
+          "preview": "/previews/lexicon/gobo-shadows-chain-link.png"
         },
         {
           "id": "softbox-beauty",
@@ -947,7 +947,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/softbox-beauty.png"
+          "preview": "/previews/lexicon/softbox-beauty.png"
         },
         {
           "id": "chiaroscuro",
@@ -961,7 +961,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/chiaroscuro.png"
+          "preview": "/previews/lexicon/chiaroscuro.png"
         },
         {
           "id": "available-natural",
@@ -975,7 +975,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/available-natural.png"
+          "preview": "/previews/lexicon/available-natural.png"
         }
       ]
     },
@@ -999,7 +999,7 @@
             "still"
           ],
           "isDefault": true,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/locked-off-static.png"
+          "preview": "/previews/lexicon/locked-off-static.png"
         },
         {
           "id": "pan-left",
@@ -1013,7 +1013,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/pan-left.png"
+          "preview": "/previews/lexicon/pan-left.png"
         },
         {
           "id": "pan-right",
@@ -1027,7 +1027,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/pan-right.png"
+          "preview": "/previews/lexicon/pan-right.png"
         },
         {
           "id": "tilt-up",
@@ -1041,7 +1041,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/tilt-up.png"
+          "preview": "/previews/lexicon/tilt-up.png"
         },
         {
           "id": "tilt-down",
@@ -1055,7 +1055,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/tilt-down.png"
+          "preview": "/previews/lexicon/tilt-down.png"
         },
         {
           "id": "slow-push-in",
@@ -1069,7 +1069,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/slow-push-in.png"
+          "preview": "/previews/lexicon/slow-push-in.png"
         },
         {
           "id": "slow-pull-back-reveal",
@@ -1083,7 +1083,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/slow-pull-back-reveal.png"
+          "preview": "/previews/lexicon/slow-pull-back-reveal.png"
         },
         {
           "id": "dolly-back-reveal",
@@ -1097,7 +1097,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/dolly-back-reveal.png"
+          "preview": "/previews/lexicon/dolly-back-reveal.png"
         },
         {
           "id": "truck-left",
@@ -1111,7 +1111,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/truck-left.png"
+          "preview": "/previews/lexicon/truck-left.png"
         },
         {
           "id": "truck-right",
@@ -1125,7 +1125,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/truck-right.png"
+          "preview": "/previews/lexicon/truck-right.png"
         },
         {
           "id": "tracking-from-behind",
@@ -1139,7 +1139,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/tracking-from-behind.png"
+          "preview": "/previews/lexicon/tracking-from-behind.png"
         },
         {
           "id": "slow-dolly-glide",
@@ -1153,7 +1153,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/slow-dolly-glide.png"
+          "preview": "/previews/lexicon/slow-dolly-glide.png"
         },
         {
           "id": "crane-up",
@@ -1167,7 +1167,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/crane-up.png"
+          "preview": "/previews/lexicon/crane-up.png"
         },
         {
           "id": "crane-down",
@@ -1181,7 +1181,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/crane-down.png"
+          "preview": "/previews/lexicon/crane-down.png"
         },
         {
           "id": "orbit-arc",
@@ -1195,7 +1195,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/orbit-arc.png"
+          "preview": "/previews/lexicon/orbit-arc.png"
         },
         {
           "id": "handheld-micro-motion",
@@ -1209,7 +1209,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/handheld-micro-motion.png"
+          "preview": "/previews/lexicon/handheld-micro-motion.png"
         },
         {
           "id": "whip-pan",
@@ -1222,7 +1222,7 @@
             "flf"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/whip-pan.png"
+          "preview": "/previews/lexicon/whip-pan.png"
         },
         {
           "id": "zoom-in",
@@ -1236,7 +1236,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/zoom-in.png"
+          "preview": "/previews/lexicon/zoom-in.png"
         },
         {
           "id": "zoom-out",
@@ -1250,7 +1250,7 @@
             "extend"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/zoom-out.png"
+          "preview": "/previews/lexicon/zoom-out.png"
         },
         {
           "id": "ken-burns-zoomout",
@@ -1263,7 +1263,7 @@
             "still"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/ken-burns-zoomout.png"
+          "preview": "/previews/lexicon/ken-burns-zoomout.png"
         },
         {
           "id": "roll-dutch-move",
@@ -1276,7 +1276,7 @@
             "flf"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/roll-dutch-move.png"
+          "preview": "/previews/lexicon/roll-dutch-move.png"
         }
       ]
     },
@@ -1300,7 +1300,7 @@
             "extend"
           ],
           "isDefault": true,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/narrative-character.png"
+          "preview": "/previews/lexicon/narrative-character.png"
         },
         {
           "id": "cinematic-b-roll",
@@ -1314,7 +1314,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/cinematic-b-roll.png"
+          "preview": "/previews/lexicon/cinematic-b-roll.png"
         },
         {
           "id": "mixed-promo",
@@ -1328,7 +1328,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/mixed-promo.png"
+          "preview": "/previews/lexicon/mixed-promo.png"
         },
         {
           "id": "hidden-cam-surveillance",
@@ -1342,7 +1342,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/hidden-cam-surveillance.png"
+          "preview": "/previews/lexicon/hidden-cam-surveillance.png"
         },
         {
           "id": "prestige-horror",
@@ -1356,7 +1356,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/prestige-horror.png"
+          "preview": "/previews/lexicon/prestige-horror.png"
         },
         {
           "id": "blaxploitation-70s",
@@ -1370,7 +1370,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/blaxploitation-70s.png"
+          "preview": "/previews/lexicon/blaxploitation-70s.png"
         },
         {
           "id": "belly-hype-williams",
@@ -1384,7 +1384,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/belly-hype-williams.png"
+          "preview": "/previews/lexicon/belly-hype-williams.png"
         },
         {
           "id": "narcos-vintage",
@@ -1398,7 +1398,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/mood-narcos-vintage.png"
+          "preview": "/previews/lexicon/mood-narcos-vintage.png"
         },
         {
           "id": "commercial-clean-mood",
@@ -1412,7 +1412,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/commercial-clean-mood.png"
+          "preview": "/previews/lexicon/commercial-clean-mood.png"
         },
         {
           "id": "documentary-verite",
@@ -1426,7 +1426,7 @@
             "i2v"
           ],
           "isDefault": false,
-          "preview": "/home/codex450/cdx-platform/services/cdx-video-director/styles/previews/lexicon/documentary-verite.png"
+          "preview": "/previews/lexicon/documentary-verite.png"
         }
       ]
     }

@@ -7,6 +7,7 @@ import {
   assembleLexiconLabels,
   assembleLexiconLine,
   getCategory,
+  getLexiconPreviewUrl,
   isInherited,
   normalizeShotSettings,
   optionsForMode,
@@ -54,7 +55,10 @@ function ChipRow({ categoryId, value, mode, onChange, inherited = false, feature
       for (const option of options.slice(0, 24)) {
         if (!option.preview) continue
         try {
-          const url = await getAbsoluteFileUrl(option.preview)
+          const bundled = getLexiconPreviewUrl(option.preview)
+          const url = bundled.startsWith('/') || bundled.startsWith('.') || /^(https?:|comfystudio:|blob:|data:)/i.test(bundled)
+            ? bundled
+            : await getAbsoluteFileUrl(option.preview)
           if (!cancelled && url) next[option.id] = url
         } catch (_) { /* ignore */ }
       }

@@ -1,9 +1,8 @@
 /**
  * CDX Studio production types, mirrored in Velorn.
  *
- * Canonical ids match
- * `cdx-platform/services/cdx-video-director/styles/project-type-schemas.yaml`
- * plus `production-types.yaml` pacing. Agents should call
+ * Canonical ids match the CDX Studio production-type schemas
+ * plus production-types pacing. Agents should call
  * `list_production_catalog` or `discover_production` instead of guessing.
  */
 
