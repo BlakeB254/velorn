@@ -7,6 +7,8 @@
  *   velorn-production episodes [projectDir]
  *   velorn-production seed-show [projectDir]
  *   velorn-production create-episode --title "Navy Pier 2" [projectDir]
+ *   velorn-production creative-ops [projectDir]
+ *   velorn-production graph [projectDir]
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { resolve, join, basename } from 'node:path'
@@ -22,7 +24,9 @@ async function loadStores() {
   const productionStore = await import(pathToFileURL(join(base, 'src/services/productionStore.js')).href)
   const productionPacket = await import(pathToFileURL(join(base, 'src/services/productionPacket.js')).href)
   const productionCuts = await import(pathToFileURL(join(base, 'src/services/productionCuts.js')).href)
-  return { productionStore, productionPacket, productionCuts }
+  const creativeOps = await import(pathToFileURL(join(base, 'src/services/creativeOps.js')).href)
+  const productionGraph = await import(pathToFileURL(join(base, 'src/services/productionGraph.js')).href)
+  return { productionStore, productionPacket, productionCuts, creativeOps, productionGraph }
 }
 
 function findProject(arg) {
@@ -58,7 +62,7 @@ function argValue(flag) {
 const cmd = process.argv[2] || 'context'
 const positional = process.argv.slice(3).filter((item) => !item.startsWith('--'))
 
-const { productionStore, productionPacket, productionCuts } = await loadStores()
+const { productionStore, productionPacket, productionCuts, creativeOps, productionGraph } = await loadStores()
 
 if (cmd === 'catalog') {
   console.log(JSON.stringify(productionPacket.listProductionCatalog(), null, 2))
@@ -159,7 +163,17 @@ if (cmd === 'context') {
   const packet = productionPacket.buildShotPacket(project, cardId, { assets: project.assets || [] })
   if (!packet) throw new Error(`Shot ${cardId} not found`)
   console.log(JSON.stringify(packet, null, 2))
+} else if (cmd === 'creative-ops') {
+  const workspace = creativeOps.normalizeWorkspace(project.creativeOps, { ...creativeOps.conceptFromProject(project), projectDir: dir })
+  console.log(JSON.stringify(creativeOps.fullState(workspace), null, 2))
+} else if (cmd === 'graph') {
+  const workspace = creativeOps.normalizeWorkspace(project.creativeOps, { ...creativeOps.conceptFromProject(project), projectDir: dir })
+  const productions = productionGraph.ledgerProductions([workspace])
+  console.log(JSON.stringify(productionGraph.buildProductionGraph({ studio: productions }), null, 2))
+} else if (cmd === 'readiness') {
+  const packet = productionPacket.buildProductionPacket(project, { assets: project.assets || [] })
+  console.log(JSON.stringify(packet.audio, null, 2))
 } else {
-  console.error(`Unknown command ${cmd}. Use: context | catalog | episodes | seed-show | create-episode | cuts | save-cut | checkout-cut | promote-cut | shot`)
+  console.error(`Unknown command ${cmd}. Use: context | catalog | episodes | seed-show | create-episode | cuts | save-cut | checkout-cut | promote-cut | shot | creative-ops | graph | readiness`)
   process.exit(2)
 }

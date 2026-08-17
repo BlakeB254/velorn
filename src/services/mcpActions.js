@@ -43,10 +43,11 @@ import {
   handleGenerateCaptions,
 } from './mcpCaptions'
 import { handleProductionAction, handleSetProduction } from './mcpProduction'
+import { gateGeneration } from './castLock'
 import { getOutputTarget } from './outputRatio'
 import { getProductionType } from './productionTypes'
 
-export const MCP_ACTION_BRIDGE_VERSION = 6
+export const MCP_ACTION_BRIDGE_VERSION = 7
 
 const MCP_PROJECT_CHECKPOINTS = new Map()
 const MCP_PROJECT_CHECKPOINT_LIMIT = 20
@@ -2724,6 +2725,28 @@ async function handleQueuePromptGenerationBatch(payload = {}) {
   const jobs = Array.isArray(payload.jobs) ? payload.jobs : []
   if (jobs.length === 0) {
     throw new Error('No generation jobs were provided for the prompt batch.')
+  }
+
+  if (payload.bypassRefGate !== true) {
+    const project = useProjectStore.getState().currentProject
+    if (project?.studio) {
+      const boardCards = project.storyboardBoard?.cards || []
+      const jobCards = jobs.map((job, index) => {
+        const id = job.storyboardCardId || job.cardId || job.velornMeta?.cardId
+        const hit = id ? boardCards.find((card) => card.id === id || String(card.order) === String(id)) : null
+        if (hit) return hit
+        const castIds = job.castIds || job.cast_ids || job.velornMeta?.castIds || []
+        return {
+          id: id || `batch-${index + 1}`,
+          cameraRig: { characters: (Array.isArray(castIds) ? castIds : []).map((castId) => ({ cast_id: castId })) },
+          characterRefs: job.characterRefs || job.velornMeta?.characters || [],
+        }
+      })
+      const gate = gateGeneration(project.studio, { cards: jobCards })
+      if (!gate.ok) {
+        throw new Error(gate.reason || 'cast ref gate blocked this generation')
+      }
+    }
   }
 
   const timeoutMs = Math.min(120000, Math.max(1000, Number(payload.timeoutMs) || 30000))
@@ -8541,10 +8564,26 @@ async function handleMcpAction(request = {}) {
     case 'apply_shot_camera_proposal':
     case 'import_shot_blocking':
     case 'studio_cast_resolve':
+    case 'studio_ref_gate':
+    case 'studio_cast_lock':
+    case 'studio_blocking_add_character':
     case 'studio_slots_list':
     case 'studio_slots_mutate':
     case 'studio_qa_record':
     case 'studio_flow':
+    case 'studio_route_shot':
+    case 'list_line_takes':
+    case 'list_voice_profiles':
+    case 'production_readiness':
+    case 'synthesize_voiceover':
+    case 'clone_voice':
+    case 'mark_take_canonical':
+    case 'finalize_take':
+    case 'generate_lipsync_clip':
+    case 'generate_foley':
+    case 'studio_creative_ops':
+    case 'studio_graph_ledger':
+    case 'sync_production_graph':
     case 'studio_animation_styles':
     case 'studio_style_pack':
     case 'studio_franchise':

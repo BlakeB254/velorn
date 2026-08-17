@@ -18,7 +18,8 @@ from pathlib import Path
 DASHBOARD = Path("/tmp/cdx-dashboard.json")
 VELORN_ROOT = Path("/home/codex450/VelornProjects")
 CREATIVE = Path("/home/codex450/creative")
-DIRECTOR_OUT = Path("/home/codex450/cdx-platform/services/cdx-video-director/out")
+_STUDIO_OUT = os.environ.get("CDX_STUDIO_OUT", "").strip()
+DIRECTOR_OUT = Path(_STUDIO_OUT) if _STUDIO_OUT else None
 FFPROBE = Path("/home/codex450/.local/bin/ffprobe")
 
 SKIP_DIR_PARTS = {
@@ -118,9 +119,10 @@ def source_roots(slug: str) -> list[Path]:
         CREATIVE / "parable-shorts" / slug,
         CREATIVE / "commercials" / slug,
         CREATIVE / "hyperframes" / slug,
-        DIRECTOR_OUT / slug,
         Path("/home/codex450/cdx-platform/out/_creative_ops") / slug,
     ]
+    if DIRECTOR_OUT:
+        roots.append(DIRECTOR_OUT / slug)
     extra = list((CREATIVE / "commercials").glob(f"{slug}*")) if (CREATIVE / "commercials").exists() else []
     extra += list((CREATIVE / "hyperframes").glob(f"*{slug}*")) if (CREATIVE / "hyperframes").exists() else []
     out: list[Path] = []

@@ -2881,7 +2881,7 @@ function buildAiReviewPasses(snapshot) {
         title: 'Show / episode production packet',
         goal: 'Understand show → season → episode → shot layers, then create an episode or propose a camera handle without writing until approved.',
         prompt: 'Call get_production_context first. Read layers.show, layers.season, layers.episode, then storyboard/sequence have-vs-missing. Use list_production_catalog for lexicon ids. Create or switch episodes with previewOnly first. To suggest a new angle, use propose_shot_camera (xyz handle) — do not apply until I approve apply_shot_camera_proposal.',
-        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow', 'studio_animation_styles', 'studio_style_pack', 'studio_franchise', 'studio_bible'],
+        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'studio_route_shot', 'propose_shot_camera', 'studio_cast_resolve', 'studio_ref_gate', 'studio_cast_lock', 'studio_blocking_add_character', 'studio_flow', 'list_line_takes', 'list_voice_profiles', 'production_readiness', 'synthesize_voiceover', 'clone_voice', 'finalize_take', 'generate_lipsync_clip', 'generate_foley', 'studio_creative_ops', 'studio_graph_ledger', 'sync_production_graph', 'studio_animation_styles', 'studio_style_pack', 'studio_franchise', 'studio_bible'],
         safeDefaults: {
           previewOnlyFirst: true,
           neverApplyCameraProposalWithoutApproval: true,
@@ -6603,13 +6603,59 @@ function createToolDefinitions() {
     },
     {
       name: 'studio_cast_resolve',
-      description: 'Resolve series → season → episode cast with scope, defined_in, and field-level overrides. Episode guests do not leak.',
+      description: 'Resolve series → season → episode cast with scope, defined_in, and field-level overrides. Episode guests do not leak. Includes the current ref-gate report.',
       inputSchema: {
         type: 'object',
         properties: {
           season: { type: 'string' },
           episode: { type: 'string' },
         },
+      },
+    },
+    {
+      name: 'studio_ref_gate',
+      description: 'Check whether assigned cast members have individual curated identity refs. Blocks group sheets, missing files, and generated-output canon. Crowd shots with no assigned cast pass.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          season: { type: 'string' },
+          episode: { type: 'string' },
+          cardId: { type: 'string' },
+          castId: { type: 'string' },
+          castIds: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    {
+      name: 'studio_cast_lock',
+      description: 'Preview or freeze/unfreeze identity refs after the ref gate passes. Defaults to previewOnly. op=status|lock|unlock.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['status', 'lock', 'unlock'] },
+          season: { type: 'string' },
+          episode: { type: 'string' },
+          castId: { type: 'string' },
+          castIds: { type: 'array', items: { type: 'string' } },
+          by: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'studio_blocking_add_character',
+      description: 'Preview or add a resolved cast member as a stand-in on a shot. Unknown, duplicate, or invalid (unlocked/group-sheet/output-derived) casts are refused. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string' },
+          castId: { type: 'string' },
+          season: { type: 'string' },
+          episode: { type: 'string' },
+          by: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['cardId', 'castId'],
       },
     },
     {
@@ -6655,8 +6701,193 @@ function createToolDefinitions() {
     },
     {
       name: 'studio_flow',
-      description: 'Return the stage rail: script → cast → scenes → storyboard → flf → video → review → edit → deliver, with stage_reached and stage_blocked_at.',
+      description: 'Return the stage rail: script → cast → scenes → storyboard → flf → video → review → edit → deliver, with stage_reached and stage_blocked_at. Includes take-chain readiness and the VSE audio plan. Also returns the shot routing matrix for every card/slot (script call → Velorn workflow).',
       inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'studio_route_shot',
+      description: 'Classify a shot description (or an open-project card) into the Velorn shot-routing matrix and return the generation choice: ecosystem, bundle, still/video/draft workflow ids. Does not queue GPU work. GPU serial; drafts-only outward.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string', description: 'Storyboard card id. When set, description is read from the open project.' },
+          shotId: { type: 'string', description: 'Alias for cardId.' },
+          description: { type: 'string', description: 'Shot description / script call. Required when cardId is omitted.' },
+          title: { type: 'string' },
+          action: { type: 'string' },
+          audio: { type: 'string' },
+          dialogue: { type: 'string' },
+          lane: { type: 'string', description: 'Slot lane override (lipdub, flf, action, vo, b-roll, …).' },
+          class: { type: 'string', description: 'Force a matrix class (talking_character, action, draft_still, …).' },
+          intent: { type: 'string', enum: ['still', 'clip', 'video'] },
+          stage: { type: 'string', enum: ['draft', 'final'] },
+          offScreen: { type: 'boolean' },
+          hasNamedFaces: { type: 'boolean' },
+          characterCount: { type: 'integer' },
+          productionType: { type: 'string' },
+          clientSafe: { type: 'boolean', description: 'When true, never route to US-excluded H3.' },
+          hasStill: { type: 'boolean' },
+          hasLastFrame: { type: 'boolean' },
+          hasBlocking: { type: 'boolean' },
+          hasControlVideo: { type: 'boolean' },        },
+      },
+    },
+    {
+      name: 'list_line_takes',
+      description: 'List every VO take for a dialogue line, with stage, engine, parent_take_id, and the canonical take.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          lineSlug: { type: 'string' },
+          cardId: { type: 'string' },
+        },
+      },
+    },
+    {
+      name: 'list_voice_profiles',
+      description: 'List Velorn voice profiles. Studio Qwen3/Chatterbox map onto the ElevenLabs TTS workflow. blake-recorded means do not TTS.',
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'production_readiness',
+      description: 'Halt condition for the VO loop. ready=true only when every dialogue line has a finalized canonical take.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          lineSlugs: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    {
+      name: 'synthesize_voiceover',
+      description: 'Plan or persist a TTS take for a line. Defaults to previewOnly. Does not queue GPU. Velorn lane is elevenlabs-tts; outward stays draft.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          lineSlug: { type: 'string' },
+          cardId: { type: 'string' },
+          text: { type: 'string' },
+          engine: { type: 'string' },
+          targetVoice: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'clone_voice',
+      description: 'Plan or persist a converted take from the canonical (or source) parent. Defaults to previewOnly. Does not queue GPU.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          lineSlug: { type: 'string' },
+          cardId: { type: 'string' },
+          sourceTakeId: { type: 'string' },
+          targetVoice: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'mark_take_canonical',
+      description: 'Promote a take to canonical without changing its stage. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          takeId: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['takeId'],
+      },
+    },
+    {
+      name: 'finalize_take',
+      description: 'Lock a take as stage=finalized and is_canonical=true. The renderer uses this take. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          takeId: { type: 'string' },
+          cardId: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['takeId'],
+      },
+    },
+    {
+      name: 'generate_lipsync_clip',
+      description: 'Plan Flow A talking-head (ltx23-id-lora) or Flow B ffmpeg bake from the canonical take. Never queues GPU. previewOnly first.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string' },
+          lineSlug: { type: 'string' },
+          takeId: { type: 'string' },
+          offScreen: { type: 'boolean' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'generate_foley',
+      description: 'Plan LTX 2.3 Foley V2A for a silent shot. Returns 503 semantics when the LoRA is missing. Defaults to previewOnly. Does not queue GPU.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string' },
+          lineSlug: { type: 'string' },
+          tags: { type: 'string' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'studio_creative_ops',
+      description: 'Append-only CreativeOps ledger for the open project. op=get is read-only. ensure/record/feedback/link default to previewOnly. Never overwrites a generation. Ready-pool promotion does not publish.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['get', 'ensure', 'record', 'feedback', 'link'] },
+          generation_id: { type: 'string' },
+          shot_slug: { type: 'string' },
+          asset_type: { type: 'string' },
+          workflow_family: { type: 'string' },
+          content_pillar: { type: 'string' },
+          attempt: { type: 'integer' },
+          model: { type: 'string' },
+          prompt: { type: 'string' },
+          quality_scores: { type: 'object' },
+          approved: { type: 'boolean' },
+          note: { type: 'string' },
+          promote_to_ready_pool: { type: 'boolean' },
+          caption_pack: { type: 'object' },
+          path: { type: 'string' },
+          kind: { type: 'string', description: 'Source link kind, e.g. hyperframes.' },          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'studio_graph_ledger',
+      description: 'Read-only CreativeOps productions plus mapped World Twin / Beat Lab / Studio graph edges. Does not write Core.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          coreProjectId: { type: 'integer' },
+          defaultModel: { type: 'string' },
+          twin: { type: 'object' },
+          beatlab: { type: 'array' },        },
+      },
+    },
+    {
+      name: 'sync_production_graph',
+      description: 'Preview or snapshot the production graph onto project.productionGraph. Defaults to previewOnly. Does not write Core, publish, or queue GPU work. Use scripts/app_graph_sync.py --apply for THE MAP.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          coreProjectId: { type: 'integer' },
+          defaultModel: { type: 'string' },
+          twin: { type: 'object' },
+          beatlab: { type: 'array' },          previewOnly: { type: 'boolean' },
+        },
+      },
     },
     {
       name: 'studio_animation_styles',
@@ -6667,8 +6898,7 @@ function createToolDefinitions() {
           op: { type: 'string', enum: ['list', 'get'] },
           id: { type: 'string' },
           category: { type: 'string' },
-          family: { type: 'string', enum: ['film', 'animation', 'other'] },
-        },
+          family: { type: 'string', enum: ['film', 'animation', 'other'] },        },
       },
     },
     {
@@ -6681,8 +6911,7 @@ function createToolDefinitions() {
           name: { type: 'string' },
           prompt: { type: 'string' },
           negative: { type: 'string' },
-          kind: { type: 'string', enum: ['still', 'video', 'i2v', 'flf', 'extend'] },
-          previewOnly: { type: 'boolean' },
+          kind: { type: 'string', enum: ['still', 'video', 'i2v', 'flf', 'extend'] },          previewOnly: { type: 'boolean' },
         },
       },
     },
@@ -6694,8 +6923,7 @@ function createToolDefinitions() {
         properties: {
           op: { type: 'string', enum: ['list', 'get', 'bind', 'consistency'] },
           slug: { type: 'string' },
-          previewOnly: { type: 'boolean' },
-        },
+          previewOnly: { type: 'boolean' },        },
       },
     },
     {
@@ -6710,8 +6938,7 @@ function createToolDefinitions() {
           description: { type: 'string' },
           prompt: { type: 'string' },
           kind: { type: 'string' },
-          sealedBy: { type: 'string' },
-          previewOnly: { type: 'boolean' },
+          sealedBy: { type: 'string' },          previewOnly: { type: 'boolean' },
         },
       },
     },
@@ -11189,10 +11416,26 @@ class ComfyStudioMcpServer {
       case 'apply_shot_camera_proposal':
       case 'import_shot_blocking':
       case 'studio_cast_resolve':
+      case 'studio_ref_gate':
+      case 'studio_cast_lock':
+      case 'studio_blocking_add_character':
       case 'studio_slots_list':
       case 'studio_slots_mutate':
       case 'studio_qa_record':
       case 'studio_flow':
+      case 'studio_route_shot':
+      case 'list_line_takes':
+      case 'list_voice_profiles':
+      case 'production_readiness':
+      case 'synthesize_voiceover':
+      case 'clone_voice':
+      case 'mark_take_canonical':
+      case 'finalize_take':
+      case 'generate_lipsync_clip':
+      case 'generate_foley':
+      case 'studio_creative_ops':
+      case 'studio_graph_ledger':
+      case 'sync_production_graph':
       case 'studio_animation_styles':
       case 'studio_style_pack':
       case 'studio_franchise':
@@ -11213,8 +11456,18 @@ class ComfyStudioMcpServer {
             'propose_shot_camera',
             'apply_shot_camera_proposal',
             'import_shot_blocking',
+            'studio_cast_lock',
+            'studio_blocking_add_character',
             'studio_slots_mutate',
             'studio_qa_record',
+            'synthesize_voiceover',
+            'clone_voice',
+            'mark_take_canonical',
+            'finalize_take',
+            'generate_lipsync_clip',
+            'generate_foley',
+            'studio_creative_ops',
+            'sync_production_graph',
             'studio_style_pack',
             'studio_franchise',
             'studio_bible',

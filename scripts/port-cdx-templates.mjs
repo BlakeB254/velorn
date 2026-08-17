@@ -2,12 +2,16 @@
 /**
  * Convert CDX Studio API-format templates into Velorn bundled workflows.
  * {{PLACEHOLDER}} values become defaults; the owning node is titled VELORN_*.
+ *
+ * Source graphs live in-repo at templates/cdx (vendored).
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const SRC = '/home/codex450/cdx-platform/services/cdx-video-director/templates'
-const DEST = '/home/codex450/opensource/velorn/public/workflows'
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const SRC = join(ROOT, 'templates', 'cdx')
+const DEST = join(ROOT, 'public', 'workflows')
 
 const TITLE_FOR = {
   '{{PROMPT}}': 'VELORN_PROMPT',
