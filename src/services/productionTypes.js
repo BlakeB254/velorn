@@ -294,9 +294,10 @@ export const PRODUCTION_FLOWS = Object.freeze([
     steps: [
       'set_production type=website-tour',
       'Use HyperFrames / site-capture skills for the reel; import the mp4 into Velorn',
+      'studio_creative_ops op=link kind=hyperframes — metadata only, do not move media',
       'import_asset_from_path + add_asset_to_timeline + save_cut',
     ],
-    tools: ['set_production', 'import_asset_from_path', 'add_asset_to_timeline', 'save_cut'],
+    tools: ['set_production', 'studio_creative_ops', 'import_asset_from_path', 'add_asset_to_timeline', 'save_cut'],
   },
   {
     id: 'review-deliver',
@@ -305,10 +306,11 @@ export const PRODUCTION_FLOWS = Object.freeze([
     steps: [
       'analyze_timeline + check_media_health',
       'inspect_visible_shots — mark issues, previewOnly',
+      'studio_creative_ops + studio_graph_ledger — record the take, do not publish',
       'watch_cut / promote_cut',
       'export_timeline or export_delivery_batch',
     ],
-    tools: ['analyze_timeline', 'check_media_health', 'inspect_visible_shots', 'watch_cut', 'promote_cut', 'export_timeline'],
+    tools: ['analyze_timeline', 'check_media_health', 'inspect_visible_shots', 'studio_creative_ops', 'studio_graph_ledger', 'watch_cut', 'promote_cut', 'export_timeline'],
   },
 ])
 

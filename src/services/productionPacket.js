@@ -32,6 +32,8 @@ import {
 import { checkCastRefs } from './castLock.js'
 import { routeShotFromCard } from './shotRouting.js'
 import { generateResolution, listOutputTargets, resolveOutput } from './outputRatio.js'
+import { conceptFromProject, normalizeWorkspace, summarize } from './creativeOps.js'
+import { buildProductionGraph, ledgerProductions } from './productionGraph.js'
 import {
   assembleLexiconLabels,
   assembleLexiconLine,
@@ -252,6 +254,8 @@ export function listProductionCatalog() {
       { id: 'take-chain', required: false, when: 'dialogue or VO', use: 'studio_list_line_takes / synthesize_voiceover / finalize_take' },
       { id: 'lipsync', required: false, when: 'on-screen speaker', use: 'generate_lipsync_clip Flow A (Talkvid) or Flow B (ffmpeg bake)' },
       { id: 'foley', required: false, when: 'synced SFX on a silent clip', use: 'generate_foley + VSE foley lane' },
+      { id: 'creative-ops', required: false, when: 'generation attempts, review/regen queues, ready pool', use: 'studio_creative_ops + out/_creative_ops/<slug>' },
+      { id: 'production-graph', required: false, when: 'map ledger facts to World Twin / Beat Lab / Studio edges', use: 'studio_graph_ledger / sync_production_graph' },
       { id: 'multi-angles', required: false, when: 'need 8 coverage angles from one still', use: 'workflow multi-angles / multi-angles-scene' },
     ],
     layers: CONTEXT_LAYERS,
@@ -345,6 +349,10 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
       vse: buildVseAudioPlan({ cards, manifest: studio.voiceover, audio: studio.audio }),
     },
     catalog: listProductionCatalog(),
+    creativeOps: summarize(normalizeWorkspace(project?.creativeOps, conceptFromProject(project))),
+    productionGraph: project?.productionGraph || buildProductionGraph({
+      studio: ledgerProductions([normalizeWorkspace(project?.creativeOps, conceptFromProject(project))]),
+    }),
     source: {
       cdxSlug: project?.cdxMigration?.slug || production.slug,
       hasDirector: Boolean(director.draft || director.characters),

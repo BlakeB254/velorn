@@ -35,7 +35,8 @@
     "test:shot-routing": "node --test ./tests/shotRouting.test.js",
     "test:cdx-workflows": "node --test ./tests/cdxWorkflowPort.test.js",
     "test:cdx-isolation": "node --test ./tests/cdxStudioIsolation.test.js",
-    "test:output-ratio": "node --test ./tests/outputRatio.test.js"
+    "test:output-ratio": "node --test ./tests/outputRatio.test.js",
+    "test:creative-ops": "node --test ./tests/creativeOps.test.js ./tests/productionGraph.test.js"
   },
   "keywords": [
     "animatic",
