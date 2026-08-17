@@ -38,6 +38,7 @@
     "test:blocking-v7": "node --test ./tests/blockingV7.test.js",
     "test:blocking-scene": "node --test ./tests/blockingScene.test.js",
     "test:cast-lock": "node --test ./tests/castLock.test.js",
+    "test:evaluation-rubrics": "node --test ./tests/evaluationRubrics.test.js ./tests/studioAudit.test.js",
     "test:production-store": "node --test ./tests/productionStore.test.js",
     "test:take-chain": "node --test ./tests/takeChain.test.js ./tests/takeChainPacket.test.js",
     "test:shot-routing": "node --test ./tests/shotRouting.test.js",

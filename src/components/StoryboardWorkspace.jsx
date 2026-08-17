@@ -31,6 +31,7 @@ import LocationReferencePanel from './studio/LocationReferencePanel'
 import PropsReferencePanel from './studio/PropsReferencePanel'
 import StyleBiblePanel from './studio/StyleBiblePanel'
 import BlockingPanel from './studio/BlockingPanel'
+import QaPanel, { AuditChip } from './studio/QaPanel'
 import TakeChip from './studio/TakeChip'
 import RouteChip from './studio/RouteChip'
 import {
@@ -67,6 +68,7 @@ export default function StoryboardWorkspace() {
   const updateProjectSettings = useProjectStore((state) => state.updateProjectSettings)
   const saveProject = useProjectStore((state) => state.saveProject)
   const getStudio = useProjectStore((state) => state.getStudio)
+  const updateStudio = useProjectStore((state) => state.updateStudio)
   const setStudio = useProjectStore((state) => state.setStudio)
   const getProduction = useProjectStore((state) => state.getProduction)
   const setProduction = useProjectStore((state) => state.setProduction)
@@ -84,6 +86,7 @@ export default function StoryboardWorkspace() {
   const [imageUrls, setImageUrls] = useState({})
   const [editCardId, setEditCardId] = useState(null)
   const [blockingCardId, setBlockingCardId] = useState(null)
+  const [qaCardId, setQaCardId] = useState(null)
   const cardRefs = useRef({})
   const studio = useMemo(() => normalizeStudio(currentProject?.studio || getStudio?.()), [currentProject, getStudio])
   const production = useMemo(() => getProduction?.() || currentProject?.production || null, [currentProject, getProduction])
@@ -672,6 +675,7 @@ export default function StoryboardWorkspace() {
                         </span>
                         <TakeChip card={card} studio={studio} />
                         <RouteChip route={route} />
+                        {slotView.audit && <AuditChip verdict={slotView.audit.verdict} title={slotView.audit.action} />}
                       </div>
                     )}
                     {!slotView && (
@@ -832,6 +836,13 @@ export default function StoryboardWorkspace() {
                           </button>
                           <button
                             type="button"
+                            onClick={() => setQaCardId((current) => (current === card.id ? null : card.id))}
+                            className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-sf-dark-600 text-[11px] text-sf-text-secondary hover:text-sf-text-primary"
+                          >
+                            QA
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => openGeneratePanel(card)}
                             className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-sf-accent/80 hover:bg-sf-accent text-white text-[11px] ml-auto"
                           >
@@ -846,6 +857,14 @@ export default function StoryboardWorkspace() {
                             studio={studio}
                             card={card}
                             onApplyRig={(rig) => updateCard(card.id, { cameraRig: rig })}
+                          />
+                        )}
+                        {qaCardId === card.id && (
+                          <QaPanel
+                            card={card}
+                            slot={slotView?.slot}
+                            studio={studio}
+                            onRecord={(next) => updateStudio?.(() => next)}
                           />
                         )}
                         {pickerFor('frame') && (

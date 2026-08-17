@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import useTimelineStore, { buildClipSyncLock, isMusicVideoSyncCapableClip, isSyncLockedClip, isCaptionsTrack, isCaptionClip } from '../stores/timelineStore'
 import useProjectStore from '../stores/projectStore'
+import { normalizeStudio } from '../services/studioStore'
+import { auditShot, shotIdForClip, matchSlot } from '../services/studioAudit'
 import renderCacheService from '../services/renderCache'
 import { isClipRenderable, renderClipToCache } from '../services/clipRenderCache'
 import { isFullBakeFresh } from '../utils/clipBakeSignature'
@@ -951,6 +953,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
 
   const {
     currentProjectHandle,
+    currentProject,
     getCurrentTimelineSettings,
     undoTimelineStructureChange,
     redoTimelineStructureChange,
@@ -958,6 +961,8 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
     canRedoTimelineStructureChange,
     projectHistoryLastChangedAt,
   } = useProjectStore()
+  const studio = useMemo(() => normalizeStudio(currentProject?.studio), [currentProject])
+  const storyboardCards = currentProject?.storyboardBoard?.cards || []
   // Assets store needs to be available before we derive sync-lock state.
   // The sync-lock helpers below read asset metadata during render, so keep
   // this destructure above any memo that uses getAssetById.
@@ -6448,6 +6453,24 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
                               <span>SYNC</span>
                             </div>
                           )}
+                          {(() => {
+                            const shot = shotIdForClip(studio, storyboardCards, clip)
+                            if (!shot) return null
+                            const card = storyboardCards.find((item) => item.id === shot) || { id: shot }
+                            const row = auditShot({ card, slot: matchSlot(studio, card), studio })
+                            const tone = row.verdict === 'NEEDS_REGEN'
+                              ? 'bg-red-500/85'
+                              : row.verdict === 'READY_TO_GENERATE'
+                                ? 'bg-sky-500/85'
+                                : row.verdict === 'DONE' && row.qa.overall === 'pass'
+                                  ? 'bg-emerald-500/85'
+                                  : 'bg-black/70'
+                            return (
+                              <div className={`rounded px-1 py-0.5 text-[8px] text-white font-medium flex-shrink-0 ${tone}`} title={row.action}>
+                                {row.verdict === 'NEEDS_REGEN' ? 'REGEN' : row.verdict === 'READY_TO_GENERATE' ? 'READY' : row.verdict === 'DONE' ? (row.qa.overall === 'pass' ? 'QA' : 'UNV') : 'FLF'}
+                              </div>
+                            )
+                          })()}
                         </div>
                         
                         {/* Effects/Cache indicator - top right area */}

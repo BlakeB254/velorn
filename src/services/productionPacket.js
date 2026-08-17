@@ -18,7 +18,8 @@ import {
   listEpisodes,
   productionSummary,
 } from './productionStore.js'
-import { resolveCast, normalizeStudio } from './studioStore.js'
+import { resolveCast, normalizeStudio, qaSummary } from './studioStore.js'
+import { auditProject } from './studioAudit.js'
 import {
   AUDIO_POLICY,
   buildVseAudioPlan,
@@ -381,6 +382,8 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
       vse: buildVseAudioPlan({ cards, manifest: studio.voiceover, audio: studio.audio }),
     },
     catalog: listProductionCatalog(),
+    qa: qaSummary(studio),
+    audit: auditProject(project, { assets }),
     creativeOps: summarize(normalizeWorkspace(project?.creativeOps, conceptFromProject(project))),
     productionGraph: project?.productionGraph || buildProductionGraph({
       studio: ledgerProductions([normalizeWorkspace(project?.creativeOps, conceptFromProject(project))]),
