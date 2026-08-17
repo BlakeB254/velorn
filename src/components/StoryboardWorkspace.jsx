@@ -17,14 +17,21 @@ import { generateResolution } from '../services/outputRatio'
 import OutputRatioBar from './storyboard/OutputRatioBar'
 import CutBar from './storyboard/CutBar'
 import { normalizeStudio } from '../services/studioStore'
-import { cardSlotView } from '../services/studioUi'
+import { gateGeneration } from '../services/castLock'
+import { cardSlotView, slotForCard } from '../services/studioUi'
+import { routeShotFromCard } from '../services/shotRouting'
+import { bindFranchise } from '../services/franchises'
 import StageRail from './studio/StageRail'
 import CastPanel from './studio/CastPanel'
+import StyleBiblePanel from './studio/StyleBiblePanel'
 import BlockingPanel from './studio/BlockingPanel'
 import QaPanel, { AuditChip } from './studio/QaPanel'
+import TakeChip from './studio/TakeChip'
+import RouteChip from './studio/RouteChip'
 import {
   AssetPicker,
   DEFAULT_FRAME_WORKFLOW,
+  DEFAULT_VIDEO_WORKFLOW,
   FRAME_WORKFLOWS,
   RefChips,
   composeGenerationPrompt,
@@ -56,7 +63,9 @@ export default function StoryboardWorkspace() {
   const saveProject = useProjectStore((state) => state.saveProject)
   const getStudio = useProjectStore((state) => state.getStudio)
   const updateStudio = useProjectStore((state) => state.updateStudio)
+  const setStudio = useProjectStore((state) => state.setStudio)
   const getProduction = useProjectStore((state) => state.getProduction)
+  const setProduction = useProjectStore((state) => state.setProduction)
   const assets = useAssetsStore((state) => state.assets)
   const folders = useAssetsStore((state) => state.folders)
   const addAsset = useAssetsStore((state) => state.addAsset)
@@ -238,9 +247,21 @@ export default function StoryboardWorkspace() {
   }
 
   const openGeneratePanel = (card) => {
-    const workflow = findFrameWorkflow(card.workflowId)
+    const route = routeShotFromCard(card, {
+      slot: slotForCard(studio, card),
+      productionType: production?.type,
+    })
+    const routedStill = route.stillWorkflowId || (route.workflowId && FRAME_WORKFLOWS.some((item) => item.id === route.workflowId) ? route.workflowId : null)
+    const workflow = findFrameWorkflow(
+      card.workflowId && card.workflowId !== DEFAULT_FRAME_WORKFLOW
+        ? card.workflowId
+        : (routedStill || card.workflowId)
+    )
     const patch = {}
-    if (!card.workflowId) patch.workflowId = workflow.id
+    if (!card.workflowId || card.workflowId === DEFAULT_FRAME_WORKFLOW) patch.workflowId = workflow.id
+    if (route.videoWorkflowId && (!card.videoWorkflowId || card.videoWorkflowId === DEFAULT_VIDEO_WORKFLOW)) {
+      patch.videoWorkflowId = route.videoWorkflowId
+    }
     if (workflow.needsImage && !card.sourceAssetId && card.imageAssetId) {
       patch.sourceAssetId = card.imageAssetId
     }
@@ -251,12 +272,23 @@ export default function StoryboardWorkspace() {
   }
 
   const submitGenerate = async (card) => {
+    const gate = gateGeneration(studio, {
+      season: production?.current?.seasonId,
+      episode: production?.current?.episodeId,
+      card,
+    })
+    if (!gate.ok) {
+      setGenerateError(gate.reason || 'Cast ref gate blocked this shot.')
+      return
+    }
     const motion = findMotion(card.motionSlug, motionCatalog)
     const workflow = findFrameWorkflow(card.workflowId)
     const prompt = composeGenerationPrompt(card, {
       motionTitle: motion?.title || '',
       mode: modeFromWorkflow(workflow.id, 'still'),
       projectLook,
+      stylePack: production?.stylePack,
+      animationStyle: production?.animationStyle,
     })
     const sourceId = card.sourceAssetId || card.imageAssetId || null
     if (workflow.needsImage && !sourceId) {
@@ -326,7 +358,13 @@ export default function StoryboardWorkspace() {
         type: 'image',
       })
       const prompt = [
-        composeGenerationPrompt(card, { motionTitle: motion.title, mode: 'still', projectLook }),
+        composeGenerationPrompt(card, {
+          motionTitle: motion.title,
+          mode: 'still',
+          projectLook,
+          stylePack: production?.stylePack,
+          animationStyle: production?.animationStyle,
+        }),
         motionPosePrompt(motion),
       ].filter(Boolean).join('\n')
       updateCard(card.id, {
@@ -458,7 +496,43 @@ export default function StoryboardWorkspace() {
         <details>
           <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Cast (series → season → episode)</summary>
           <div className="mt-2">
-            <CastPanel studio={studio} season={production?.current?.seasonId} episode={production?.current?.episodeId} />
+            <CastPanel
+              studio={studio}
+              season={production?.current?.seasonId}
+              episode={production?.current?.episodeId}
+              production={production}
+              onStudioChange={(next) => setStudio?.(next)}
+            />
+          </div>
+        </details>
+        <details>
+          <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Style / bible / franchise</summary>
+          <div className="mt-2">
+            <StyleBiblePanel
+              production={production}
+              onBindFranchise={(slug) => {
+                if (!production || !setProduction) return
+                const bound = bindFranchise(production, slug)
+                if (bound.ok) setProduction(bound.production)
+              }}
+              onSelectPack={(name) => {
+                if (!production || !setProduction) return
+                setProduction({ ...production, stylePack: name })
+              }}
+              onSealBible={() => {
+                if (!production || !setProduction) return
+                setProduction({
+                  ...production,
+                  bible: {
+                    ...(production.bible || {}),
+                    sealed: true,
+                    sealedAt: new Date().toISOString(),
+                    sealedBy: 'operator',
+                    source: 'ui',
+                  },
+                })
+              }}
+            />
           </div>
         </details>
       </div>
@@ -498,6 +572,10 @@ export default function StoryboardWorkspace() {
               const slots = frameWorkflowSlots(workflow)
               const pickerFor = (slot) => mediaPicker?.cardId === card.id && mediaPicker?.slot === slot
               const slotView = cardSlotView(studio, card)
+              const route = routeShotFromCard(card, {
+                slot: slotView?.slot || null,
+                productionType: production?.type,
+              })
               return (
                 <article
                   key={card.id}
@@ -530,7 +608,15 @@ export default function StoryboardWorkspace() {
                         <span className={slotView.qa.audio.result === 'pass' ? 'text-emerald-300' : slotView.qa.audio.result === 'fail' ? 'text-red-400' : 'text-sf-text-muted'}>
                           A {slotView.qa.audio.result}
                         </span>
+                        <TakeChip card={card} studio={studio} />
+                        <RouteChip route={route} />
                         {slotView.audit && <AuditChip verdict={slotView.audit.verdict} title={slotView.audit.action} />}
+                      </div>
+                    )}
+                    {!slotView && (
+                      <div className="flex flex-wrap gap-1 text-[9px] uppercase tracking-wide">
+                        <RouteChip route={route} />
+                        {card.dialogue && <TakeChip card={card} studio={studio} />}
                       </div>
                     )}
                     <div className="flex items-start gap-2">
@@ -777,7 +863,12 @@ export default function StoryboardWorkspace() {
                             ))}
                           </select>
                         </label>
-                        <p className="text-[10px] text-sf-text-muted">{workflow.description}</p>
+                        <p className="text-[10px] text-sky-200/90">
+                          Routed: {route.label} → {route.workflowId}
+                          {route.draftWorkflowId && route.draftWorkflowId !== route.workflowId ? ` · draft ${route.draftWorkflowId}` : ''}
+                          {' · '}GPU serial, drafts only
+                        </p>
+                        <p className="text-[10px] text-sf-text-muted">{route.notes || workflow.description}</p>
                         <label className="block space-y-1">
                           <span className="text-[10px] uppercase tracking-wide text-sf-text-muted">Prompt</span>
                           <textarea

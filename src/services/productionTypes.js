@@ -1,9 +1,8 @@
 /**
  * CDX Studio production types, mirrored in Velorn.
  *
- * Canonical ids match
- * `cdx-platform/services/cdx-video-director/styles/project-type-schemas.yaml`
- * plus `production-types.yaml` pacing. Agents should call
+ * Canonical ids match the CDX Studio production-type schemas
+ * plus production-types pacing. Agents should call
  * `list_production_catalog` or `discover_production` instead of guessing.
  */
 
@@ -58,7 +57,7 @@ function typeDef(partial) {
     runtime: '15-30s',
     aspect: '9:16',
     outputTarget: 'mobile',
-    skills: ['velorn-production', 'cdx-video-production', 'cdx-ltx25'],
+    skills: ['velorn-production', 'cdx-video-production', 'cdx-shot-routing', 'cdx-ltx25'],
     startTools: ['discover_production', 'get_production_context', 'list_production_catalog'],
     ...partial,
   }
@@ -73,8 +72,8 @@ export const PRODUCTION_TYPE_CATALOG = Object.freeze({
     hookByS: 2,
     maxHoldS: 4,
     runtime: '30-60s / episode',
-    skills: ['velorn-production', 'cdx-video-production', 'cdx-viral-pacing', 'cdx-cast-lock', 'cdx-ltx25'],
-    startTools: ['get_production_context', 'list_episodes', 'list_cuts', 'studio_cast_resolve'],
+    skills: ['velorn-production', 'cdx-video-production', 'cdx-viral-pacing', 'cdx-cast-lock', 'cdx-shot-routing', 'cdx-ltx25'],
+    startTools: ['get_production_context', 'list_episodes', 'list_cuts', 'studio_cast_resolve', 'studio_ref_gate', 'production_readiness'],
     flow: 'show-episode',
   }),
   movie: typeDef({
@@ -214,13 +213,18 @@ export const PRODUCTION_FLOWS = Object.freeze([
     steps: [
       'get_production_context — bible, current episode, board, cuts',
       'list_cuts / checkout_cut — pick Draft 1 vs Grok Draft 1, never overwrite blindly',
-      'studio_cast_resolve + studio_slots_list — lock cast before gen',
+      'studio_cast_resolve + studio_ref_gate + studio_cast_lock — lock cast before gen',
+      'studio_blocking_add_character — add a stand-in only after the ref gate passes',
+      'studio_route_shot / studio_flow.routing — pick ONE ecosystem + Velorn workflow per shot',
+      'production_readiness + synthesize_voiceover / finalize_take — every dialogue line needs a finalized canonical take',
+      'generate_lipsync_clip / generate_foley — previewOnly first, GPU serial, drafts only',
+      'studio_franchise / studio_style_pack / studio_bible — inherit house look, seal bible',
       'update_shot / propose_shot_camera — write action, dialogue, xyz',
       'queue_prompt_generation_batch or generate-from-blocking — GPU serial, previewOnly first',
       'import_asset_from_path + save_cut — attach clips, snapshot the draft',
       'watch_cut then studio_qa_record / studio_audit — review before promote_cut',
     ],
-    tools: ['get_production_context', 'list_episodes', 'list_cuts', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'studio_cast_resolve', 'update_shot', 'propose_shot_camera', 'queue_prompt_generation_batch', 'studio_qa_record', 'studio_audit'],
+    tools: ['get_production_context', 'list_episodes', 'list_cuts', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'studio_cast_resolve', 'studio_ref_gate', 'studio_cast_lock', 'studio_blocking_add_character', 'studio_route_shot', 'studio_flow', 'update_shot', 'propose_shot_camera', 'queue_prompt_generation_batch', 'studio_qa_record', 'list_line_takes', 'production_readiness', 'synthesize_voiceover', 'finalize_take', 'generate_lipsync_clip', 'generate_foley', 'studio_franchise', 'studio_style_pack', 'studio_bible', 'studio_animation_styles', 'studio_audit'],
   },
   {
     id: 'commercial',
@@ -291,9 +295,10 @@ export const PRODUCTION_FLOWS = Object.freeze([
     steps: [
       'set_production type=website-tour',
       'Use HyperFrames / site-capture skills for the reel; import the mp4 into Velorn',
+      'studio_creative_ops op=link kind=hyperframes — metadata only, do not move media',
       'import_asset_from_path + add_asset_to_timeline + save_cut',
     ],
-    tools: ['set_production', 'import_asset_from_path', 'add_asset_to_timeline', 'save_cut'],
+    tools: ['set_production', 'studio_creative_ops', 'import_asset_from_path', 'add_asset_to_timeline', 'save_cut'],
   },
   {
     id: 'review-deliver',
@@ -302,10 +307,11 @@ export const PRODUCTION_FLOWS = Object.freeze([
     steps: [
       'analyze_timeline + check_media_health',
       'inspect_visible_shots — mark issues, previewOnly',
+      'studio_creative_ops + studio_graph_ledger — record the take, do not publish',
       'watch_cut / promote_cut',
       'export_timeline or export_delivery_batch',
     ],
-    tools: ['analyze_timeline', 'check_media_health', 'inspect_visible_shots', 'watch_cut', 'promote_cut', 'export_timeline'],
+    tools: ['analyze_timeline', 'check_media_health', 'inspect_visible_shots', 'studio_creative_ops', 'studio_graph_ledger', 'watch_cut', 'promote_cut', 'export_timeline'],
   },
 ])
 

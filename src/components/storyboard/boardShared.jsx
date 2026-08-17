@@ -7,6 +7,8 @@ import {
   normalizeShotSettings,
 } from '../../services/shotSettings'
 import { cameraPromptHint, emptyCameraRig, normalizeCameraRig } from '../../services/cameraRig'
+import { applyStyleNegative, applyStylePack } from '../../services/stylePacks'
+import { getAnimationStyle } from '../../services/animationStyles'
 
 export const DEFAULT_FRAME_WORKFLOW = 'z-image-turbo'
 export const DEFAULT_VIDEO_WORKFLOW = 'ltx25-i2v'
@@ -232,7 +234,21 @@ export function composeGenerationPrompt(card, extra = {}) {
     parts.push(`Match this pose / action exactly: ${extra.motionTitle}. Keep identity and wardrobe from the character reference.`)
   }
   if (extra.bridge) parts.push(String(extra.bridge).trim())
-  return parts.filter(Boolean).join('\n')
+  const assembled = parts.filter(Boolean).join('\n')
+  const packName = extra.stylePack || extra.packName || ''
+  const kind = extra.mode === 'video' || extra.kind === 'video' ? 'video' : 'still'
+  let styled = applyStylePack(assembled, packName, kind)
+  const animation = extra.animationStyle ? getAnimationStyle(extra.animationStyle) : null
+  if (animation?.prompt_tail) {
+    const tail = String(animation.prompt_tail).replace(/\s+/g, ' ').trim()
+    if (tail && !styled.toLowerCase().includes(tail.toLowerCase())) {
+      styled = styled ? `${styled.replace(/,+$/, '')}, ${tail}` : tail
+    }
+  }
+  if (extra.includeNegative && extra.negative !== undefined) {
+    return { prompt: styled, negative: applyStyleNegative(extra.negative, packName) }
+  }
+  return styled
 }
 
 export function directorRefsForCard(project, card) {

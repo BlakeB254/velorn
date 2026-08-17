@@ -57,8 +57,79 @@ import {
 } from './studioStore.js'
 import { auditProject } from './studioAudit.js'
 import { listRubrics } from './evaluationRubrics.js'
+import {
+  addShotCharacter,
+  appendGraphEdges,
+  checkCastRefs,
+  gateGeneration,
+  lockCastMembers,
+  unlockCastMembers,
+} from './castLock.js'
 import { normalizeProjectLook, normalizeShotSettings } from './shotSettings.js'
 import { applyOutputTargetToSettings, generateResolution } from './outputRatio.js'
+import {
+  animationStylesForApi,
+  getAnimationStyle,
+} from './animationStyles.js'
+import {
+  applyGenerationStyle,
+  listStylePacks,
+  loadStylePack,
+  stylePackForApi,
+} from './stylePacks.js'
+import {
+  bindFranchise,
+  checkFranchiseConsistency,
+  franchiseForApi,
+  listFranchises,
+  loadFranchise,
+} from './franchises.js'
+import {
+  applyBibleToPrompt,
+  bibleForPacket,
+  buildBible,
+  hydrateIdentityFromProject,
+  importStudioBible,
+  sealBible,
+  shotBrief,
+  unsealBible,
+} from './productionBible.js'
+import {
+  conceptFromProject,
+  fullState,
+  linkSource,
+  normalizeWorkspace,
+  recordFeedback,
+  recordGeneration,
+  summarize,
+} from './creativeOps.js'
+import {
+  buildProductionGraph,
+  ledgerProductions,
+} from './productionGraph.js'
+import {
+  applyCloneVoice,
+  applyFoley,
+  applyVoiceover,
+  attachAudio,
+  attachVoiceover,
+  bindCanonicalAudio,
+  buildVseAudioPlan,
+  canonicalTake,
+  expectedLinesFromCards,
+  finalizeTake,
+  findTake,
+  lineSlugForCard,
+  listVoiceProfiles,
+  markCanonical,
+  planCloneVoice,
+  planFoley,
+  planLipsyncClip,
+  planVoiceover,
+  readinessFor,
+  takesForLine,
+} from './takeChain.js'
+import { routeShot, routeShotFromCard, routeStudioShots } from './shotRouting.js'
 
 function requireProject() {
   const project = useProjectStore.getState().currentProject
@@ -83,6 +154,24 @@ function persistProduction(production, extra = {}) {
 
 function persistStudio(studio) {
   return useProjectStore.getState().setStudio(studio)
+}
+
+function persistCreativeOps(creativeOps, extra = {}) {
+  const store = useProjectStore.getState()
+  if (!store.currentProject) return null
+  useProjectStore.setState((state) => ({
+    currentProject: state.currentProject ? {
+      ...state.currentProject,
+      creativeOps,
+      ...extra,
+      modified: new Date().toISOString(),
+    } : null,
+  }))
+  return creativeOps
+}
+
+function workspaceFromProject(project) {
+  return normalizeWorkspace(project.creativeOps, conceptFromProject(project))
 }
 
 function findCard(project, cardId) {
@@ -543,11 +632,101 @@ export function handleStudioCastResolve(payload = {}) {
   const project = requireProject()
   const studio = normalizeStudio(project.studio)
   const production = hydrateProductionFromProject(project)
-  const members = resolveCast(studio, {
+  const season = payload.season || production.current.seasonId
+  const episode = payload.episode || production.current.episodeId
+  const members = resolveCast(studio, { season, episode })
+  const lock = checkCastRefs(studio, { season, episode, projectDir: project.path || project.projectDir || null })
+  return { action: 'studio_cast_resolve', season, episode, members, lock }
+}
+
+function castScope(payload = {}) {
+  const project = requireProject()
+  const production = hydrateProductionFromProject(project)
+  return {
+    project,
+    studio: normalizeStudio(project.studio),
     season: payload.season || production.current.seasonId,
     episode: payload.episode || production.current.episodeId,
+    projectDir: payload.projectDir || project.path || project.projectDir || null,
+  }
+}
+
+export function handleStudioRefGate(payload = {}) {
+  const { project, studio, season, episode, projectDir } = castScope(payload)
+  let castIds = Array.isArray(payload.castIds) ? payload.castIds : (payload.castId ? [payload.castId] : null)
+  let card = null
+  if (payload.cardId) {
+    card = findCard(project, payload.cardId)
+    if (!castIds) {
+      const gate = gateGeneration(studio, { season, episode, card, projectDir })
+      return { action: 'studio_ref_gate', season, episode, cardId: card.id, ...gate }
+    }
+  }
+  const report = checkCastRefs(studio, { season, episode, castIds, projectDir })
+  return { action: 'studio_ref_gate', season, episode, ok: report.ok, skipped: report.empty, reason: report.summary, report }
+}
+
+export function handleStudioCastLock(payload = {}) {
+  const { studio, season, episode, projectDir } = castScope(payload)
+  const op = String(payload.op || payload.action || 'status').trim()
+  const castIds = Array.isArray(payload.castIds) ? payload.castIds : (payload.castId ? [payload.castId] : null)
+  if (op === 'status' || payload.previewOnly !== false) {
+    const report = checkCastRefs(studio, { season, episode, castIds, projectDir })
+    return {
+      previewOnly: payload.previewOnly !== false && op !== 'status',
+      action: 'studio_cast_lock',
+      op,
+      season,
+      episode,
+      report,
+    }
+  }
+  const next = op === 'unlock'
+    ? unlockCastMembers(studio, { season, episode, castIds, by: payload.by || 'agent' })
+    : lockCastMembers(studio, { season, episode, castIds, by: payload.by || 'agent', projectDir })
+  persistStudio(next)
+  return {
+    success: true,
+    action: 'studio_cast_lock',
+    op,
+    season,
+    episode,
+    report: checkCastRefs(next, { season, episode, castIds, projectDir }),
+    graph: next.graph,
+  }
+}
+
+export function handleStudioBlockingAddCharacter(payload = {}) {
+  const { project, studio, season, episode, projectDir } = castScope(payload)
+  const cardId = String(payload.cardId || payload.shotId || '').trim()
+  if (!cardId) throw new Error('studio_blocking_add_character needs cardId')
+  const card = findCard(project, cardId)
+  if (payload.previewOnly !== false) {
+    const preview = addShotCharacter(card, studio, payload.castId || payload.cast_id, { season, episode, projectDir })
+    return {
+      previewOnly: true,
+      action: 'studio_blocking_add_character',
+      cardId: card.id,
+      member: preview.member,
+      report: preview.report,
+    }
+  }
+  const added = addShotCharacter(card, studio, payload.castId || payload.cast_id, {
+    season,
+    episode,
+    projectDir,
+    by: payload.by || 'agent',
   })
-  return { action: 'studio_cast_resolve', season: payload.season || production.current.seasonId, episode: payload.episode || production.current.episodeId, members }
+  replaceCard(project, card.id, () => added.card)
+  persistStudio(appendGraphEdges(studio, [added.edge], { by: payload.by || 'agent' }))
+  return {
+    success: true,
+    action: 'studio_blocking_add_character',
+    cardId: card.id,
+    castId: added.member.cast_id,
+    cameraRig: added.card.cameraRig,
+    edge: added.edge,
+  }
 }
 
 export function handleStudioSlotsList() {
@@ -627,6 +806,154 @@ export function handleStudioAudit(payload = {}) {
   }
 }
 
+export function handleStudioAnimationStyles(payload = {}) {
+  const op = String(payload.op || payload.action || 'list').trim().toLowerCase()
+  if (op === 'get') {
+    const style = getAnimationStyle(payload.id || payload.styleId || payload.style)
+    if (!style) throw new Error(`animation style '${payload.id || payload.styleId || ''}' not found`)
+    return { action: 'studio_animation_styles', op: 'get', style }
+  }
+  return {
+    action: 'studio_animation_styles',
+    op: 'list',
+    ...animationStylesForApi({
+      category: payload.category,
+      family: payload.family,
+    }),
+  }
+}
+
+export function handleStudioStylePack(payload = {}) {
+  const op = String(payload.op || payload.action || 'list').trim().toLowerCase()
+  if (op === 'get') {
+    const pack = loadStylePack(payload.name || payload.id || payload.pack)
+    if (!pack) throw new Error(`style pack '${payload.name || payload.id || ''}' not found`)
+    return { action: 'studio_style_pack', op: 'get', pack: stylePackForApi(pack) }
+  }
+  if (op === 'apply') {
+    const project = requireProject()
+    const production = hydrateProductionFromProject(project)
+    const name = payload.name || payload.id || payload.pack || production.stylePack
+    const styled = applyGenerationStyle(payload.prompt || '', {
+      packName: name,
+      kind: payload.kind || 'video',
+      negative: payload.negative || '',
+    })
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_style_pack', op: 'apply', ...styled }
+    }
+    const next = setProductionMeta(production, { stylePack: name })
+    persistProduction(next)
+    return { success: true, action: 'studio_style_pack', op: 'apply', production: next, ...styled }
+  }
+  return {
+    action: 'studio_style_pack',
+    op: 'list',
+    packs: listStylePacks().map(stylePackForApi),
+  }
+}
+
+export function handleStudioFranchise(payload = {}) {
+  const op = String(payload.op || payload.action || 'list').trim().toLowerCase()
+  if (op === 'get') {
+    const franchise = loadFranchise(payload.slug || payload.id)
+    if (!franchise) throw new Error(`franchise '${payload.slug || payload.id || ''}' not found`)
+    return { action: 'studio_franchise', op: 'get', franchise: franchiseForApi(franchise) }
+  }
+  if (op === 'consistency') {
+    const project = requireProject()
+    const production = hydrateProductionFromProject(project)
+    return {
+      action: 'studio_franchise',
+      op: 'consistency',
+      ...checkFranchiseConsistency(production, { franchise: loadFranchise(payload.slug || production.franchiseSlug) }),
+    }
+  }
+  if (op === 'bind') {
+    const project = requireProject()
+    const production = hydrateProductionFromProject(project)
+    const bound = bindFranchise(production, payload.slug || payload.id)
+    if (!bound.ok) throw new Error(bound.reason)
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_franchise', op: 'bind', franchise: bound.franchise, next: bound.production }
+    }
+    persistProduction(bound.production)
+    return { success: true, action: 'studio_franchise', op: 'bind', franchise: bound.franchise, production: bound.production }
+  }
+  return {
+    action: 'studio_franchise',
+    op: 'list',
+    franchises: listFranchises().map(franchiseForApi),
+  }
+}
+
+export function handleStudioBible(payload = {}) {
+  const project = requireProject()
+  const op = String(payload.op || payload.action || 'build').trim().toLowerCase()
+  const production = hydrateIdentityFromProject(project)
+  if (op === 'import') {
+    const imported = importStudioBible(payload.bible || payload.doc || project.shortFilmDirector?.bible || project.importedBible)
+    if (!imported) throw new Error('studio_bible import needs a bible object')
+    const next = setProductionMeta(production, {
+      franchiseSlug: imported.franchiseSlug || production.franchiseSlug,
+      stylePack: imported.stylePack || production.stylePack,
+      animationStyle: imported.animationStyle || production.animationStyle,
+      bible: imported.sealed ? { sealed: true, snapshot: imported.raw, source: 'import', contentHash: imported.contentHash } : production.bible,
+    })
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_bible', op: 'import', imported, next }
+    }
+    persistProduction(next)
+    return { success: true, action: 'studio_bible', op: 'import', imported, production: next }
+  }
+  if (op === 'seal') {
+    const sealed = sealBible(project, { sealedBy: payload.sealedBy || payload.by || 'agent', production })
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_bible', op: 'seal', bible: sealed.bible, meta: sealed.meta }
+    }
+    persistProduction(sealed.production)
+    return { success: true, action: 'studio_bible', op: 'seal', bible: sealed.bible, meta: sealed.meta }
+  }
+  if (op === 'unseal') {
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_bible', op: 'unseal' }
+    }
+    persistProduction(unsealBible(production))
+    return { success: true, action: 'studio_bible', op: 'unseal', production: unsealBible(production) }
+  }
+  if (op === 'shot_brief' || op === 'brief') {
+    const bible = buildBible(project, { production })
+    return {
+      action: 'studio_bible',
+      op: 'shot_brief',
+      brief: shotBrief(bible, {
+        shotSlug: payload.shot || payload.shotSlug || payload.cardId,
+        description: payload.description,
+        action: payload.shotAction || payload.actionLine,
+        castIds: payload.castIds,
+      }),
+    }
+  }
+  if (op === 'apply') {
+    const bible = buildBible(project, { production })
+    return {
+      action: 'studio_bible',
+      op: 'apply',
+      ...applyBibleToPrompt(payload.prompt || '', bible, {
+        kind: payload.kind || 'video',
+        negative: payload.negative || '',
+      }),
+      bible: bibleForPacket(project, production),
+    }
+  }
+  return {
+    action: 'studio_bible',
+    op: 'build',
+    bible: buildBible(project, { production }),
+    packet: bibleForPacket(project, production),
+  }
+}
+
 export function handleStudioFlow(payload = {}) {
   const project = requireProject()
   const cards = project.storyboardBoard?.cards || []
@@ -636,12 +963,367 @@ export function handleStudioFlow(payload = {}) {
     editClips: payload.editClips,
     deliverables: payload.deliverables,
   }
+  const workspace = workspaceFromProject(project)
+  const studio = normalizeStudio(project.studio)
+  const lines = expectedLinesFromCards(cards)
+  const production = hydrateProductionFromProject(project)
   return {
     action: 'studio_flow',
     flow: flowView(project.studio, extras),
-    production: hydrateProductionFromProject(project),
+    audio: {
+      takeChain: readinessFor(studio.voiceover, lines.map((line) => line.lineSlug)),
+      vse: buildVseAudioPlan({ cards, manifest: studio.voiceover, audio: studio.audio }),
+    },
+    routing: routeStudioShots(project.studio, cards, {
+      productionType: production.type,
+      clientSafe: payload.clientSafe,
+    }),
+    creativeOps: summarize(workspace),
+    production,
   }
 }
+
+export function handleStudioCreativeOps(payload = {}) {
+  const project = requireProject()
+  const op = String(payload.op || payload.action || 'get').trim()
+  const current = workspaceFromProject(project)
+  if (op === 'get' || op === 'state') {
+    return { action: 'studio_creative_ops', op: 'get', ...fullState(current) }
+  }
+  if (op === 'ensure') {
+    if (payload.previewOnly !== false && !project.creativeOps) {
+      return { previewOnly: true, action: 'studio_creative_ops', op: 'ensure', summary: summarize(current) }
+    }
+    persistCreativeOps(current)
+    return { success: true, action: 'studio_creative_ops', op: 'ensure', ...fullState(current) }
+  }
+  if (op === 'record') {
+    if (payload.previewOnly !== false) {
+      const preview = recordGeneration(current, payload)
+      return { previewOnly: true, action: 'studio_creative_ops', op: 'record', record: preview.record }
+    }
+    const next = recordGeneration(current, payload)
+    persistCreativeOps(next.workspace)
+    return { success: true, action: 'studio_creative_ops', op: 'record', record: next.record, summary: summarize(next.workspace) }
+  }
+  if (op === 'feedback') {
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_creative_ops', op: 'feedback', generation_id: payload.generation_id || payload.generationId }
+    }
+    const next = recordFeedback(current, payload)
+    persistCreativeOps(next.workspace)
+    return { success: true, action: 'studio_creative_ops', op: 'feedback', feedback: next.event, ready_pool_entry: next.ready, summary: summarize(next.workspace) }
+  }
+  if (op === 'link') {
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_creative_ops', op: 'link', path: payload.path, kind: payload.kind || 'import' }
+    }
+    const next = linkSource(current, payload)
+    persistCreativeOps(next.workspace)
+    return { success: true, action: 'studio_creative_ops', op: 'link', source: next.record, created: next.created }
+  }
+  throw new Error("studio_creative_ops op must be get, ensure, record, feedback, or link")
+}
+
+export function handleStudioGraphLedger(payload = {}) {
+  const project = requireProject()
+  const production = hydrateProductionFromProject(project)
+  const workspace = workspaceFromProject(project)
+  const productions = ledgerProductions([workspace], {
+    [workspace.slug]: {
+      coreProjectId: payload.coreProjectId || payload.core_project_id || null,
+      defaultModel: payload.defaultModel || payload.default_model,
+    },
+  })
+  const graph = buildProductionGraph({
+    studio: productions,
+    beatlab: payload.beatlab || payload.catalog || [],
+    twin: payload.twin || null,
+    coreProjectId: payload.coreProjectId || payload.core_project_id || null,
+  })
+  return {
+    action: 'studio_graph_ledger',
+    productions,
+    graph,
+    production: productionSummarySafe(production),
+  }
+}
+
+function productionSummarySafe(production) {
+  return {
+    type: production.type,
+    slug: production.slug,
+    title: production.title,
+    current: production.current,
+  }
+}
+
+export function handleSyncProductionGraph(payload = {}) {
+  const project = requireProject()
+  const workspace = workspaceFromProject(project)
+  const productions = ledgerProductions([workspace], {
+    [workspace.slug]: {
+      coreProjectId: payload.coreProjectId || payload.core_project_id || null,
+      defaultModel: payload.defaultModel,
+    },
+  })
+  const graph = buildProductionGraph({
+    studio: productions,
+    beatlab: payload.beatlab || [],
+    twin: payload.twin || null,
+    coreProjectId: payload.coreProjectId || payload.core_project_id || null,
+  })
+  const snapshot = {
+    ...graph,
+    syncedAt: new Date().toISOString(),
+    source: 'velorn:sync_production_graph',
+    applyCore: false,
+    note: 'Local snapshot only. scripts/app_graph_sync.py --apply writes THE MAP.',
+  }
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, action: 'sync_production_graph', graph: snapshot }
+  }
+  persistCreativeOps(workspace, { productionGraph: snapshot })
+  return { success: true, action: 'sync_production_graph', graph: snapshot }
+}
+
+export function handleStudioRouteShot(payload = {}) {
+  const cardId = String(payload.cardId || payload.shotId || payload.id || '').trim()
+  if (cardId) {
+    const project = requireProject()
+    const cards = project.storyboardBoard?.cards || []
+    const card = cards.find((item) => item.id === cardId || String(item.order) === cardId)
+    if (!card) throw new Error(`Shot '${cardId}' not found`)
+    const production = hydrateProductionFromProject(project)
+    const studio = normalizeStudio(project.studio)
+    const hay = `${card.id || ''} ${card.title || ''} ${card.action || ''}`.toLowerCase()
+    const slot = studio.slots.find((item) => (
+      item.board_shot === card.id
+      || item.slot_id === card.id
+      || hay.includes(String(item.slot_id || '').toLowerCase())
+      || (item.board_shot && hay.includes(String(item.board_shot).toLowerCase()))
+    )) || null
+    return {
+      action: 'studio_route_shot',
+      ...routeShotFromCard(card, {
+        slot,
+        productionType: payload.productionType || production.type,
+        clientSafe: payload.clientSafe,
+        intent: payload.intent,
+        stage: payload.stage,
+        offScreen: payload.offScreen,
+        hasBlocking: payload.hasBlocking,
+        hasControlVideo: payload.hasControlVideo,
+        class: payload.class,
+        lane: payload.lane,
+      }),
+    }
+  }
+  if (!String(payload.description || payload.title || payload.action || payload.dialogue || '').trim()) {
+    throw new Error('studio_route_shot needs description or cardId')
+  }
+  return {
+    action: 'studio_route_shot',
+    ...routeShot({
+      description: payload.description,
+      title: payload.title,
+      action: payload.action,
+      audio: payload.audio,
+      dialogue: payload.dialogue,
+      notes: payload.notes,
+      lane: payload.lane,
+      class: payload.class,
+      intent: payload.intent,
+      stage: payload.stage,
+      offScreen: payload.offScreen,
+      hasNamedFaces: payload.hasNamedFaces,
+      characterCount: payload.characterCount,
+      productionType: payload.productionType,
+      clientSafe: payload.clientSafe,
+      hasStill: payload.hasStill,
+      hasLastFrame: payload.hasLastFrame,
+      hasBlocking: payload.hasBlocking,
+      hasControlVideo: payload.hasControlVideo,
+    }),
+  }
+}
+
+function voiceoverStudio(project) {
+  return normalizeStudio(project.studio)
+}
+
+function persistVoiceover(studio, manifest, audio = null) {
+  let next = attachVoiceover(studio, manifest)
+  if (audio) next = attachAudio(next, audio)
+  persistStudio(next)
+  return next
+}
+
+function resolveLineCard(project, payload = {}) {
+  const cards = project.storyboardBoard?.cards || []
+  const cardId = String(payload.cardId || payload.shotId || '').trim()
+  if (cardId) return findCard(project, cardId)
+  const slug = String(payload.lineSlug || payload.line_slug || '').trim()
+  if (!slug) return null
+  return cards.find((card) => lineSlugForCard(card) === slug) || null
+}
+
+export function handleListLineTakes(payload = {}) {
+  const project = requireProject()
+  const studio = voiceoverStudio(project)
+  const card = resolveLineCard(project, payload)
+  const lineSlug = String(payload.lineSlug || payload.line_slug || (card ? lineSlugForCard(card) : '')).trim()
+  if (!lineSlug) throw new Error('list_line_takes needs lineSlug or cardId')
+  return {
+    action: 'list_line_takes',
+    lineSlug,
+    cardId: card?.id || null,
+    takes: takesForLine(studio.voiceover, lineSlug),
+    canonical: canonicalTake(studio.voiceover, lineSlug),
+  }
+}
+
+export function handleListVoiceProfiles() {
+  return { action: 'list_voice_profiles', profiles: listVoiceProfiles() }
+}
+
+export function handleProductionReadiness(payload = {}) {
+  const project = requireProject()
+  const studio = voiceoverStudio(project)
+  const cards = project.storyboardBoard?.cards || []
+  const lines = expectedLinesFromCards(cards)
+  const slugs = Array.isArray(payload.lineSlugs) && payload.lineSlugs.length
+    ? payload.lineSlugs
+    : lines.map((line) => line.lineSlug)
+  return {
+    action: 'production_readiness',
+    ...readinessFor(studio.voiceover, slugs),
+    lines,
+  }
+}
+
+export function handleSynthesizeVoiceover(payload = {}) {
+  const project = requireProject()
+  const card = resolveLineCard(project, payload)
+  const plan = planVoiceover({
+    lineSlug: payload.lineSlug || payload.line_slug || (card ? lineSlugForCard(card) : ''),
+    text: payload.text || card?.dialogue,
+    engine: payload.engine,
+    targetVoice: payload.targetVoice || payload.target_voice,
+    card,
+  })
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, ...plan, queued: false }
+  }
+  if (!plan.ok) throw new Error(plan.reason)
+  const studio = voiceoverStudio(project)
+  const applied = applyVoiceover(studio.voiceover, plan, {
+    cardId: card?.id,
+    assetId: payload.assetId,
+    audioPath: payload.audioPath,
+  })
+  persistVoiceover(studio, applied.manifest)
+  if (card && payload.bind !== false) {
+    replaceCard(project, card.id, (current) => bindCanonicalAudio(current, applied.take))
+  }
+  return { success: true, ...plan, take: applied.take, queued: false }
+}
+
+export function handleCloneVoice(payload = {}) {
+  const project = requireProject()
+  const studio = voiceoverStudio(project)
+  const card = resolveLineCard(project, payload)
+  const plan = planCloneVoice(studio.voiceover, {
+    lineSlug: payload.lineSlug || payload.line_slug || (card ? lineSlugForCard(card) : ''),
+    sourceTakeId: payload.sourceTakeId || payload.source_take_id,
+    targetVoice: payload.targetVoice || payload.target_voice,
+    engine: payload.engine,
+  })
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, ...plan, queued: false }
+  }
+  if (!plan.ok) throw new Error(plan.reason)
+  const applied = applyCloneVoice(studio.voiceover, plan, { audioPath: payload.audioPath })
+  persistVoiceover(studio, applied.manifest)
+  return { success: true, ...plan, take: applied.take, queued: false }
+}
+
+export function handleMarkTakeCanonical(payload = {}) {
+  const project = requireProject()
+  const takeId = String(payload.takeId || payload.take_id || '').trim()
+  if (!takeId) throw new Error('mark_take_canonical needs takeId')
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, action: 'mark_take_canonical', takeId }
+  }
+  const studio = voiceoverStudio(project)
+  const marked = markCanonical(studio.voiceover, takeId)
+  persistVoiceover(studio, marked.manifest)
+  return { success: true, action: 'mark_take_canonical', take: marked.take }
+}
+
+export function handleFinalizeTake(payload = {}) {
+  const project = requireProject()
+  const takeId = String(payload.takeId || payload.take_id || '').trim()
+  if (!takeId) throw new Error('finalize_take needs takeId')
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, action: 'finalize_take', takeId }
+  }
+  const studio = voiceoverStudio(project)
+  const locked = finalizeTake(studio.voiceover, takeId)
+  persistVoiceover(studio, locked.manifest)
+  const card = resolveLineCard(project, { lineSlug: locked.take.line_slug, cardId: payload.cardId })
+  if (card) replaceCard(project, card.id, (current) => bindCanonicalAudio(current, locked.take))
+  return { success: true, action: 'finalize_take', take: locked.take }
+}
+
+export function handleGenerateLipsyncClip(payload = {}) {
+  const project = requireProject()
+  const card = resolveLineCard(project, payload)
+  if (!card && !payload.takeId) throw new Error('generate_lipsync_clip needs cardId or lineSlug')
+  const studio = voiceoverStudio(project)
+  const take = payload.takeId
+    ? findTake(studio.voiceover, payload.takeId)
+    : canonicalTake(studio.voiceover, lineSlugForCard(card || { title: payload.lineSlug }))
+  const plan = planLipsyncClip({
+    card: card || {},
+    take,
+    offScreen: payload.offScreen,
+  })
+  return {
+    previewOnly: payload.previewOnly !== false,
+    ...plan,
+    queued: false,
+    note: 'Does not queue GPU. Use queue_prompt_generation_batch with workflowId after approval.',
+  }
+}
+
+export function handleGenerateFoley(payload = {}) {
+  const project = requireProject()
+  const card = resolveLineCard(project, payload)
+  if (!card) throw new Error('generate_foley needs cardId or lineSlug')
+  const plan = planFoley({
+    card: { ...card, silentVideoPath: payload.silentVideoPath },
+    tags: payload.tags,
+  })
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, ...plan, queued: false }
+  }
+  if (!plan.ok) {
+    const err = new Error(plan.reason)
+    err.status = plan.status
+    throw err
+  }
+  const studio = voiceoverStudio(project)
+  const applied = applyFoley(studio.audio, plan, {
+    cardId: card.id,
+    assetId: payload.assetId,
+    path: payload.audioPath,
+  })
+  persistVoiceover(studio, studio.voiceover, applied.audio)
+  if (payload.bind !== false) {
+    replaceCard(project, card.id, (current) => ({ ...current, foleyAssetId: applied.track.assetId || current.foleyAssetId }))
+  }
+  return { success: true, ...plan, track: applied.track, queued: false }}
 
 export function handleProductionAction(action, payload = {}) {
   switch (action) {
@@ -673,6 +1355,12 @@ export function handleProductionAction(action, payload = {}) {
       return handleImportShotBlocking(payload)
     case 'studio_cast_resolve':
       return handleStudioCastResolve(payload)
+    case 'studio_ref_gate':
+      return handleStudioRefGate(payload)
+    case 'studio_cast_lock':
+      return handleStudioCastLock(payload)
+    case 'studio_blocking_add_character':
+      return handleStudioBlockingAddCharacter(payload)
     case 'studio_slots_list':
       return handleStudioSlotsList()
     case 'studio_slots_mutate':
@@ -683,6 +1371,40 @@ export function handleProductionAction(action, payload = {}) {
       return handleStudioAudit(payload)
     case 'studio_flow':
       return handleStudioFlow(payload)
+    case 'studio_creative_ops':
+      return handleStudioCreativeOps(payload)
+    case 'studio_graph_ledger':
+      return handleStudioGraphLedger(payload)
+    case 'sync_production_graph':
+      return handleSyncProductionGraph(payload)
+    case 'list_line_takes':
+      return handleListLineTakes(payload)
+    case 'list_voice_profiles':
+      return handleListVoiceProfiles()
+    case 'production_readiness':
+      return handleProductionReadiness(payload)
+    case 'synthesize_voiceover':
+      return handleSynthesizeVoiceover(payload)
+    case 'clone_voice':
+      return handleCloneVoice(payload)
+    case 'mark_take_canonical':
+      return handleMarkTakeCanonical(payload)
+    case 'finalize_take':
+      return handleFinalizeTake(payload)
+    case 'generate_lipsync_clip':
+      return handleGenerateLipsyncClip(payload)
+    case 'generate_foley':
+      return handleGenerateFoley(payload)
+    case 'studio_route_shot':
+      return handleStudioRouteShot(payload)
+    case 'studio_animation_styles':
+      return handleStudioAnimationStyles(payload)
+    case 'studio_style_pack':
+      return handleStudioStylePack(payload)
+    case 'studio_franchise':
+      return handleStudioFranchise(payload)
+    case 'studio_bible':
+      return handleStudioBible(payload)
     case 'list_cuts':
       return handleListCuts(payload)
     case 'save_cut':

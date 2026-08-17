@@ -29,10 +29,16 @@
     "test:mcp-h3": "node --test ./tests/mcpH3ReferenceVideo.test.js",
     "test:mcp-my-workflows": "node --test ./tests/myWorkflowCatalog.test.js",
     "test:studio-store": "node --test ./tests/studioStore.test.js",
+    "test:cast-lock": "node --test ./tests/castLock.test.js",
     "test:evaluation-rubrics": "node --test ./tests/evaluationRubrics.test.js ./tests/studioAudit.test.js",
     "test:production-store": "node --test ./tests/productionStore.test.js",
+    "test:take-chain": "node --test ./tests/takeChain.test.js ./tests/takeChainPacket.test.js",
+    "test:shot-routing": "node --test ./tests/shotRouting.test.js",
+    "test:style-packs-bible": "node --test ./tests/stylePacksBible.test.js",
     "test:cdx-workflows": "node --test ./tests/cdxWorkflowPort.test.js",
-    "test:output-ratio": "node --test ./tests/outputRatio.test.js"
+    "test:cdx-isolation": "node --test ./tests/cdxStudioIsolation.test.js",
+    "test:output-ratio": "node --test ./tests/outputRatio.test.js",
+    "test:creative-ops": "node --test ./tests/creativeOps.test.js ./tests/productionGraph.test.js"
   },
   "keywords": [
     "animatic",

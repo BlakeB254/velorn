@@ -13,6 +13,7 @@ import ShotParamsPanel from './storyboard/ShotParamsPanel'
 import ProjectLookBar from './storyboard/ProjectLookBar'
 import OutputRatioBar from './storyboard/OutputRatioBar'
 import CutBar from './storyboard/CutBar'
+import StyleBiblePanel from './studio/StyleBiblePanel'
 import { generateResolution } from '../services/outputRatio'
 import { findMotion, loadMotionCatalog } from '../services/motionLibrary'
 import { assembleLexiconLabels, modeFromWorkflow, normalizeProjectLook } from '../services/shotSettings'
@@ -52,6 +53,7 @@ export default function SequenceWorkspace() {
   const setStoryboardBoard = useProjectStore((state) => state.setStoryboardBoard)
   const updateProjectSettings = useProjectStore((state) => state.updateProjectSettings)
   const saveProject = useProjectStore((state) => state.saveProject)
+  const getProduction = useProjectStore((state) => state.getProduction)
   const createTimeline = useProjectStore((state) => state.createTimeline)
   const switchTimeline = useProjectStore((state) => state.switchTimeline)
   const addClip = useTimelineStore((state) => state.addClip)
@@ -86,6 +88,10 @@ export default function SequenceWorkspace() {
     () => normalizeProjectLook(currentProject?.settings?.cinematography),
     [currentProject?.settings?.cinematography]
   )
+  const production = useMemo(
+    () => getProduction?.() || currentProject?.production || null,
+    [currentProject, getProduction],
+  )
 
   useEffect(() => {
     if (!currentProject) return
@@ -101,7 +107,7 @@ export default function SequenceWorkspace() {
       const next = {}
       for (const card of board.cards) {
         const versionIds = (card.videoVersions || []).map((item) => item.assetId)
-        const ids = [card.imageAssetId, card.lastFrameAssetId, card.videoAssetId, card.audioAssetId, card.musicAssetId, ...versionIds]
+        const ids = [card.imageAssetId, card.lastFrameAssetId, card.videoAssetId, card.audioAssetId, card.musicAssetId, card.foleyAssetId, ...versionIds]
         for (const assetId of ids) {
           if (!assetId || next[assetId]) continue
           const asset = assets.find((item) => item.id === assetId)
@@ -203,6 +209,7 @@ export default function SequenceWorkspace() {
     if (!card) return
     if (slot === 'audio') updateCard(cardId, { audioAssetId: asset.id })
     else if (slot === 'music') updateCard(cardId, { musicAssetId: asset.id })
+    else if (slot === 'foley') updateCard(cardId, { foleyAssetId: asset.id })
     else if (slot === 'last') updateCard(cardId, { lastFrameAssetId: asset.id })
     else if (slot === 'character') updateCard(cardId, { characterRefs: addRef(card, 'characterRefs', asset) })
     else if (slot === 'location' || slot === 'scene') updateCard(cardId, { locationRef: { assetId: asset.id, name: asset.name }, sceneRefs: [{ assetId: asset.id, name: asset.name }] })
@@ -253,6 +260,9 @@ export default function SequenceWorkspace() {
       motionTitle: motion?.title || '',
       mode: modeFromWorkflow(workflow.id, 'video'),
       projectLook,
+      stylePack: production?.stylePack,
+      animationStyle: production?.animationStyle,
+      kind: 'video',
       bridge: needs.includes('last') && nextCard
         ? `Last frame is shot ${nextCard.order}: ${nextCard.title}. ${nextCard.description || ''}`
         : '',
@@ -584,6 +594,7 @@ export default function SequenceWorkspace() {
           value={projectLook}
           onChange={(look) => updateProjectSettings({ cinematography: look })}
         />
+        <StyleBiblePanel production={production} />
       </div>
       <div className="flex-1 overflow-auto p-5 space-y-3">
         {error && <p className="text-sm text-red-400">{error}</p>}
@@ -601,7 +612,11 @@ export default function SequenceWorkspace() {
           const clipUrl = mediaUrl(card.videoAssetId)
           const clipStatus = shotClipStatus(card)
           const needsReview = Boolean(card.videoAssetId) && card.status !== 'accepted' && card.status !== 'generating'
-          const promptPreview = composeGenerationPrompt(card)
+          const promptPreview = composeGenerationPrompt(card, {
+            stylePack: production?.stylePack,
+            animationStyle: production?.animationStyle,
+            kind: 'video',
+          })
           const included = [
             { label: 'Workflow', value: workflow.label },
             { label: 'Duration', value: `${card.duration || 5}s` },
@@ -833,6 +848,24 @@ export default function SequenceWorkspace() {
                         accept="audio/*"
                         empty="No audio clips yet."
                         onPick={(asset) => applyPickedAsset(card.id, 'music', asset)}
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase tracking-wide text-sf-text-muted">Foley / SFX</span>
+                      <button type="button" onClick={() => togglePicker(card.id, 'foley')} className="text-[10px] text-sf-accent hover:underline">
+                        {card.foleyAssetId ? 'Change' : 'Assign'}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-sf-text-secondary">{assetName(card.foleyAssetId) || 'Optional synced SFX for this shot'}</p>
+                    {pickerFor('foley') && (
+                      <AssetPicker
+                        assets={audioAssets}
+                        type="audio"
+                        accept="audio/*"
+                        empty="No audio clips yet."
+                        onPick={(asset) => applyPickedAsset(card.id, 'foley', asset)}
                       />
                     )}
                   </div>
