@@ -10,9 +10,11 @@
  *   (action, audio, dur_s, lane, board_shot). Slot state is DERIVED from its
  *   assigned approved frames, never stored. Approving assigns an asset to the
  *   slot; the pool copy is never moved or silently promoted here.
- * - qa_verdicts.py: per-shot QA with separate video and audio tracks.
- *   `unverified` is the default and is NOT a pass. A `fail` REQUIRES a
- *   reason. Overall = fail if either track fails, pass only if both pass.
+ * - qa_verdicts.py + evaluation_rubrics.py: per-shot QA with separate video
+ *   and audio tracks, plus optional MediaRubric evaluations. `unverified` is
+ *   the default and is NOT a pass. A `fail` REQUIRES a reason. Overall = fail
+ *   if either track fails, pass only if both pass. Rubric technical failures
+ *   always win; incomplete evaluators route to human_review.
  * - cast_resolver.py: cast hierarchy series → season → episode, merged
  *   field-by-field by cast_id (an episode override of `outfit` keeps the
  *   series `ref_set`). Reserved keys (locations/settings/meta/characters)
@@ -25,12 +27,20 @@
  * is never modified.
  */
 
+import { evaluateCandidate, dispositionToQaResult, reasonFromEvaluation } from './evaluationRubrics.js'
+import { buildQaGraph } from './qaGraph.js'
 import { normalizeAudio, normalizeVoiceover } from './takeChain.js'
 
 export const STUDIO_VERSION = 1
 
 export const QA_TRACKS = Object.freeze(['video', 'audio'])
 export const QA_RESULTS = Object.freeze(['pass', 'fail', 'unverified'])
+export const RUBRIC_DISPOSITIONS = Object.freeze([
+  'technical_fail',
+  'automated_fail',
+  'automated_pass',
+  'human_review',
+])
 
 // Top-level cast-file keys that are NOT characters (mirrors cast_resolver).
 export const CAST_RESERVED_KEYS = Object.freeze(['locations', 'settings', 'meta', 'characters'])
@@ -65,6 +75,7 @@ export function emptyStudio() {
     cast: { series: {}, seasons: {}, episodes: {} },
     slots: [],
     qa: {},
+    qaGraph: { source: 'app_graph:velorn-qa', nodes: [], edges: [], stats: { shots: 0, nodes: 0, edges: 0 } },
     edls: [],
     blockingIndex: [],
     locations: {},
@@ -146,14 +157,53 @@ function normalizeSlot(raw, index) {
   }
 }
 
+function normalizeRubric(raw) {
+  if (!isPlainObject(raw)) return null
+  const disposition = RUBRIC_DISPOSITIONS.includes(raw.disposition) ? raw.disposition : null
+  const mediaKind = asString(raw.mediaKind || raw.media_kind)
+  const rubricVersion = asString(raw.rubricVersion || raw.rubric_version)
+  if (!disposition && !rubricVersion && !mediaKind) return null
+  return {
+    mediaKind,
+    rubricVersion,
+    disposition: disposition || 'human_review',
+    evaluator: isPlainObject(raw.evaluator) ? clone(raw.evaluator) : null,
+    selfEvaluation: Boolean(raw.selfEvaluation || raw.self_evaluation),
+    failedChecks: Array.isArray(raw.failedChecks || raw.failed_checks)
+      ? (raw.failedChecks || raw.failed_checks).map(asString).filter(Boolean)
+      : [],
+    missingChecks: Array.isArray(raw.missingChecks || raw.missing_checks)
+      ? (raw.missingChecks || raw.missing_checks).map(asString).filter(Boolean)
+      : [],
+    failedDimensions: Array.isArray(raw.failedDimensions || raw.failed_dimensions)
+      ? (raw.failedDimensions || raw.failed_dimensions).map(asString).filter(Boolean)
+      : [],
+    scores: isPlainObject(raw.scores) ? clone(raw.scores) : null,
+  }
+}
+
 function normalizeTrackVerdict(raw) {
   const rec = isPlainObject(raw) ? raw : {}
   const result = QA_RESULTS.includes(rec.result) ? rec.result : 'unverified'
+  const rubric = normalizeRubric(rec.rubric)
   return {
     result,
     reason: asString(rec.reason),
     by: asString(rec.by),
     at: asString(rec.at),
+    ...(rubric ? { rubric } : {}),
+  }
+}
+
+function normalizeQaGraph(raw) {
+  if (!isPlainObject(raw)) return emptyStudio().qaGraph
+  const nodes = Array.isArray(raw.nodes) ? raw.nodes.filter(isPlainObject) : []
+  const edges = Array.isArray(raw.edges) ? raw.edges.filter(isPlainObject) : []
+  return {
+    source: asString(raw.source, 'app_graph:velorn-qa'),
+    nodes,
+    edges,
+    stats: isPlainObject(raw.stats) ? clone(raw.stats) : { shots: 0, nodes: nodes.length, edges: edges.length },
   }
 }
 
@@ -187,6 +237,7 @@ export function normalizeStudio(raw) {
     cast: normalizeCast(raw.cast),
     slots,
     qa: normalizeQa(raw.qa),
+    qaGraph: normalizeQaGraph(raw.qaGraph || raw.qa_graph),
     edls: Array.isArray(raw.edls) ? raw.edls.filter(Boolean).map(asString) : [],
     blockingIndex: Array.isArray(raw.blockingIndex) ? raw.blockingIndex.filter(Boolean).map(asString) : [],
     locations: isPlainObject(raw.locations) ? clone(raw.locations) : {},
@@ -407,23 +458,67 @@ export function slotCounts(studio, approvedAssetIds = null) {
  * left untouched, so a later audio verdict does not clobber an earlier video
  * one. `unverified` is a first-class state, never inferred. A fail REQUIRES
  * a reason — a bare "fail" gives the next agent nothing to act on.
+ *
+ * Optional rubric payload (per track or shared):
+ *   videoRubric / audioRubric / rubric  — completed EvaluationResult
+ *   videoChecks + videoScores / audioChecks + audioScores — evaluated here
+ * A rubric technical_fail / automated_fail forces that track to fail.
  */
-export function recordVerdict(studio, shot, { video, audio, reason = '', videoReason = '', audioReason = '', by = 'agent' } = {}) {
+export function recordVerdict(studio, shot, {
+  video,
+  audio,
+  reason = '',
+  videoReason = '',
+  audioReason = '',
+  by = 'agent',
+  videoRubric,
+  audioRubric,
+  rubric,
+  videoChecks,
+  audioChecks,
+  videoScores,
+  audioScores,
+  evaluator,
+  generator,
+  production,
+} = {}) {
   const shotId = asString(shot).trim()
   if (!shotId) throw new Error('recordVerdict needs a shot')
-  if (video === undefined && audio === undefined) {
+
+  const resolved = {
+    video: resolveTrackInput({
+      result: video,
+      reason: videoReason || reason,
+      evaluation: videoRubric || (video == null && audio == null ? rubric : null),
+      checks: videoChecks,
+      scores: videoScores,
+      evaluator,
+      generator,
+      mediaKind: 'video',
+    }),
+    audio: resolveTrackInput({
+      result: audio,
+      reason: audioReason || reason,
+      evaluation: audioRubric || (video == null && audio == null ? rubric : null),
+      checks: audioChecks,
+      scores: audioScores,
+      evaluator,
+      generator,
+      mediaKind: 'audio',
+    }),
+  }
+
+  if (!resolved.video && !resolved.audio) {
     throw new Error('recordVerdict needs at least one of video or audio')
   }
-  const checks = [
-    ['video', video, videoReason || reason],
-    ['audio', audio, audioReason || reason],
-  ]
-  for (const [track, result, why] of checks) {
-    if (result === undefined || result === null) continue
-    if (!QA_RESULTS.includes(result)) {
-      throw new Error(`invalid ${track} result '${result}' — expected ${QA_RESULTS.join('/')}`)
+
+  for (const track of QA_TRACKS) {
+    const rec = resolved[track]
+    if (!rec) continue
+    if (!QA_RESULTS.includes(rec.result)) {
+      throw new Error(`invalid ${track} result '${rec.result}' — expected ${QA_RESULTS.join('/')}`)
     }
-    if (result === 'fail' && !asString(why).trim()) {
+    if (rec.result === 'fail' && !asString(rec.reason).trim()) {
       throw new Error(
         `a ${track} FAIL requires a reason — say what is wrong so the next ` +
         `agent can act on it (e.g. 'motion reads in reverse')`
@@ -434,13 +529,48 @@ export function recordVerdict(studio, shot, { video, audio, reason = '', videoRe
   const norm = normalizeStudio(studio)
   const entry = { ...(norm.qa[shotId] || {}) }
   const at = nowIso()
-  if (video !== undefined && video !== null) {
-    entry.video = { result: video, reason: asString(videoReason || reason).trim(), by: asString(by, 'agent'), at }
+  const who = asString(by, 'agent')
+  for (const track of QA_TRACKS) {
+    const rec = resolved[track]
+    if (!rec) continue
+    entry[track] = {
+      result: rec.result,
+      reason: asString(rec.reason).trim(),
+      by: who,
+      at,
+      ...(rec.rubric ? { rubric: rec.rubric } : {}),
+    }
   }
-  if (audio !== undefined && audio !== null) {
-    entry.audio = { result: audio, reason: asString(audioReason || reason).trim(), by: asString(by, 'agent'), at }
+  const next = { ...norm, qa: { ...norm.qa, [shotId]: entry } }
+  next.qaGraph = buildQaGraph(next, { production })
+  return next
+}
+
+function resolveTrackInput({ result, reason, evaluation, checks, scores, evaluator, generator, mediaKind }) {
+  let rubric = evaluation && typeof evaluation === 'object' ? evaluation : null
+  if (!rubric && (checks || scores)) {
+    rubric = evaluateCandidate({
+      mediaKind,
+      technicalChecks: checks || {},
+      scores: scores ?? null,
+      evaluator,
+      generator,
+    })
   }
-  return { ...norm, qa: { ...norm.qa, [shotId]: entry } }
+  if (rubric && !rubric.disposition && (rubric.mediaKind || rubric.rubricVersion)) {
+    rubric = { ...rubric, disposition: 'human_review' }
+  }
+  if ((result === undefined || result === null) && !rubric) return null
+  let nextResult = result
+  let nextReason = reason
+  if (rubric) {
+    const fromRubric = dispositionToQaResult(rubric.disposition)
+    if (nextResult === undefined || nextResult === null) nextResult = fromRubric
+    if (fromRubric === 'fail') nextResult = 'fail'
+    if (!asString(nextReason).trim()) nextReason = reasonFromEvaluation(rubric, nextReason)
+  }
+  if (nextResult === undefined || nextResult === null) return null
+  return { result: nextResult, reason: nextReason, rubric: rubric || undefined }
 }
 
 /** Combined result: fail if EITHER track failed; pass only when BOTH passed. */

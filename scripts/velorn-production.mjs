@@ -158,6 +158,9 @@ if (cmd === 'context') {
   )
   writeProject(dir, project)
   console.log(JSON.stringify({ cut: productionCuts.summarizeCut(next.cut, next.bucket), cuts: productionCuts.listCuts(next.index, episodeId) }, null, 2))
+} else if (cmd === 'audit') {
+  const { auditProject } = await import(pathToFileURL(join(resolve(fileURLToPath(new URL('..', import.meta.url))), 'src/services/studioAudit.js')).href)
+  console.log(JSON.stringify(auditProject(project, { assets: project.assets || [], verdict: argValue('--verdict') }), null, 2))
 } else if (cmd === 'shot') {
   const cardId = positional[0]
   const packet = productionPacket.buildShotPacket(project, cardId, { assets: project.assets || [] })
@@ -174,6 +177,6 @@ if (cmd === 'context') {
   const packet = productionPacket.buildProductionPacket(project, { assets: project.assets || [] })
   console.log(JSON.stringify(packet.audio, null, 2))
 } else {
-  console.error(`Unknown command ${cmd}. Use: context | catalog | episodes | seed-show | create-episode | cuts | save-cut | checkout-cut | promote-cut | shot | creative-ops | graph | readiness`)
+  console.error(`Unknown command ${cmd}. Use: context | catalog | episodes | seed-show | create-episode | cuts | save-cut | checkout-cut | promote-cut | shot | creative-ops | graph | readiness | audit`)
   process.exit(2)
 }

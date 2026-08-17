@@ -222,9 +222,9 @@ export const PRODUCTION_FLOWS = Object.freeze([
       'update_shot / propose_shot_camera — write action, dialogue, xyz',
       'queue_prompt_generation_batch or generate-from-blocking — GPU serial, previewOnly first',
       'import_asset_from_path + save_cut — attach clips, snapshot the draft',
-      'watch_cut then studio_qa_record — review before promote_cut',
+      'watch_cut then studio_qa_record / studio_audit — review before promote_cut',
     ],
-    tools: ['get_production_context', 'list_episodes', 'list_cuts', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'studio_cast_resolve', 'studio_ref_gate', 'studio_cast_lock', 'studio_blocking_add_character', 'studio_route_shot', 'studio_flow', 'update_shot', 'propose_shot_camera', 'queue_prompt_generation_batch', 'studio_qa_record', 'list_line_takes', 'production_readiness', 'synthesize_voiceover', 'finalize_take', 'generate_lipsync_clip', 'generate_foley', 'studio_franchise', 'studio_style_pack', 'studio_bible', 'studio_animation_styles'],
+    tools: ['get_production_context', 'list_episodes', 'list_cuts', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'studio_cast_resolve', 'studio_ref_gate', 'studio_cast_lock', 'studio_blocking_add_character', 'studio_route_shot', 'studio_flow', 'update_shot', 'propose_shot_camera', 'queue_prompt_generation_batch', 'studio_qa_record', 'list_line_takes', 'production_readiness', 'synthesize_voiceover', 'finalize_take', 'generate_lipsync_clip', 'generate_foley', 'studio_franchise', 'studio_style_pack', 'studio_bible', 'studio_animation_styles', 'studio_audit'],
   },
   {
     id: 'commercial',
@@ -261,7 +261,7 @@ export const PRODUCTION_FLOWS = Object.freeze([
       'board premise → escalate → punch → optional promo tag ≤3s',
       'same generate + cut + QA loop as show, without seasons',
     ],
-    tools: ['set_production', 'update_shot', 'queue_prompt_generation_batch', 'save_cut', 'studio_qa_record'],
+    tools: ['set_production', 'update_shot', 'queue_prompt_generation_batch', 'save_cut', 'studio_qa_record', 'studio_audit'],
   },
   {
     id: 'music-video',

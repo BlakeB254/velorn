@@ -8570,6 +8570,7 @@ async function handleMcpAction(request = {}) {
     case 'studio_slots_list':
     case 'studio_slots_mutate':
     case 'studio_qa_record':
+    case 'studio_audit':
     case 'studio_flow':
     case 'studio_route_shot':
     case 'list_line_takes':

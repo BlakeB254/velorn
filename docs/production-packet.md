@@ -27,7 +27,7 @@ shot: lexicon + camera xyz handle + 1 location + 0–N characters + pose/motion 
 
 ## MCP (Velorn app on :19790)
 
-Read: `discover_production`, `get_production_context`, `get_shot_packet`, `studio_route_shot`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_ref_gate`, `studio_slots_list`, `studio_flow`, `list_line_takes`, `list_voice_profiles`, `production_readiness`, `studio_graph_ledger`, `studio_animation_styles`, `studio_style_pack`, `studio_franchise`, `studio_bible`
+Read: `discover_production`, `get_production_context`, `get_shot_packet`, `studio_route_shot`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_ref_gate`, `studio_slots_list`, `studio_flow`, `list_line_takes`, `list_voice_profiles`, `production_readiness`, `studio_graph_ledger`, `studio_animation_styles`, `studio_style_pack`, `studio_franchise`, `studio_bible`, `studio_audit`
 
 Types (CDX Studio set): `show`, `commercial` (advertisement/ad), `music-video`, `ig-short`, `skit`, `movie` (film), `psa`, `website-tour`, `hype-video`, `site-update`, `documentary`, `animated`, `narrative` (standalone).
 
@@ -78,7 +78,8 @@ node ~/opensource/velorn/scripts/app_graph_sync.py --app studio
 - Ref gate refuses group sheets, missing refs, and generated-output canon before generate or `studio_blocking_add_character`.
 - `studio.graph.edges` records `cast_lock`, `ref_gate`, and `shot_cast` production edges.
 - Style / bible / franchise strip on Storyboard + Sequence (house pack, palette, sealed bible).
-- Slot state + video/audio QA pips on each card.
+- Slot state + video/audio QA pips + audit verdict on each card. QA panel records pass/fail with reasons and optional MediaRubric scores.
+- `studio_audit` / `velorn-studio-audit.mjs` join FLF + clip + QA + dialogue into NEEDS_REGEN / READY_TO_GENERATE / DIALOGUE_BLOCKED / NEEDS_FLF / DONE. DONE ≠ PASSED.
 - Take chain chip on dialogue cards (canonical stage). Foley assign on Sequence.
 - Shot routing chip: script call → ONE ecosystem + Velorn workflow (Grok draft first; GPU serial; drafts only). `studio_route_shot` / `studio_flow.routing`.
 - Blocking: 2D ENU handle (drag camera, edit xyz). Save `docs/blocking/<shot>/blocking.json`. Generate from blocking queues `cdx-ltx-union-control-flf`.

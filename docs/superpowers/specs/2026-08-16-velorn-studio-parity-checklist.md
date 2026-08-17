@@ -34,7 +34,7 @@ Update this checklist + Core #396 as each child lands. Final deletion card after
 | 10 | **CreativeOps ledger → production graph** | ❌ | director+programmer | [PR #5](https://github.com/BlakeB254/velorn/pull/5) | Velorn-native ledger + `studio_graph_ledger` / `app_graph_sync.py`. Flip ✅ after merge. | t_d34b92db |
 | 11 | **Take chain / VO / lipsync / foley** | ❌ | director+programmer | [PR #4](https://github.com/BlakeB254/velorn/pull/4) | Velorn-native take chain in `studio.voiceover` / `synthesize_voiceover` / `generate_lipsync_clip` / `generate_foley` / VSE lanes. Flip ✅ after merge. | t_f3e76d3f |
 | 12 | **Style packs / bible / franchises** | ❌ | director+programmer | [PR #6](https://github.com/BlakeB254/velorn/pull/6) | Velorn-native style packs / bible / franchises in `studio_style_pack` / `studio_bible` / `studio_franchise` / `studio_animation_styles`. Flip ✅ after merge. | t_978f5101 |
-| 13 | **Evaluation rubrics** | ❌ | director+programmer | tbd (t_5329eb27) | Per-shot rubrics, studio_qa_record extension, cdx-studio-audit integration | t_5329eb27 |
+| 13 | **Evaluation rubrics** | ❌ | director+programmer | [PR #7](https://github.com/BlakeB254/velorn/pull/7) | Velorn-native MediaRubric + studio_audit / velorn-studio-audit. Flip ✅ after merge. | t_5329eb27 |
 | 14 | **Core trace bridge + skill_version_id** | ❌ | director+programmer | tbd (t_ed3aed05) | Bridge to Core project #396, trace with skill_version_id | t_ed3aed05 |
 | 15 | cdx-film-lexicon integration | ✅ | director | merged | Shot lexicon | - |
 | 16 | cdx-viral-pacing in timeline | ✅ | director | merged | Edit pacing rules | - |
