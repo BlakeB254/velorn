@@ -29,6 +29,7 @@ import CharacterReferencePanel from './studio/CharacterReferencePanel'
 import LocationReferencePanel from './studio/LocationReferencePanel'
 import PropsReferencePanel from './studio/PropsReferencePanel'
 import BlockingPanel from './studio/BlockingPanel'
+import TakeChip from './studio/TakeChip'
 import RouteChip from './studio/RouteChip'
 import {
   AssetPicker,
@@ -626,12 +627,14 @@ export default function StoryboardWorkspace() {
                         <span className={slotView.qa.audio.result === 'pass' ? 'text-emerald-300' : slotView.qa.audio.result === 'fail' ? 'text-red-400' : 'text-sf-text-muted'}>
                           A {slotView.qa.audio.result}
                         </span>
+                        <TakeChip card={card} studio={studio} />
                         <RouteChip route={route} />
                       </div>
                     )}
                     {!slotView && (
                       <div className="flex flex-wrap gap-1 text-[9px] uppercase tracking-wide">
                         <RouteChip route={route} />
+                        {card.dialogue && <TakeChip card={card} studio={studio} />}
                       </div>
                     )}
                     <div className="flex items-start gap-2">
