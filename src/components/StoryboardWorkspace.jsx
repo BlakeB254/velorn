@@ -17,6 +17,7 @@ import { generateResolution } from '../services/outputRatio'
 import OutputRatioBar from './storyboard/OutputRatioBar'
 import CutBar from './storyboard/CutBar'
 import { normalizeStudio } from '../services/studioStore'
+import { gateGeneration } from '../services/castLock'
 import { cardSlotView, slotForCard } from '../services/studioUi'
 import { cardBackedRefIds, missingAnchorWarnings } from '../services/generationRefs'
 import { getSlot, reviewSlot } from '../services/referenceCards'
@@ -63,6 +64,7 @@ export default function StoryboardWorkspace() {
   const updateProjectSettings = useProjectStore((state) => state.updateProjectSettings)
   const saveProject = useProjectStore((state) => state.saveProject)
   const getStudio = useProjectStore((state) => state.getStudio)
+  const setStudio = useProjectStore((state) => state.setStudio)
   const getProduction = useProjectStore((state) => state.getProduction)
   const assets = useAssetsStore((state) => state.assets)
   const folders = useAssetsStore((state) => state.folders)
@@ -296,6 +298,15 @@ export default function StoryboardWorkspace() {
   }
 
   const submitGenerate = async (card) => {
+    const gate = gateGeneration(studio, {
+      season: production?.current?.seasonId,
+      episode: production?.current?.episodeId,
+      card,
+    })
+    if (!gate.ok) {
+      setGenerateError(gate.reason || 'Cast ref gate blocked this shot.')
+      return
+    }
     const motion = findMotion(card.motionSlug, motionCatalog)
     const workflow = findFrameWorkflow(card.workflowId)
     const references = currentProject?.references
@@ -516,7 +527,12 @@ export default function StoryboardWorkspace() {
         <details>
           <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Cast (series → season → episode)</summary>
           <div className="mt-2">
-            <CastPanel studio={studio} season={production?.current?.seasonId} episode={production?.current?.episodeId} />
+            <CastPanel
+              studio={studio}
+              season={production?.current?.seasonId}
+              episode={production?.current?.episodeId}
+              onStudioChange={(next) => setStudio?.(next)}
+            />
           </div>
         </details>
         <details>

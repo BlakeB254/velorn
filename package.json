@@ -37,6 +37,7 @@
     "test:studio-store": "node --test ./tests/studioStore.test.js",
     "test:blocking-v7": "node --test ./tests/blockingV7.test.js",
     "test:blocking-scene": "node --test ./tests/blockingScene.test.js",
+    "test:cast-lock": "node --test ./tests/castLock.test.js",
     "test:production-store": "node --test ./tests/productionStore.test.js",
     "test:shot-routing": "node --test ./tests/shotRouting.test.js",
     "test:cdx-workflows": "node --test ./tests/cdxWorkflowPort.test.js",
