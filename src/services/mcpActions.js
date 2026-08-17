@@ -48,7 +48,7 @@ import { gateGeneration } from './castLock'
 import { getOutputTarget } from './outputRatio'
 import { getProductionType } from './productionTypes'
 
-export const MCP_ACTION_BRIDGE_VERSION = 6
+export const MCP_ACTION_BRIDGE_VERSION = 7
 
 const MCP_PROJECT_CHECKPOINTS = new Map()
 const MCP_PROJECT_CHECKPOINT_LIMIT = 20
@@ -8584,6 +8584,9 @@ async function handleMcpAction(request = {}) {
     case 'finalize_take':
     case 'generate_lipsync_clip':
     case 'generate_foley':
+    case 'studio_creative_ops':
+    case 'studio_graph_ledger':
+    case 'sync_production_graph':
     case 'list_cuts':
     case 'save_cut':
     case 'checkout_cut':

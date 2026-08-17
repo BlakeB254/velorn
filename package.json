@@ -58,7 +58,8 @@
     "test:create-wizard-e2e": "xvfb-run -a node scripts/create_wizard_e2e.mjs",
     "test:reference-panel-e2e": "xvfb-run -a node scripts/reference_panel_e2e.mjs",
     "test:mobile-shell-e2e": "xvfb-run -a node scripts/mobile_shell_e2e.mjs",
-    "test:reference-slot-e2e": "xvfb-run -a node scripts/reference_slot_e2e.mjs"
+    "test:reference-slot-e2e": "xvfb-run -a node scripts/reference_slot_e2e.mjs",
+    "test:creative-ops": "node --test ./tests/creativeOps.test.js ./tests/productionGraph.test.js"
   },
   "keywords": [
     "animatic",

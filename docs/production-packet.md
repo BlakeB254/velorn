@@ -27,11 +27,11 @@ shot: lexicon + camera xyz handle + 1 location + 0–N characters + pose/motion 
 
 ## MCP (Velorn app on :19790)
 
-Read: `discover_production`, `get_production_context`, `get_shot_packet`, `studio_route_shot`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_ref_gate`, `studio_slots_list`, `studio_flow`, `list_line_takes`, `list_voice_profiles`, `production_readiness`
+Read: `discover_production`, `get_production_context`, `get_shot_packet`, `studio_route_shot`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_ref_gate`, `studio_slots_list`, `studio_flow`, `list_line_takes`, `list_voice_profiles`, `production_readiness`, `studio_graph_ledger`
 
 Types (CDX Studio set): `show`, `commercial` (advertisement/ad), `music-video`, `ig-short`, `skit`, `movie` (film), `psa`, `website-tour`, `hype-video`, `site-update`, `documentary`, `animated`, `narrative` (standalone).
 
-Write (previewOnly first): `set_production`, `create_episode`, `switch_episode`, `save_cut`, `checkout_cut`, `watch_cut`, `promote_cut`, `update_shot`, `propose_shot_camera`, `apply_shot_camera_proposal`, `studio_cast_lock`, `studio_blocking_add_character`, `studio_slots_mutate`, `studio_qa_record`, `synthesize_voiceover`, `clone_voice`, `mark_take_canonical`, `finalize_take`, `generate_lipsync_clip`, `generate_foley`
+Write (previewOnly first): `set_production`, `create_episode`, `switch_episode`, `save_cut`, `checkout_cut`, `watch_cut`, `promote_cut`, `update_shot`, `propose_shot_camera`, `apply_shot_camera_proposal`, `studio_cast_lock`, `studio_blocking_add_character`, `studio_slots_mutate`, `studio_qa_record`, `synthesize_voiceover`, `clone_voice`, `mark_take_canonical`, `finalize_take`, `generate_lipsync_clip`, `generate_foley`, `studio_creative_ops`, `sync_production_graph`
 
 ## Episode cuts (drafts)
 
@@ -68,6 +68,8 @@ Camera handle is **meters ENU** (`x_m` right, `y_m` forward, `z_m` up, never 0).
 node ~/opensource/velorn/scripts/velorn-production.mjs context "Chi-Town Triplets"
 node ~/opensource/velorn/scripts/velorn-production.mjs catalog
 node ~/opensource/velorn/scripts/velorn-production.mjs create-episode --title "Ep 002" "Chi-Town Triplets"
+node ~/opensource/velorn/scripts/velorn-production.mjs creative-ops "Chi-Town Triplets"
+node ~/opensource/velorn/scripts/app_graph_sync.py --app studio
 ```
 
 ## Studio surfaces (this branch)
