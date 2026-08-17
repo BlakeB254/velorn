@@ -2881,7 +2881,7 @@ function buildAiReviewPasses(snapshot) {
         title: 'Show / episode production packet',
         goal: 'Understand show → season → episode → shot layers, then create an episode or propose a camera handle without writing until approved.',
         prompt: 'Call get_production_context first. Read layers.show, layers.season, layers.episode, then storyboard/sequence have-vs-missing. Use list_production_catalog for lexicon ids. Create or switch episodes with previewOnly first. To suggest a new angle, use propose_shot_camera (xyz handle) — do not apply until I approve apply_shot_camera_proposal.',
-        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow'],
+        tools: ['discover_production', 'get_production_context', 'list_production_catalog', 'list_episodes', 'list_cuts', 'create_episode', 'switch_episode', 'save_cut', 'checkout_cut', 'watch_cut', 'promote_cut', 'get_shot_packet', 'propose_shot_camera', 'studio_cast_resolve', 'studio_flow', 'studio_creative_ops', 'studio_graph_ledger', 'sync_production_graph'],
         safeDefaults: {
           previewOnlyFirst: true,
           neverApplyCameraProposalWithoutApproval: true,
@@ -6657,6 +6657,59 @@ function createToolDefinitions() {
       name: 'studio_flow',
       description: 'Return the stage rail: script → cast → scenes → storyboard → flf → video → review → edit → deliver, with stage_reached and stage_blocked_at.',
       inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'studio_creative_ops',
+      description: 'Append-only CreativeOps ledger for the open project. op=get is read-only. ensure/record/feedback/link default to previewOnly. Never overwrites a generation. Ready-pool promotion does not publish.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          op: { type: 'string', enum: ['get', 'ensure', 'record', 'feedback', 'link'] },
+          generation_id: { type: 'string' },
+          shot_slug: { type: 'string' },
+          asset_type: { type: 'string' },
+          workflow_family: { type: 'string' },
+          content_pillar: { type: 'string' },
+          attempt: { type: 'integer' },
+          model: { type: 'string' },
+          prompt: { type: 'string' },
+          quality_scores: { type: 'object' },
+          approved: { type: 'boolean' },
+          note: { type: 'string' },
+          promote_to_ready_pool: { type: 'boolean' },
+          caption_pack: { type: 'object' },
+          path: { type: 'string' },
+          kind: { type: 'string', description: 'Source link kind, e.g. hyperframes.' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
+    },
+    {
+      name: 'studio_graph_ledger',
+      description: 'Read-only CreativeOps productions plus mapped World Twin / Beat Lab / Studio graph edges. Does not write Core.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          coreProjectId: { type: 'integer' },
+          defaultModel: { type: 'string' },
+          twin: { type: 'object' },
+          beatlab: { type: 'array' },
+        },
+      },
+    },
+    {
+      name: 'sync_production_graph',
+      description: 'Preview or snapshot the production graph onto project.productionGraph. Defaults to previewOnly. Does not write Core, publish, or queue GPU work. Use scripts/app_graph_sync.py --apply for THE MAP.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          coreProjectId: { type: 'integer' },
+          defaultModel: { type: 'string' },
+          twin: { type: 'object' },
+          beatlab: { type: 'array' },
+          previewOnly: { type: 'boolean' },
+        },
+      },
     },
     {
       name: 'find_timeline_items',
@@ -11136,6 +11189,9 @@ class ComfyStudioMcpServer {
       case 'studio_slots_mutate':
       case 'studio_qa_record':
       case 'studio_flow':
+      case 'studio_creative_ops':
+      case 'studio_graph_ledger':
+      case 'sync_production_graph':
         return this.runRendererActionTool(name, args, {
           bridgeName: 'MCP production bridge',
           suggestedTool: name,
@@ -11154,6 +11210,8 @@ class ComfyStudioMcpServer {
             'import_shot_blocking',
             'studio_slots_mutate',
             'studio_qa_record',
+            'studio_creative_ops',
+            'sync_production_graph',
           ].includes(name),
         })
       case 'get_project':

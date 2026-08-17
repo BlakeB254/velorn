@@ -20,6 +20,8 @@ import {
 } from './productionStore.js'
 import { resolveCast, normalizeStudio } from './studioStore.js'
 import { generateResolution, listOutputTargets, resolveOutput } from './outputRatio.js'
+import { conceptFromProject, normalizeWorkspace, summarize } from './creativeOps.js'
+import { buildProductionGraph, ledgerProductions } from './productionGraph.js'
 import {
   assembleLexiconLabels,
   assembleLexiconLine,
@@ -225,6 +227,8 @@ export function listProductionCatalog() {
       { id: 'location-depth', required: false, when: 'plate → depth → Blender env → top-down', use: 'location reconstruction fields' },
       { id: 'flf-last-frame', required: false, when: 'first/last or extend continuity', use: 'lastFrameAssetId + videoWorkflowId' },
       { id: 'sound', required: false, when: 'VO / lipsync / music bed', use: 'dialogue, soundNotes, audioAssetId, musicAssetId' },
+      { id: 'creative-ops', required: false, when: 'generation attempts, review/regen queues, ready pool', use: 'studio_creative_ops + out/_creative_ops/<slug>' },
+      { id: 'production-graph', required: false, when: 'map ledger facts to World Twin / Beat Lab / Studio edges', use: 'studio_graph_ledger / sync_production_graph' },
       { id: 'multi-angles', required: false, when: 'need 8 coverage angles from one still', use: 'workflow multi-angles / multi-angles-scene' },
     ],
     layers: CONTEXT_LAYERS,
@@ -298,6 +302,10 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
     },
     sequence: sequenceRollup(cards),
     catalog: listProductionCatalog(),
+    creativeOps: summarize(normalizeWorkspace(project?.creativeOps, conceptFromProject(project))),
+    productionGraph: project?.productionGraph || buildProductionGraph({
+      studio: ledgerProductions([normalizeWorkspace(project?.creativeOps, conceptFromProject(project))]),
+    }),
     source: {
       cdxSlug: project?.cdxMigration?.slug || production.slug,
       hasDirector: Boolean(director.draft || director.characters),

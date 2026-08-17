@@ -31,7 +31,8 @@
     "test:studio-store": "node --test ./tests/studioStore.test.js",
     "test:production-store": "node --test ./tests/productionStore.test.js",
     "test:cdx-workflows": "node --test ./tests/cdxWorkflowPort.test.js",
-    "test:output-ratio": "node --test ./tests/outputRatio.test.js"
+    "test:output-ratio": "node --test ./tests/outputRatio.test.js",
+    "test:creative-ops": "node --test ./tests/creativeOps.test.js ./tests/productionGraph.test.js"
   },
   "keywords": [
     "animatic",

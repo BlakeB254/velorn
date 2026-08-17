@@ -57,6 +57,19 @@ import {
 } from './studioStore.js'
 import { normalizeProjectLook, normalizeShotSettings } from './shotSettings.js'
 import { applyOutputTargetToSettings, generateResolution } from './outputRatio.js'
+import {
+  conceptFromProject,
+  fullState,
+  linkSource,
+  normalizeWorkspace,
+  recordFeedback,
+  recordGeneration,
+  summarize,
+} from './creativeOps.js'
+import {
+  buildProductionGraph,
+  ledgerProductions,
+} from './productionGraph.js'
 
 function requireProject() {
   const project = useProjectStore.getState().currentProject
@@ -81,6 +94,24 @@ function persistProduction(production, extra = {}) {
 
 function persistStudio(studio) {
   return useProjectStore.getState().setStudio(studio)
+}
+
+function persistCreativeOps(creativeOps, extra = {}) {
+  const store = useProjectStore.getState()
+  if (!store.currentProject) return null
+  useProjectStore.setState((state) => ({
+    currentProject: state.currentProject ? {
+      ...state.currentProject,
+      creativeOps,
+      ...extra,
+      modified: new Date().toISOString(),
+    } : null,
+  }))
+  return creativeOps
+}
+
+function workspaceFromProject(project) {
+  return normalizeWorkspace(project.creativeOps, conceptFromProject(project))
 }
 
 function findCard(project, cardId) {
@@ -592,11 +623,117 @@ export function handleStudioFlow(payload = {}) {
     editClips: payload.editClips,
     deliverables: payload.deliverables,
   }
+  const workspace = workspaceFromProject(project)
   return {
     action: 'studio_flow',
     flow: flowView(project.studio, extras),
     production: hydrateProductionFromProject(project),
+    creativeOps: summarize(workspace),
   }
+}
+
+export function handleStudioCreativeOps(payload = {}) {
+  const project = requireProject()
+  const op = String(payload.op || payload.action || 'get').trim()
+  const current = workspaceFromProject(project)
+  if (op === 'get' || op === 'state') {
+    return { action: 'studio_creative_ops', op: 'get', ...fullState(current) }
+  }
+  if (op === 'ensure') {
+    if (payload.previewOnly !== false && !project.creativeOps) {
+      return { previewOnly: true, action: 'studio_creative_ops', op: 'ensure', summary: summarize(current) }
+    }
+    persistCreativeOps(current)
+    return { success: true, action: 'studio_creative_ops', op: 'ensure', ...fullState(current) }
+  }
+  if (op === 'record') {
+    if (payload.previewOnly !== false) {
+      const preview = recordGeneration(current, payload)
+      return { previewOnly: true, action: 'studio_creative_ops', op: 'record', record: preview.record }
+    }
+    const next = recordGeneration(current, payload)
+    persistCreativeOps(next.workspace)
+    return { success: true, action: 'studio_creative_ops', op: 'record', record: next.record, summary: summarize(next.workspace) }
+  }
+  if (op === 'feedback') {
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_creative_ops', op: 'feedback', generation_id: payload.generation_id || payload.generationId }
+    }
+    const next = recordFeedback(current, payload)
+    persistCreativeOps(next.workspace)
+    return { success: true, action: 'studio_creative_ops', op: 'feedback', feedback: next.event, ready_pool_entry: next.ready, summary: summarize(next.workspace) }
+  }
+  if (op === 'link') {
+    if (payload.previewOnly !== false) {
+      return { previewOnly: true, action: 'studio_creative_ops', op: 'link', path: payload.path, kind: payload.kind || 'import' }
+    }
+    const next = linkSource(current, payload)
+    persistCreativeOps(next.workspace)
+    return { success: true, action: 'studio_creative_ops', op: 'link', source: next.record, created: next.created }
+  }
+  throw new Error("studio_creative_ops op must be get, ensure, record, feedback, or link")
+}
+
+export function handleStudioGraphLedger(payload = {}) {
+  const project = requireProject()
+  const production = hydrateProductionFromProject(project)
+  const workspace = workspaceFromProject(project)
+  const productions = ledgerProductions([workspace], {
+    [workspace.slug]: {
+      coreProjectId: payload.coreProjectId || payload.core_project_id || null,
+      defaultModel: payload.defaultModel || payload.default_model,
+    },
+  })
+  const graph = buildProductionGraph({
+    studio: productions,
+    beatlab: payload.beatlab || payload.catalog || [],
+    twin: payload.twin || null,
+    coreProjectId: payload.coreProjectId || payload.core_project_id || null,
+  })
+  return {
+    action: 'studio_graph_ledger',
+    productions,
+    graph,
+    production: productionSummarySafe(production),
+  }
+}
+
+function productionSummarySafe(production) {
+  return {
+    type: production.type,
+    slug: production.slug,
+    title: production.title,
+    current: production.current,
+  }
+}
+
+export function handleSyncProductionGraph(payload = {}) {
+  const project = requireProject()
+  const workspace = workspaceFromProject(project)
+  const productions = ledgerProductions([workspace], {
+    [workspace.slug]: {
+      coreProjectId: payload.coreProjectId || payload.core_project_id || null,
+      defaultModel: payload.defaultModel,
+    },
+  })
+  const graph = buildProductionGraph({
+    studio: productions,
+    beatlab: payload.beatlab || [],
+    twin: payload.twin || null,
+    coreProjectId: payload.coreProjectId || payload.core_project_id || null,
+  })
+  const snapshot = {
+    ...graph,
+    syncedAt: new Date().toISOString(),
+    source: 'velorn:sync_production_graph',
+    applyCore: false,
+    note: 'Local snapshot only. scripts/app_graph_sync.py --apply writes THE MAP.',
+  }
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, action: 'sync_production_graph', graph: snapshot }
+  }
+  persistCreativeOps(workspace, { productionGraph: snapshot })
+  return { success: true, action: 'sync_production_graph', graph: snapshot }
 }
 
 export function handleProductionAction(action, payload = {}) {
@@ -637,6 +774,12 @@ export function handleProductionAction(action, payload = {}) {
       return handleStudioQaRecord(payload)
     case 'studio_flow':
       return handleStudioFlow(payload)
+    case 'studio_creative_ops':
+      return handleStudioCreativeOps(payload)
+    case 'studio_graph_ledger':
+      return handleStudioGraphLedger(payload)
+    case 'sync_production_graph':
+      return handleSyncProductionGraph(payload)
     case 'list_cuts':
       return handleListCuts(payload)
     case 'save_cut':
