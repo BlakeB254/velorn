@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""One-shot catalog vendor: Studio YAML -> Velorn JS modules (spec only)."""
+"""One-shot catalog vendor: Studio YAML -> Velorn JS modules (spec only).
+
+Source root is the legacy CDX Studio service this data was migrated from.
+Velorn itself must never hardcode that path (see tests/cdxStudioIsolation.test.js) --
+set STYLE_CATALOG_SOURCE_ROOT when re-running this one-shot vendoring step.
+"""
 import json
+import os
 from pathlib import Path
 
 import yaml
 
-ROOT = Path("/home/codex450/cdx-platform/services/cdx-video-director")
+ROOT = Path(os.environ["STYLE_CATALOG_SOURCE_ROOT"]) if os.environ.get("STYLE_CATALOG_SOURCE_ROOT") else None
 OUT = Path("/home/codex450/opensource/velorn.worktrees/t_978f5101/src/catalogs")
 
 
@@ -15,6 +21,8 @@ def js_module(name, data, banner):
 
 
 def main():
+    if ROOT is None:
+        raise SystemExit('Set STYLE_CATALOG_SOURCE_ROOT to the legacy source directory before running this one-shot vendoring step.')
     OUT.mkdir(parents=True, exist_ok=True)
 
     packs = []
