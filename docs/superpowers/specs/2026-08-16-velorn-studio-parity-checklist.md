@@ -35,7 +35,7 @@ Update this checklist + Core #396 as each child lands. Final deletion card after
 | 11 | **Take chain / VO / lipsync / foley** | ❌ | director+programmer | tbd (t_f3e76d3f) | take chain, synthesize_voiceover, generate_lipsync_clip, foley from cdx-video-director | t_f3e76d3f |
 | 12 | **Style packs / bible / franchises** | ❌ | director+programmer | tbd (t_978f5101) | style packs, bible import, franchise consistency | t_978f5101 |
 | 13 | **Evaluation rubrics** | ❌ | director+programmer | tbd (t_5329eb27) | Per-shot rubrics, studio_qa_record extension, cdx-studio-audit integration | t_5329eb27 |
-| 14 | **Core trace bridge + skill_version_id** | ❌ | director+programmer | tbd (t_ed3aed05) | Bridge to Core project #396, trace with skill_version_id | t_ed3aed05 |
+| 14 | **Core trace bridge + skill_version_id** | ❌ | director+programmer | [PR #8](https://github.com/BlakeB254/velorn/pull/8) | Velorn-native Core ledger + skill_version_id / entity resolve / map receipts. Flip ✅ after merge. | t_ed3aed05 |
 | 15 | cdx-film-lexicon integration | ✅ | director | merged | Shot lexicon | - |
 | 16 | cdx-viral-pacing in timeline | ✅ | director | merged | Edit pacing rules | - |
 | 17 | ComfyUI / LTX25 / H3 bundles in Velorn | ✅ | programmer | merged | cdx-generative-ecosystems routing | - |
