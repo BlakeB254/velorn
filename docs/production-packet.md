@@ -27,11 +27,11 @@ shot: lexicon + camera xyz handle + 1 location + 0–N characters + pose/motion 
 
 ## MCP (Velorn app on :19790)
 
-Read: `discover_production`, `get_production_context`, `get_shot_packet`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_slots_list`, `studio_flow`
+Read: `discover_production`, `get_production_context`, `get_shot_packet`, `list_episodes`, `list_cuts`, `list_production_catalog`, `studio_cast_resolve`, `studio_ref_gate`, `studio_slots_list`, `studio_flow`
 
 Types (CDX Studio set): `show`, `commercial` (advertisement/ad), `music-video`, `ig-short`, `skit`, `movie` (film), `psa`, `website-tour`, `hype-video`, `site-update`, `documentary`, `animated`, `narrative` (standalone).
 
-Write (previewOnly first): `set_production`, `create_episode`, `switch_episode`, `save_cut`, `checkout_cut`, `watch_cut`, `promote_cut`, `update_shot`, `propose_shot_camera`, `apply_shot_camera_proposal`, `studio_slots_mutate`, `studio_qa_record`
+Write (previewOnly first): `set_production`, `create_episode`, `switch_episode`, `save_cut`, `checkout_cut`, `watch_cut`, `promote_cut`, `update_shot`, `propose_shot_camera`, `apply_shot_camera_proposal`, `studio_cast_lock`, `studio_blocking_add_character`, `studio_slots_mutate`, `studio_qa_record`
 
 ## Episode cuts (drafts)
 
@@ -72,7 +72,9 @@ node ~/opensource/velorn/scripts/velorn-production.mjs create-episode --title "E
 
 ## Studio surfaces (this branch)
 
-- Stage rail + cast panel on Storyboard.
+- Stage rail + cast panel on Storyboard. Cast chips show ready / blocked / frozen.
+- Ref gate refuses group sheets, missing refs, and generated-output canon before generate or `studio_blocking_add_character`.
+- `studio.graph.edges` records `cast_lock`, `ref_gate`, and `shot_cast` production edges.
 - Slot state + video/audio QA pips on each card.
 - Blocking: 2D ENU handle (drag camera, edit xyz). Save `docs/blocking/<shot>/blocking.json`. Generate from blocking queues `cdx-ltx-union-control-flf`.
 
