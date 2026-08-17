@@ -170,7 +170,10 @@ if (cmd === 'context') {
   const workspace = creativeOps.normalizeWorkspace(project.creativeOps, { ...creativeOps.conceptFromProject(project), projectDir: dir })
   const productions = productionGraph.ledgerProductions([workspace])
   console.log(JSON.stringify(productionGraph.buildProductionGraph({ studio: productions }), null, 2))
+} else if (cmd === 'readiness') {
+  const packet = productionPacket.buildProductionPacket(project, { assets: project.assets || [] })
+  console.log(JSON.stringify(packet.audio, null, 2))
 } else {
-  console.error(`Unknown command ${cmd}. Use: context | catalog | episodes | seed-show | create-episode | cuts | save-cut | checkout-cut | promote-cut | shot | creative-ops | graph`)
+  console.error(`Unknown command ${cmd}. Use: context | catalog | episodes | seed-show | create-episode | cuts | save-cut | checkout-cut | promote-cut | shot | creative-ops | graph | readiness`)
   process.exit(2)
 }

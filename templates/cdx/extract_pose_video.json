@@ -1,0 +1,21 @@
+{
+  "1": {"class_type": "LoadVideo", "inputs": {"file": "{{VIDEO}}"}},
+  "2": {"class_type": "GetVideoComponents", "inputs": {"video": ["1", 0]}},
+  "3": {"class_type": "DWPreprocessor", "inputs": {
+    "image": ["2", 0],
+    "detect_hand": "enable",
+    "detect_body": "enable",
+    "detect_face": "enable",
+    "resolution": "{{RESOLUTION}}",
+    "bbox_detector": "yolox_l.onnx",
+    "pose_estimator": "dw-ll_ucoco_384_bs5.torchscript.pt",
+    "scale_stick_for_xinsr_cn": "disable"
+  }},
+  "4": {"class_type": "CreateVideo", "inputs": {"images": ["3", 0], "fps": ["2", 2]}},
+  "5": {"class_type": "SaveVideo", "inputs": {
+    "video": ["4", 0],
+    "filename_prefix": "{{PREFIX}}",
+    "format": "mp4",
+    "codec": "h264"
+  }}
+}
