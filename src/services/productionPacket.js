@@ -35,6 +35,24 @@ import { generateResolution, listOutputTargets, resolveOutput } from './outputRa
 import { conceptFromProject, normalizeWorkspace, summarize } from './creativeOps.js'
 import { buildProductionGraph, ledgerProductions } from './productionGraph.js'
 import {
+  bibleForPacket,
+} from './productionBible.js'
+import {
+  checkFranchiseConsistency,
+  franchiseForApi,
+  listFranchises,
+  loadFranchise,
+} from './franchises.js'
+import {
+  listStylePacks,
+  loadStylePack,
+  stylePackForApi,
+} from './stylePacks.js'
+import {
+  animationStylesForApi,
+  getAnimationStyle,
+} from './animationStyles.js'
+import {
   assembleLexiconLabels,
   assembleLexiconLine,
   FEATURED_CAMERA_MOVEMENTS,
@@ -235,6 +253,9 @@ export function listProductionCatalog() {
     },
     outputTargets: listOutputTargets(),
     types: listProductionTypes(),
+    stylePacks: listStylePacks().map(stylePackForApi),
+    franchises: listFranchises().map((item) => ({ slug: item.slug, name: item.name, style_pack: item.style_pack, animation_style: item.animation_style })),
+    animationStyles: animationStylesForApi(),
     aliases: {
       advertisement: 'commercial',
       ad: 'commercial',
@@ -257,6 +278,9 @@ export function listProductionCatalog() {
       { id: 'creative-ops', required: false, when: 'generation attempts, review/regen queues, ready pool', use: 'studio_creative_ops + out/_creative_ops/<slug>' },
       { id: 'production-graph', required: false, when: 'map ledger facts to World Twin / Beat Lab / Studio edges', use: 'studio_graph_ledger / sync_production_graph' },
       { id: 'multi-angles', required: false, when: 'need 8 coverage angles from one still', use: 'workflow multi-angles / multi-angles-scene' },
+      { id: 'style-pack', required: false, when: 'any still or clip that must match house look', use: 'studio_style_pack + production.stylePack LoRAs/prompt tails/palette' },
+      { id: 'franchise-bible', required: false, when: 'shared IP / series identity', use: 'studio_franchise + studio_bible; seal before generating identity shots' },
+      { id: 'animation-style', required: false, when: 'animated or graded film look', use: 'studio_animation_styles card on production.animationStyle' },
     ],
     layers: CONTEXT_LAYERS,
   }
@@ -322,6 +346,7 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
       'cuts[] are named drafts of this episode. save_cut / checkout_cut / watch_cut / promote_cut. Primary is the official version; checkout is what is on the live board.',
       'Each shot inherits show look unless it overrides. Framing/angle never inherit.',
       'camera.x_m/y_m/z_m is the handle. Propose with propose_shot_camera; Blake can apply or drag.',
+      'style / franchise / bible live on production. Load them before generating. Beat prompts describe action; the pack carries look.',
       'extensions listed in catalog are optional. Use them when the shot needs them, do not dump them into every prompt.',
       'audio.takeChain is the VO version chain. A line is ship-ready only with a finalized canonical take. generate_lipsync_clip / generate_foley stay previewOnly and drafts-only.',
     ],
@@ -338,6 +363,13 @@ export function buildProductionPacket(project, { assets = [] } = {}) {
       season: production.current.seasonId,
       episode: production.current.episodeId,
     }),
+    style: {
+      pack: production.stylePack ? stylePackForApi(loadStylePack(production.stylePack)) : null,
+      animation: production.animationStyle ? getAnimationStyle(production.animationStyle) : null,
+    },
+    franchise: production.franchiseSlug ? franchiseForApi(loadFranchise(production.franchiseSlug)) : null,
+    franchiseConsistency: checkFranchiseConsistency(production),
+    bible: bibleForPacket(project, production),
     storyboard: {
       cardCount: cards.length,
       cards: cards.map((card) => summarizeCard(card, { projectLook: look, assets, project, extras: cardAudioExtras(card, studio) })),

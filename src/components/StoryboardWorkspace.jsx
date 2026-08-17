@@ -23,11 +23,13 @@ import { cardBackedRefIds, missingAnchorWarnings } from '../services/generationR
 import { getSlot, reviewSlot } from '../services/referenceCards'
 import { mapCard, normalizeReferences } from '../services/referencePanels'
 import { routeShotFromCard } from '../services/shotRouting'
+import { bindFranchise } from '../services/franchises'
 import StageRail from './studio/StageRail'
 import CastPanel from './studio/CastPanel'
 import CharacterReferencePanel from './studio/CharacterReferencePanel'
 import LocationReferencePanel from './studio/LocationReferencePanel'
 import PropsReferencePanel from './studio/PropsReferencePanel'
+import StyleBiblePanel from './studio/StyleBiblePanel'
 import BlockingPanel from './studio/BlockingPanel'
 import TakeChip from './studio/TakeChip'
 import RouteChip from './studio/RouteChip'
@@ -67,6 +69,7 @@ export default function StoryboardWorkspace() {
   const getStudio = useProjectStore((state) => state.getStudio)
   const setStudio = useProjectStore((state) => state.setStudio)
   const getProduction = useProjectStore((state) => state.getProduction)
+  const setProduction = useProjectStore((state) => state.setProduction)
   const assets = useAssetsStore((state) => state.assets)
   const folders = useAssetsStore((state) => state.folders)
   const addAsset = useAssetsStore((state) => state.addAsset)
@@ -316,6 +319,8 @@ export default function StoryboardWorkspace() {
       mode: modeFromWorkflow(workflow.id, 'still'),
       projectLook,
       references,
+      stylePack: production?.stylePack,
+      animationStyle: production?.animationStyle,
     })
     const sourceId = card.sourceAssetId || card.imageAssetId || null
     if (workflow.needsImage && !sourceId) {
@@ -396,7 +401,14 @@ export default function StoryboardWorkspace() {
         type: 'image',
       })
       const prompt = [
-        composeGenerationPrompt(card, { motionTitle: motion.title, mode: 'still', projectLook, references: currentProject?.references }),
+        composeGenerationPrompt(card, {
+          motionTitle: motion.title,
+          mode: 'still',
+          projectLook,
+          references: currentProject?.references,
+          stylePack: production?.stylePack,
+          animationStyle: production?.animationStyle,
+        }),
         motionPosePrompt(motion),
       ].filter(Boolean).join('\n')
       updateCard(card.id, {
@@ -532,7 +544,38 @@ export default function StoryboardWorkspace() {
               studio={studio}
               season={production?.current?.seasonId}
               episode={production?.current?.episodeId}
+              production={production}
               onStudioChange={(next) => setStudio?.(next)}
+            />
+          </div>
+        </details>
+        <details>
+          <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Style / bible / franchise</summary>
+          <div className="mt-2">
+            <StyleBiblePanel
+              production={production}
+              onBindFranchise={(slug) => {
+                if (!production || !setProduction) return
+                const bound = bindFranchise(production, slug)
+                if (bound.ok) setProduction(bound.production)
+              }}
+              onSelectPack={(name) => {
+                if (!production || !setProduction) return
+                setProduction({ ...production, stylePack: name })
+              }}
+              onSealBible={() => {
+                if (!production || !setProduction) return
+                setProduction({
+                  ...production,
+                  bible: {
+                    ...(production.bible || {}),
+                    sealed: true,
+                    sealedAt: new Date().toISOString(),
+                    sealedBy: 'operator',
+                    source: 'ui',
+                  },
+                })
+              }}
             />
           </div>
         </details>
