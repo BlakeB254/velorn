@@ -109,7 +109,8 @@
   },
   "build": {
     "appId": "com.comfystudio.app",
-    "productName": "Velorn",
+    "productName": "CDX Studio",
+    "executableName": "velorn",
     "copyright": "Copyright © 2024-2026",
     "asarUnpack": [
       "**/node_modules/ffmpeg-static/**",
@@ -211,7 +212,12 @@
       ],
       "icon": "build/icons",
       "category": "Video",
+      "executableName": "velorn",
       "maintainer": "Velorn contributors <opensource@velorn.ai>",
+      "desktop": {
+        "Name": "CDX Studio",
+        "Comment": "CDX Studio — local NLE on Velorn"
+      },
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     },
     "nsis": {
