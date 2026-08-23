@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   X, Server, FolderOpen, Palette, Monitor, Save,
   HardDrive, Film, Keyboard, Wrench, Power,
@@ -52,6 +52,10 @@ import {
   playGenerationCompletionSound,
   setGenerationCompletionSoundSettings,
 } from '../services/generationCompletionSoundSettings'
+import {
+  getShowCloudCreditBalance,
+  setShowCloudCreditBalance,
+} from '../services/cloudCreditDisplaySettings'
 
 const AUTO_IMPORT_KEY = 'comfystudio-auto-import-comfy-outputs'
 const OUTPUT_DIRECTORY_SETTING_KEY = 'outputDirectory'
@@ -179,10 +183,18 @@ function GeneralTab({ initialSection = null }) {
   })
   const [outputPath, setOutputPath] = useState('')
   const [workflowPath, setWorkflowPath] = useState('')
+  const [hardwareExportFfmpegPath, setHardwareExportFfmpegPathState] = useState('')
+  const [hardwareExportFfmpegStatus, setHardwareExportFfmpegStatus] = useState(null)
+  const [hardwareExportFfmpegTest, setHardwareExportFfmpegTest] = useState(null)
+  const [hardwareExportFfmpegBusy, setHardwareExportFfmpegBusy] = useState('')
+  const [hardwareExportFfmpegMessage, setHardwareExportFfmpegMessage] = useState('')
+  const hardwareExportFfmpegInputDirtyRef = useRef(false)
+  const hardwareExportFfmpegStatusGenerationRef = useRef(0)
   const [activeThemeId, setActiveThemeId] = useState(() => getStoredThemeId())
   const [generationCompletionSoundSettings, setGenerationCompletionSoundSettingsState] = useState(() => (
     getGenerationCompletionSoundSettings()
   ))
+  const [showCloudCreditBalance, setShowCloudCreditBalanceState] = useState(() => getShowCloudCreditBalance())
   const [pexelsApiKey, setPexelsApiKeyLocal] = useState('')
   const [comfyOrgApiKey, setComfyOrgApiKey] = useState('')
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
@@ -236,16 +248,30 @@ function GeneralTab({ initialSection = null }) {
   useEffect(() => {
     getPexelsApiKey().then((key) => setPexelsApiKeyLocal(key || ''))
     ;(async () => {
+      const hardwareFfmpegStatusGeneration = hardwareExportFfmpegStatusGenerationRef.current
       try {
-        const [storedOutputPath, storedWorkflowPath] = await Promise.all([
+        const [storedOutputPath, storedWorkflowPath, hardwareFfmpegStatus] = await Promise.all([
           window.electronAPI?.getSetting?.(OUTPUT_DIRECTORY_SETTING_KEY),
           window.electronAPI?.getSetting?.(WORKFLOWS_DIRECTORY_SETTING_KEY),
+          window.electronAPI?.getHardwareExportFfmpegStatus?.(),
         ])
         setOutputPath(String(storedOutputPath || ''))
         setWorkflowPath(String(storedWorkflowPath || ''))
+        if (
+          hardwareFfmpegStatus
+          && hardwareFfmpegStatusGeneration === hardwareExportFfmpegStatusGenerationRef.current
+        ) {
+          if (!hardwareExportFfmpegInputDirtyRef.current) {
+            setHardwareExportFfmpegPathState(String(hardwareFfmpegStatus.settingPath || ''))
+          }
+          setHardwareExportFfmpegStatus(hardwareFfmpegStatus)
+        }
       } catch {
         setOutputPath('')
         setWorkflowPath('')
+        if (hardwareFfmpegStatusGeneration === hardwareExportFfmpegStatusGenerationRef.current) {
+          setHardwareExportFfmpegStatus(null)
+        }
       }
 
       try {
@@ -400,6 +426,11 @@ function GeneralTab({ initialSection = null }) {
     setGenerationCompletionSoundSettingsState(next)
   }
 
+  const handleToggleCloudCreditBalance = () => {
+    const next = setShowCloudCreditBalance(!showCloudCreditBalance)
+    setShowCloudCreditBalanceState(next)
+  }
+
   const handleCopyMcpText = async (id, text) => {
     try {
       await navigator.clipboard.writeText(text)
@@ -492,6 +523,114 @@ function GeneralTab({ initialSection = null }) {
       if (selectedPath) onSelect(selectedPath)
     } catch (error) {
       console.error('Could not open directory picker:', error)
+    }
+  }
+
+  const handleChooseHardwareExportFfmpeg = async () => {
+    if (!window.electronAPI?.selectFile) {
+      setHardwareExportFfmpegMessage('File picker is not available in this environment.')
+      return
+    }
+    try {
+      const selectedPath = await window.electronAPI.selectFile({
+        title: 'Select FFmpeg for hardware export',
+        defaultPath: hardwareExportFfmpegPath || hardwareExportFfmpegStatus?.activePath || undefined,
+        filters: [{ name: 'FFmpeg executable', extensions: ['*'] }],
+      })
+      if (selectedPath) {
+        hardwareExportFfmpegInputDirtyRef.current = true
+        setHardwareExportFfmpegPathState(String(selectedPath))
+        setHardwareExportFfmpegTest(null)
+        setHardwareExportFfmpegMessage('Path selected. Save it to validate and activate it.')
+      }
+    } catch (error) {
+      setHardwareExportFfmpegMessage(error?.message || 'Could not choose an FFmpeg executable.')
+    }
+  }
+
+  const handleSaveHardwareExportFfmpeg = async () => {
+    const selectedPath = hardwareExportFfmpegPath.trim()
+    if (!selectedPath) {
+      setHardwareExportFfmpegMessage('Choose an FFmpeg executable or use the bundled default.')
+      return
+    }
+    if (!window.electronAPI?.setHardwareExportFfmpegPath) {
+      setHardwareExportFfmpegMessage('Hardware-export FFmpeg settings are not available in this environment.')
+      return
+    }
+
+    hardwareExportFfmpegStatusGenerationRef.current += 1
+    setHardwareExportFfmpegBusy('saving')
+    setHardwareExportFfmpegTest(null)
+    setHardwareExportFfmpegMessage('Validating FFmpeg...')
+    try {
+      const result = await window.electronAPI.setHardwareExportFfmpegPath(selectedPath)
+      if (!result?.success) {
+        setHardwareExportFfmpegMessage(result?.error || 'The selected FFmpeg executable could not be saved.')
+        return
+      }
+      setHardwareExportFfmpegStatus(result.status || null)
+      setHardwareExportFfmpegPathState(String(result.status?.settingPath || selectedPath))
+      hardwareExportFfmpegInputDirtyRef.current = false
+      setHardwareExportFfmpegMessage(
+        result.status?.source === 'environment'
+          ? 'Saved. VELORN_FFMPEG_PATH still takes priority for this app session.'
+          : 'Hardware-export FFmpeg saved and ready to test.'
+      )
+    } catch (error) {
+      setHardwareExportFfmpegMessage(error?.message || 'Could not save the hardware-export FFmpeg path.')
+    } finally {
+      setHardwareExportFfmpegBusy('')
+    }
+  }
+
+  const handleResetHardwareExportFfmpeg = async () => {
+    if (!window.electronAPI?.resetHardwareExportFfmpegPath) return
+    hardwareExportFfmpegStatusGenerationRef.current += 1
+    setHardwareExportFfmpegBusy('resetting')
+    setHardwareExportFfmpegTest(null)
+    try {
+      const result = await window.electronAPI.resetHardwareExportFfmpegPath()
+      if (!result?.success) {
+        setHardwareExportFfmpegMessage(result?.error || 'Could not restore the bundled FFmpeg setting.')
+        return
+      }
+      setHardwareExportFfmpegPathState('')
+      hardwareExportFfmpegInputDirtyRef.current = false
+      setHardwareExportFfmpegStatus(result.status || null)
+      setHardwareExportFfmpegMessage(
+        result.status?.source === 'environment'
+          ? 'Saved path cleared. VELORN_FFMPEG_PATH remains active.'
+          : 'Velorn will use its bundled FFmpeg for hardware checks and software fallback.'
+      )
+    } catch (error) {
+      setHardwareExportFfmpegMessage(error?.message || 'Could not restore the bundled FFmpeg setting.')
+    } finally {
+      setHardwareExportFfmpegBusy('')
+    }
+  }
+
+  const handleTestHardwareExportFfmpeg = async () => {
+    if (!window.electronAPI?.checkNvenc) return
+    hardwareExportFfmpegStatusGenerationRef.current += 1
+    setHardwareExportFfmpegBusy('testing')
+    setHardwareExportFfmpegMessage('Testing the active FFmpeg and hardware encoder...')
+    try {
+      const result = await window.electronAPI.checkNvenc({ forceRefresh: true })
+      setHardwareExportFfmpegTest(result)
+      const status = await window.electronAPI.getHardwareExportFfmpegStatus?.()
+      if (status) setHardwareExportFfmpegStatus(status)
+      if (result?.available) {
+        const codecs = [result.h264 ? 'H.264' : '', result.h265 ? 'H.265' : ''].filter(Boolean).join(' and ')
+        setHardwareExportFfmpegMessage(`${codecs} hardware encoding is ready.`)
+      } else {
+        setHardwareExportFfmpegMessage(result?.error || 'This FFmpeg does not provide a usable hardware encoder. CPU export remains available.')
+      }
+    } catch (error) {
+      setHardwareExportFfmpegTest(null)
+      setHardwareExportFfmpegMessage(error?.message || 'Could not test the active FFmpeg executable.')
+    } finally {
+      setHardwareExportFfmpegBusy('')
     }
   }
 
@@ -732,6 +871,28 @@ function GeneralTab({ initialSection = null }) {
             {playbackCacheMessage && !playbackCacheBusy && (
               <p className="mt-3 text-[10px] text-sf-text-muted">{playbackCacheMessage}</p>
             )}
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
+            <div className="pr-4">
+              <label className="text-sm text-sf-text-primary">Show cloud credit balance</label>
+              <p className="text-[10px] text-sf-text-muted">
+                Display Comfy.org credits in the app header. Turning this off does not disable cloud workflows.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showCloudCreditBalance}
+              onClick={handleToggleCloudCreditBalance}
+              className={`relative h-5 w-10 flex-shrink-0 rounded-full transition-colors ${showCloudCreditBalance ? 'bg-sf-accent' : 'bg-sf-dark-600'}`}
+              title={showCloudCreditBalance ? 'Hide cloud credit balance' : 'Show cloud credit balance'}
+            >
+              <span
+                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${showCloudCreditBalance ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'}`}
+                aria-hidden
+              />
+            </button>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
@@ -1066,6 +1227,111 @@ function GeneralTab({ initialSection = null }) {
                 ...
               </button>
             </div>
+          </div>
+
+          <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-sf-text-primary">Hardware export FFmpeg</div>
+                <p className="mt-1 text-[10px] text-sf-text-muted">
+                  Advanced: choose an FFmpeg build with NVENC on Linux. It is used only for final H.264/H.265 hardware video encoding; Velorn keeps its bundled FFmpeg for media tools and as the safe CPU fallback.
+                </p>
+              </div>
+              <span className="flex-shrink-0 rounded border border-sf-dark-600 bg-sf-dark-800 px-2 py-1 text-[10px] text-sf-text-secondary">
+                {hardwareExportFfmpegStatus?.source === 'environment'
+                  ? 'Environment'
+                  : hardwareExportFfmpegStatus?.source === 'setting'
+                    ? 'Custom'
+                    : 'Bundled'}
+              </span>
+            </div>
+
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={hardwareExportFfmpegPath}
+                onChange={(event) => {
+                  hardwareExportFfmpegInputDirtyRef.current = true
+                  setHardwareExportFfmpegPathState(event.target.value)
+                  setHardwareExportFfmpegTest(null)
+                  setHardwareExportFfmpegMessage('')
+                }}
+                placeholder={window.electronAPI?.platform === 'win32' ? 'C:\\path\\to\\ffmpeg.exe' : '/usr/bin/ffmpeg'}
+                className="flex-1 min-w-0 bg-sf-dark-800 border border-sf-dark-600 rounded px-3 py-2 text-xs text-sf-text-primary focus:outline-none focus:border-sf-accent truncate"
+              />
+              <button
+                type="button"
+                onClick={() => { void handleChooseHardwareExportFfmpeg() }}
+                disabled={Boolean(hardwareExportFfmpegBusy)}
+                className="px-3 py-2 bg-sf-dark-700 hover:bg-sf-dark-600 rounded text-xs text-sf-text-secondary transition-colors flex-shrink-0 disabled:cursor-wait disabled:opacity-50"
+              >
+                Browse
+              </button>
+            </div>
+
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => { void handleSaveHardwareExportFfmpeg() }}
+                disabled={Boolean(hardwareExportFfmpegBusy) || !hardwareExportFfmpegPath.trim()}
+                className="rounded bg-sf-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sf-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {hardwareExportFfmpegBusy === 'saving' ? 'Validating...' : 'Save path'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleTestHardwareExportFfmpeg() }}
+                disabled={Boolean(hardwareExportFfmpegBusy)}
+                className="inline-flex items-center gap-1 rounded bg-sf-dark-700 px-3 py-1.5 text-xs text-sf-text-secondary transition-colors hover:bg-sf-dark-600 disabled:cursor-wait disabled:opacity-50"
+              >
+                <RefreshCcw className={`h-3 w-3 ${hardwareExportFfmpegBusy === 'testing' ? 'animate-spin' : ''}`} />
+                Test active FFmpeg
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleResetHardwareExportFfmpeg() }}
+                disabled={Boolean(hardwareExportFfmpegBusy) || (!hardwareExportFfmpegPath && hardwareExportFfmpegStatus?.source !== 'setting')}
+                className="rounded bg-sf-dark-700 px-3 py-1.5 text-xs text-sf-text-secondary transition-colors hover:bg-sf-dark-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {hardwareExportFfmpegStatus?.source === 'environment' ? 'Clear saved path' : 'Use bundled FFmpeg'}
+              </button>
+            </div>
+
+            {hardwareExportFfmpegStatus?.activePath && (
+              <div className="mt-3 rounded border border-sf-dark-700 bg-black/20 px-2.5 py-2 text-[10px] text-sf-text-muted">
+                <div className="flex gap-1">
+                  <span className="flex-shrink-0 uppercase tracking-wider">Active:</span>
+                  <code className="min-w-0 break-all text-sf-text-secondary">{hardwareExportFfmpegStatus.activePath}</code>
+                </div>
+                {hardwareExportFfmpegStatus.version && (
+                  <div className="mt-1 break-all">{hardwareExportFfmpegStatus.version}</div>
+                )}
+              </div>
+            )}
+
+            {hardwareExportFfmpegStatus?.environmentPath && (
+              <p className="mt-2 text-[10px] text-yellow-300">
+                VELORN_FFMPEG_PATH is active and takes priority over the saved path until Velorn is restarted without it.
+              </p>
+            )}
+            {hardwareExportFfmpegStatus?.warning && (
+              <p className="mt-2 text-[10px] text-yellow-300">{hardwareExportFfmpegStatus.warning}</p>
+            )}
+            {hardwareExportFfmpegMessage && (
+              <p className={`mt-2 text-[10px] ${hardwareExportFfmpegTest?.available ? 'text-green-300' : 'text-sf-text-muted'}`}>
+                {hardwareExportFfmpegMessage}
+              </p>
+            )}
+            {hardwareExportFfmpegTest && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <span className={`rounded border px-1.5 py-0.5 text-[10px] ${hardwareExportFfmpegTest.h264 ? 'border-green-500/40 bg-green-500/10 text-green-300' : 'border-sf-dark-600 text-sf-text-muted'}`}>
+                  H.264 {hardwareExportFfmpegTest.kind === 'videotoolbox' ? 'VideoToolbox' : 'NVENC'}
+                </span>
+                <span className={`rounded border px-1.5 py-0.5 text-[10px] ${hardwareExportFfmpegTest.h265 ? 'border-green-500/40 bg-green-500/10 text-green-300' : 'border-sf-dark-600 text-sf-text-muted'}`}>
+                  H.265 {hardwareExportFfmpegTest.kind === 'videotoolbox' ? 'VideoToolbox' : 'NVENC'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )

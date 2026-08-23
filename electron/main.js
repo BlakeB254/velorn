@@ -12,6 +12,14 @@ const yaml = require('js-yaml')
 const ffmpegStaticPath = require('ffmpeg-static')
 const ffprobeStatic = require('ffprobe-static')
 const ffprobeStaticPath = ffprobeStatic?.path || ffprobeStatic
+const {
+  HARDWARE_EXPORT_FFMPEG_ENV_KEY,
+  HARDWARE_EXPORT_FFMPEG_SETTING_KEY,
+  getHardwareEncoderProbeCacheKey,
+  probeFfmpegVersion,
+  resolveHardwareExportFfmpeg,
+  resolveHardwareExportRoute,
+} = require('./hardwareExportFfmpeg')
 const { inspectIsoBmffLayout } = require('./exportSourcePreparation')
 const { registerCaptionWhisperHandlers } = require('./captionWhisper')
 const {
@@ -137,12 +145,63 @@ const rtxHelperPath = app.isPackaged
 // downloaded the binary (skipped postinstalls, antivirus quarantine), and
 // spawning a dangling path dies with a bare ENOENT (-4058 on Windows). Export
 // entry points check existence up front so the failure names the path.
-function getFfmpegUnavailableError() {
-  if (!ffmpegPath) return 'FFmpeg binary not available.'
-  if (!fsSync.existsSync(ffmpegPath)) {
-    return `FFmpeg binary is missing at ${ffmpegPath}. Reinstall Velorn (or run npm install in a dev checkout) to restore it.`
+function getFfmpegUnavailableError(binaryPath = ffmpegPath) {
+  if (!binaryPath) return 'FFmpeg binary not available.'
+  if (!fsSync.existsSync(binaryPath)) {
+    const recovery = binaryPath === ffmpegPath
+      ? 'Reinstall Velorn (or run npm install in a dev checkout) to restore it.'
+      : 'Choose another hardware-export FFmpeg path or restore the selected file.'
+    return `FFmpeg binary is missing at ${binaryPath}. ${recovery}`
   }
   return null
+}
+
+async function resolveHardwareExportFfmpegSelection() {
+  const settings = await readSettingsRaw().catch(() => ({}))
+  const selection = resolveHardwareExportFfmpeg({
+    bundledPath: ffmpegPath,
+    settingPath: settings?.[HARDWARE_EXPORT_FFMPEG_SETTING_KEY],
+    environmentPath: process.env[HARDWARE_EXPORT_FFMPEG_ENV_KEY],
+  })
+  if (selection.source === 'bundled') return selection
+
+  const versionProbe = await probeFfmpegVersion(selection.path)
+  if (versionProbe.ok) {
+    return { ...selection, version: versionProbe.version || null }
+  }
+
+  const sourceLabel = selection.source === 'environment'
+    ? HARDWARE_EXPORT_FFMPEG_ENV_KEY
+    : 'Saved hardware-export FFmpeg'
+  return {
+    ...selection,
+    path: ffmpegPath,
+    source: 'bundled',
+    warning: `${sourceLabel} is not a usable FFmpeg executable: ${versionProbe.error} Velorn will use its bundled FFmpeg.`,
+  }
+}
+
+async function getHardwareExportFfmpegStatus() {
+  const selection = await resolveHardwareExportFfmpegSelection()
+  const versionProbe = selection.version
+    ? { ok: true, version: selection.version }
+    : await probeFfmpegVersion(selection.path)
+  return {
+    source: selection.source,
+    activePath: selection.path,
+    settingPath: selection.settingPath,
+    environmentPath: selection.environmentPath,
+    warning: selection.warning,
+    valid: versionProbe.ok === true,
+    version: versionProbe.version || null,
+    error: versionProbe.ok ? null : versionProbe.error,
+  }
+}
+
+function notifyHardwareExportFfmpegChanged() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('export:hardwareFfmpegChanged')
+  }
 }
 
 // Session-log helper shared by the export-worker and main-window mirrors:
@@ -5684,10 +5743,15 @@ ipcMain.handle('export:runInWorker', async (event, payload) => {
   if (exportWorkerWindow && !exportWorkerWindow.isDestroyed()) {
     return { success: false, error: 'Export already in progress' }
   }
+  const requestedJobId = typeof payload?.jobId === 'string' ? payload.jobId.trim() : ''
+  const jobId = /^[a-zA-Z0-9._:-]{1,160}$/.test(requestedJobId)
+    ? requestedJobId
+    : `export-${crypto.randomUUID()}`
+  const jobPayload = { ...payload, jobId }
   const workerUrl = isDev
     ? `http://127.0.0.1:5173?export=worker`
     : `file://${path.join(__dirname, '../dist/index.html')}?export=worker`
-  exportWorkerWindow = new BrowserWindow({
+  const workerWindow = new BrowserWindow({
     width: 400,
     height: 200,
     show: false,
@@ -5702,7 +5766,8 @@ ipcMain.handle('export:runInWorker', async (event, payload) => {
       webSecurity: false,
     },
   })
-  const workerContents = exportWorkerWindow.webContents
+  exportWorkerWindow = workerWindow
+  const workerContents = workerWindow.webContents
   // The export worker is a hidden window, so its console is invisible in
   // normal use. Mirror it to userData/export-worker.log so export failures
   // are diagnosable from disk — including renderer crashes, which otherwise
@@ -5735,6 +5800,27 @@ ipcMain.handle('export:runInWorker', async (event, payload) => {
       }
     }
   }
+  let terminalSent = false
+  const clearActiveWorker = () => {
+    if (exportWorkerWindow === workerWindow) {
+      exportWorkerWindow = null
+    }
+  }
+  const forwardToMain = (channel, data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(channel, data, { jobId })
+    }
+  }
+  const finishWorker = (channel, data) => {
+    if (terminalSent) return false
+    terminalSent = true
+    forwardToMain(channel, data)
+    clearActiveWorker()
+    if (!workerWindow.isDestroyed()) {
+      workerWindow.close()
+    }
+    return true
+  }
   workerContents.on('console-message', (_event, level, message, lineNo, sourceId) => {
     workerLog(`[${new Date().toISOString().slice(11, 19)}] [${level}] ${message} (${String(sourceId).split('/').pop()}:${lineNo})`)
   })
@@ -5743,68 +5829,65 @@ ipcMain.handle('export:runInWorker', async (event, payload) => {
   // line forever AND blocks every future export with "already in progress".
   workerContents.on('render-process-gone', (_event, details) => {
     workerLog(`!!! RENDER PROCESS GONE: ${JSON.stringify(details)}`)
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(
-        'export:error',
-        `Export process crashed (${details?.reason || 'unknown'}, code ${details?.exitCode ?? '?'}). Details in ${workerLogActivePath}.`
-      )
-    }
-    if (exportWorkerWindow && !exportWorkerWindow.isDestroyed()) {
-      exportWorkerWindow.close()
-    }
-    exportWorkerWindow = null
+    const pngSequenceRecoveryNote = jobPayload?.options?.format === 'png-seq' && jobPayload?.outputPath
+      ? ` An incomplete PNG sequence may remain at ${jobPayload.outputPath}; Velorn did not delete it because the worker could not confirm folder ownership after the crash.`
+      : ''
+    finishWorker(
+      'export:error',
+      `Export process crashed (${details?.reason || 'unknown'}, code ${details?.exitCode ?? '?'}). Details in ${workerLogActivePath}.${pngSequenceRecoveryNote}`
+    )
   })
-  exportWorkerWindow.on('unresponsive', () => {
+  workerWindow.on('unresponsive', () => {
     workerLog('!!! WORKER WINDOW UNRESPONSIVE')
   })
-  const forwardToMain = (channel, data) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(channel, data)
-    }
-  }
   const onProgress = (event, data) => {
-    if (event.sender === workerContents) forwardToMain('export:progress', data)
+    if (event.sender === workerContents && !terminalSent) forwardToMain('export:progress', data)
   }
   const onComplete = (event, data) => {
     if (event.sender === workerContents) {
-      forwardToMain('export:complete', data)
-      if (exportWorkerWindow && !exportWorkerWindow.isDestroyed()) {
-        exportWorkerWindow.close()
-        exportWorkerWindow = null
-      }
+      finishWorker('export:complete', data)
     }
   }
   const onError = (event, err) => {
     if (event.sender === workerContents) {
       console.error('[Export] Worker reported error:', err, typeof err)
-      forwardToMain('export:error', err)
-      if (exportWorkerWindow && !exportWorkerWindow.isDestroyed()) {
-        exportWorkerWindow.close()
-        exportWorkerWindow = null
-      }
+      finishWorker('export:error', err)
     }
   }
   ipcMain.on('export:progress', onProgress)
   ipcMain.on('export:complete', onComplete)
   ipcMain.on('export:error', onError)
   const sendJob = () => {
-    if (exportWorkerWindow && !exportWorkerWindow.isDestroyed()) {
-      exportWorkerWindow.webContents.send('export:job', payload)
+    if (!workerWindow.isDestroyed()) {
+      workerWindow.webContents.send('export:job', jobPayload)
     }
   }
-  ipcMain.once('export:workerReady', (event) => {
-    if (event.sender === workerContents) sendJob()
-  })
-  exportWorkerWindow.on('closed', () => {
+  const onWorkerReady = (event) => {
+    if (event.sender !== workerContents) return
+    ipcMain.removeListener('export:workerReady', onWorkerReady)
+    sendJob()
+  }
+  ipcMain.on('export:workerReady', onWorkerReady)
+  workerWindow.on('closed', () => {
     ipcMain.removeListener('export:progress', onProgress)
     ipcMain.removeListener('export:complete', onComplete)
     ipcMain.removeListener('export:error', onError)
+    ipcMain.removeListener('export:workerReady', onWorkerReady)
+    if (!terminalSent) {
+      terminalSent = true
+      forwardToMain('export:error', 'Export worker closed before reporting completion.')
+    }
+    clearActiveWorker()
   })
-  exportWorkerWindow.on('closed', () => {
-    exportWorkerWindow = null
-  })
-  await exportWorkerWindow.loadURL(workerUrl)
-  return { started: true }
+  try {
+    await workerWindow.loadURL(workerUrl)
+  } catch (err) {
+    terminalSent = true
+    clearActiveWorker()
+    if (!workerWindow.isDestroyed()) workerWindow.close()
+    throw err
+  }
+  return { started: true, jobId }
 })
 
 const formatFilterNumber = (value, fallback = '0.000000') => {
@@ -5947,6 +6030,7 @@ ipcMain.handle('export:mixAudio', async (event, options = {}) => {
   const trackMap = new Map((tracks || []).map((track) => [track.id, track]))
   const assetMap = new Map((assets || []).map((asset) => [asset.id, asset]))
   const preparedInputs = []
+  const { getAudioMixDelayMilliseconds, isAudioMixClip } = await import('./audioMixEligibility.mjs')
 
   // Skip ledger (the captions mixer's mold): every excluded clip gets a
   // reason. `problem: true` marks exclusions the exporter's strict
@@ -5974,8 +6058,8 @@ ipcMain.handle('export:mixAudio', async (event, options = {}) => {
   }
 
   for (const clip of clips || []) {
-    if (!clip || clip.type !== 'audio') { if (clip) skip(clip, 'not-an-audio-clip'); continue }
-    const track = trackMap.get(clip.trackId)
+    const track = trackMap.get(clip?.trackId)
+    if (!isAudioMixClip(clip, track)) { if (clip) skip(clip, 'not-an-audio-clip'); continue }
     if (!track || track.type !== 'audio' || track.muted || track.visible === false) {
       // The renderer only sends clips on audible audio tracks, so landing
       // here means renderer/main disagree — count it as a problem.
@@ -6024,7 +6108,7 @@ ipcMain.handle('export:mixAudio', async (event, options = {}) => {
     const sourceDurationSec = Math.max(0, timelineVisibleSec * timeScale)
     if (sourceDurationSec <= 0.000001) { skip(clip, 'zero-source-duration', true); continue }
 
-    const delayMs = Math.max(0, Math.round((visibleStart - rangeStartSec) * 1000))
+    const delayMs = getAudioMixDelayMilliseconds(visibleStart, rangeStartSec)
     preparedInputs.push({
       inputPath,
       sourceOffsetSec,
@@ -6096,7 +6180,7 @@ ipcMain.handle('export:mixAudio', async (event, options = {}) => {
         : `pan=stereo|c0=${gl}*c0|c1=c1+${gr}*c0`)
     }
     if (entry.delayMs > 0) {
-      filters.push(`adelay=${entry.delayMs}:all=1`)
+      filters.push(`adelay=${formatFilterNumber(entry.delayMs)}:all=1`)
     }
 
     const label = `mix${index}`
@@ -6641,11 +6725,17 @@ ipcMain.handle('export:prepareVideoSource', async (event, options = {}) => {
 // result (as a promise, so concurrent callers share one probe) per app run.
 const hardwareEncoderProbeCache = new Map()
 
-function probeHardwareEncoder(encoderName) {
-  const cached = hardwareEncoderProbeCache.get(encoderName)
+function clearHardwareEncoderProbeCache() {
+  hardwareEncoderProbeCache.clear()
+}
+
+function probeHardwareEncoder(encoderName, binaryPath = ffmpegPath, options = {}) {
+  const cacheKey = getHardwareEncoderProbeCacheKey(binaryPath, encoderName)
+  if (options.forceRefresh) hardwareEncoderProbeCache.delete(cacheKey)
+  const cached = hardwareEncoderProbeCache.get(cacheKey)
   if (cached) return cached
   const probe = new Promise((resolve) => {
-    if (!ffmpegPath) {
+    if (!binaryPath) {
       resolve({ ok: false, error: 'FFmpeg binary not available.' })
       return
     }
@@ -6656,7 +6746,7 @@ function probeHardwareEncoder(encoderName) {
       '-c:v', encoderName,
       '-f', 'null', '-',
     ]
-    const child = spawn(ffmpegPath, args, { windowsHide: true })
+    const child = spawn(binaryPath, args, { windowsHide: true })
     let stderr = ''
     let settled = false
     const finish = (result) => {
@@ -6682,8 +6772,64 @@ function probeHardwareEncoder(encoderName) {
       }
     })
   })
-  hardwareEncoderProbeCache.set(encoderName, probe)
+  hardwareEncoderProbeCache.set(cacheKey, probe)
   return probe
+}
+
+function listHardwareEncoders(binaryPath, options = {}) {
+  const timeoutMs = Number.isFinite(Number(options.timeoutMs))
+    ? Math.max(1000, Number(options.timeoutMs))
+    : 15000
+
+  return new Promise((resolve) => {
+    if (!binaryPath) {
+      resolve({ h264: false, h265: false, error: 'FFmpeg binary not available.' })
+      return
+    }
+
+    let child
+    try {
+      child = spawn(binaryPath, ['-hide_banner', '-encoders'], { windowsHide: true })
+    } catch (error) {
+      resolve({ h264: false, h265: false, error: error?.message || String(error) })
+      return
+    }
+
+    let output = ''
+    let settled = false
+    let timer = null
+    const finish = (result) => {
+      if (settled) return
+      settled = true
+      if (timer) clearTimeout(timer)
+      resolve(result)
+    }
+    timer = setTimeout(() => {
+      try { child.kill('SIGKILL') } catch { /* process already exited */ }
+      finish({ h264: false, h265: false, error: 'Timed out while listing FFmpeg hardware encoders.' })
+    }, timeoutMs)
+
+    child.stdout.on('data', (data) => {
+      output = appendLimitedStderr(output, data)
+    })
+    child.stderr.on('data', (data) => {
+      output = appendLimitedStderr(output, data)
+    })
+    child.on('error', (error) => {
+      finish({ h264: false, h265: false, error: error?.message || String(error) })
+    })
+    child.on('close', (code) => {
+      if (code !== 0) {
+        finish({ h264: false, h265: false, error: output.trim() || `FFmpeg exited with code ${code}` })
+        return
+      }
+      finish({
+        h264: output.includes(process.platform === 'darwin' ? 'h264_videotoolbox' : 'h264_nvenc'),
+        h265: output.includes(process.platform === 'darwin' ? 'hevc_videotoolbox' : 'hevc_nvenc'),
+        error: null,
+      })
+    })
+  })
 }
 
 // When an export requests hardware encoding, verify the encoder actually
@@ -6694,23 +6840,30 @@ function probeHardwareEncoder(encoderName) {
 // options — both encode handlers pass options straight through to
 // appendExportVideoEncoderArgs. Returns null when hardware is unused,
 // software-only (ProRes/VP9/alpha), or healthy.
-async function resolveHardwareEncoderDowngrade(options = {}) {
-  if (!options.useHardwareEncoder) return null
+function isHardwareVideoEncodingRequested(options = {}) {
+  if (!options.useHardwareEncoder || options.alpha) return false
   const isProRes = options.videoCodec === 'prores' || (options.format === 'mov' && options.proresProfile != null)
   const isVp9 = options.format === 'webm' || options.videoCodec === 'vp9'
-  if (isProRes || isVp9 || options.alpha) return null
+  return !isProRes && !isVp9
+}
+
+async function resolveHardwareEncoderDowngrade(options = {}, selection = null) {
+  if (!isHardwareVideoEncodingRequested(options)) return null
   const isMac = process.platform === 'darwin'
   const isH265 = options.videoCodec === 'h265'
   const encoderName = isMac
     ? (isH265 ? 'hevc_videotoolbox' : 'h264_videotoolbox')
     : (isH265 ? 'hevc_nvenc' : 'h264_nvenc')
-  const probe = await probeHardwareEncoder(encoderName)
+  const activeSelection = selection || { path: ffmpegPath, warning: null }
+  const probe = await probeHardwareEncoder(encoderName, activeSelection.path)
   if (probe.ok) return null
   options.useHardwareEncoder = false
   return {
     requestedEncoder: encoderName,
     fallbackEncoder: isH265 ? 'libx265' : 'libx264',
-    reason: probe.error || 'Hardware encoder failed to initialize.',
+    reason: [activeSelection.warning, probe.error || 'Hardware encoder failed to initialize.']
+      .filter(Boolean)
+      .join(' '),
   }
 }
 
@@ -6727,17 +6880,28 @@ ipcMain.handle('export:encodeVideo', async (event, options = {}) => {
     audioSampleRate = 44100
   } = options
 
-  const encodeFfmpegUnavailable = getFfmpegUnavailableError()
-  if (encodeFfmpegUnavailable) {
-    return { success: false, error: encodeFfmpegUnavailable }
-  }
   if (!framePattern || !outputPath) {
     return { success: false, error: 'Missing export inputs.' }
   }
 
-  const hardwareFallback = await resolveHardwareEncoderDowngrade(options)
+  const hardwareRequested = isHardwareVideoEncodingRequested(options)
+  const hardwareFfmpegSelection = hardwareRequested
+    ? await resolveHardwareExportFfmpegSelection()
+    : { path: ffmpegPath, source: 'bundled', warning: null }
+  const hardwareFallback = await resolveHardwareEncoderDowngrade(options, hardwareFfmpegSelection)
   if (hardwareFallback) {
     console.warn(`[Export] ${hardwareFallback.requestedEncoder} unavailable (${hardwareFallback.reason}); using ${hardwareFallback.fallbackEncoder}.`)
+  }
+  const hardwareFfmpegRoute = resolveHardwareExportRoute({
+    hardwareRequested,
+    useHardwareEncoder: options.useHardwareEncoder,
+    selection: hardwareFfmpegSelection,
+    bundledPath: ffmpegPath,
+  })
+  const encodeFfmpegPath = hardwareFfmpegRoute.path
+  const encodeFfmpegUnavailable = getFfmpegUnavailableError(encodeFfmpegPath)
+  if (encodeFfmpegUnavailable) {
+    return { success: false, error: encodeFfmpegUnavailable, ...(hardwareFallback ? { hardwareFallback } : {}) }
   }
 
   const args = ['-y', '-framerate', String(fps), '-i', framePattern]
@@ -6762,7 +6926,7 @@ ipcMain.handle('export:encodeVideo', async (event, options = {}) => {
   console.log(`[Export] Encoding with ${encoderUsed} (${options.useHardwareEncoder ? 'hardware' : 'software'})`)
 
   return await new Promise((resolve) => {
-    const ffmpeg = spawn(ffmpegPath, args, { windowsHide: true })
+    const ffmpeg = spawn(encodeFfmpegPath, args, { windowsHide: true })
     let stderr = ''
 
     ffmpeg.stderr.on('data', (data) => {
@@ -6775,9 +6939,25 @@ ipcMain.handle('export:encodeVideo', async (event, options = {}) => {
 
     ffmpeg.on('close', (code) => {
       if (code === 0) {
-        resolve({ success: true, encoderUsed, ...(hardwareFallback ? { hardwareFallback } : {}) })
+        resolve({
+          success: true,
+          encoderUsed,
+          ...(hardwareFallback ? { hardwareFallback } : {}),
+          ...(hardwareRequested ? {
+            hardwareFfmpeg: {
+              source: hardwareFfmpegRoute.source,
+              path: encodeFfmpegPath,
+              warning: hardwareFfmpegRoute.warning,
+            },
+          } : {}),
+        })
       } else {
-        resolve({ success: false, error: stderr || `FFmpeg exited with code ${code}`, encoderUsed, ...(hardwareFallback ? { hardwareFallback } : {}) })
+        resolve({
+          success: false,
+          error: stderr || `FFmpeg exited with code ${code}`,
+          encoderUsed,
+          ...(hardwareFallback ? { hardwareFallback } : {}),
+        })
       }
     })
   })
@@ -6793,17 +6973,33 @@ ipcMain.handle('export:startFramePipe', async (event, options = {}) => {
     duration = null,
   } = options
 
-  const pipeFfmpegUnavailable = getFfmpegUnavailableError()
-  if (pipeFfmpegUnavailable) {
-    return { success: false, error: pipeFfmpegUnavailable, code: 'ffmpeg-missing' }
-  }
   if (!width || !height || !outputPath) {
     return { success: false, error: 'Missing frame pipe inputs.' }
   }
 
-  const hardwareFallback = await resolveHardwareEncoderDowngrade(options)
+  const hardwareRequested = isHardwareVideoEncodingRequested(options)
+  const hardwareFfmpegSelection = hardwareRequested
+    ? await resolveHardwareExportFfmpegSelection()
+    : { path: ffmpegPath, source: 'bundled', warning: null }
+  const hardwareFallback = await resolveHardwareEncoderDowngrade(options, hardwareFfmpegSelection)
   if (hardwareFallback) {
     console.warn(`[Export] ${hardwareFallback.requestedEncoder} unavailable (${hardwareFallback.reason}); using ${hardwareFallback.fallbackEncoder}.`)
+  }
+  const hardwareFfmpegRoute = resolveHardwareExportRoute({
+    hardwareRequested,
+    useHardwareEncoder: options.useHardwareEncoder,
+    selection: hardwareFfmpegSelection,
+    bundledPath: ffmpegPath,
+  })
+  const encodeFfmpegPath = hardwareFfmpegRoute.path
+  const pipeFfmpegUnavailable = getFfmpegUnavailableError(encodeFfmpegPath)
+  if (pipeFfmpegUnavailable) {
+    return {
+      success: false,
+      error: pipeFfmpegUnavailable,
+      code: 'ffmpeg-missing',
+      ...(hardwareFallback ? { hardwareFallback } : {}),
+    }
   }
 
   const args = [
@@ -6842,7 +7038,7 @@ ipcMain.handle('export:startFramePipe', async (event, options = {}) => {
   args.push(outputPath)
 
   const sessionId = crypto.randomUUID()
-  const ffmpeg = spawn(ffmpegPath, args, { windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] })
+  const ffmpeg = spawn(encodeFfmpegPath, args, { windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] })
   let stderr = ''
   let closed = false
   let closeCode = null
@@ -6879,10 +7075,10 @@ ipcMain.handle('export:startFramePipe', async (event, options = {}) => {
     ffmpeg.once('close', onClose)
   })
   if (!startup.ok) {
-    console.error(`[Export] Frame pipe FFmpeg failed to start (${ffmpegPath}): ${startup.reason}`)
+    console.error(`[Export] Frame pipe FFmpeg failed to start (${encodeFfmpegPath}): ${startup.reason}`)
     return {
       success: false,
-      error: `FFmpeg could not start (${ffmpegPath}): ${startup.reason}`,
+      error: `FFmpeg could not start (${encodeFfmpegPath}): ${startup.reason}`,
       code: 'spawn-failed',
       encoderUsed,
     }
@@ -6899,7 +7095,19 @@ ipcMain.handle('export:startFramePipe', async (event, options = {}) => {
   })
 
   console.log(`[Export] Frame pipe started with ${encoderUsed} (${options.useHardwareEncoder ? 'hardware' : 'software'})`)
-  return { success: true, sessionId, encoderUsed, ...(hardwareFallback ? { hardwareFallback } : {}) }
+  return {
+    success: true,
+    sessionId,
+    encoderUsed,
+    ...(hardwareFallback ? { hardwareFallback } : {}),
+    ...(hardwareRequested ? {
+      hardwareFfmpeg: {
+        source: hardwareFfmpegRoute.source,
+        path: encodeFfmpegPath,
+        warning: hardwareFfmpegRoute.warning,
+      },
+    } : {}),
+  }
 })
 
 ipcMain.handle('export:writeFrameToPipe', async (event, sessionId, frameBuffer) => {
@@ -7261,68 +7469,128 @@ ipcMain.handle('proxy:transcode', async (event, { inputPath, outputPath, targetH
 // Hardware-encoder availability check. Despite the historical channel name
 // this is platform-aware: NVENC on Windows/Linux, VideoToolbox on macOS.
 // The `kind` field tells the renderer which family it is looking at.
-ipcMain.handle('export:checkNvenc', async () => {
+ipcMain.handle('export:getHardwareFfmpegStatus', async () => {
+  return await getHardwareExportFfmpegStatus()
+})
+
+ipcMain.handle('export:setHardwareFfmpegPath', async (event, selectedPath) => {
+  const versionProbe = await probeFfmpegVersion(selectedPath)
+  if (!versionProbe.ok) {
+    return { success: false, error: versionProbe.error || 'The selected FFmpeg executable could not be validated.' }
+  }
+
+  try {
+    await writeSettingsRaw((settings) => ({
+      ...settings,
+      [HARDWARE_EXPORT_FFMPEG_SETTING_KEY]: versionProbe.path,
+    }))
+    clearHardwareEncoderProbeCache()
+    notifyHardwareExportFfmpegChanged()
+    return { success: true, status: await getHardwareExportFfmpegStatus() }
+  } catch (error) {
+    return { success: false, error: error?.message || String(error) }
+  }
+})
+
+ipcMain.handle('export:resetHardwareFfmpegPath', async () => {
+  try {
+    await writeSettingsRaw((settings) => {
+      const next = { ...settings }
+      delete next[HARDWARE_EXPORT_FFMPEG_SETTING_KEY]
+      return next
+    })
+    clearHardwareEncoderProbeCache()
+    notifyHardwareExportFfmpegChanged()
+    return { success: true, status: await getHardwareExportFfmpegStatus() }
+  } catch (error) {
+    return { success: false, error: error?.message || String(error) }
+  }
+})
+
+ipcMain.handle('export:checkNvenc', async (event, options = {}) => {
   const isMac = process.platform === 'darwin'
   const kind = isMac ? 'videotoolbox' : 'nvenc'
   const gpuName = isMac ? null : await detectNvidiaGpuName()
+  const selection = await resolveHardwareExportFfmpegSelection()
+  const metadata = {
+    ffmpegSource: selection.source,
+    ffmpegPath: selection.path,
+    configuredFfmpegPath: selection.settingPath || null,
+    environmentFfmpegPath: selection.environmentPath || null,
+    ffmpegWarning: selection.warning || null,
+  }
 
-  if (!ffmpegPath) {
-    return { available: false, h264: false, h265: false, gpuName, kind, error: 'FFmpeg binary not available.' }
+  if (!selection.path) {
+    return { ...metadata, available: false, h264: false, h265: false, gpuName, kind, error: 'FFmpeg binary not available.' }
   }
 
   // Two-stage check: the -encoders listing says whether the build contains
   // the encoder at all (the Linux ffmpeg-static build doesn't), then a real
   // one-frame probe catches builds where it's listed but can't initialize
   // (driver/API-version mismatches). Only the probe result is authoritative.
-  const listing = await new Promise((resolve) => {
-    const ffmpeg = spawn(ffmpegPath, ['-hide_banner', '-encoders'], { windowsHide: true })
-    let output = ''
+  if (options.forceRefresh) clearHardwareEncoderProbeCache()
+  const versionProbe = selection.version
+    ? { ok: true, version: selection.version }
+    : await probeFfmpegVersion(selection.path)
+  if (!versionProbe.ok) {
+    return {
+      ...metadata,
+      available: false,
+      h264: false,
+      h265: false,
+      gpuName,
+      kind,
+      error: [selection.warning, versionProbe.error].filter(Boolean).join(' '),
+    }
+  }
+  metadata.ffmpegVersion = versionProbe.version || null
 
-    ffmpeg.stdout.on('data', (data) => {
-      output += data.toString()
-    })
-    ffmpeg.stderr.on('data', (data) => {
-      output += data.toString()
-    })
-
-    ffmpeg.on('error', (err) => {
-      resolve({ h264: false, h265: false, error: err.message })
-    })
-
-    ffmpeg.on('close', () => {
-      resolve({
-        h264: isMac ? output.includes('h264_videotoolbox') : output.includes('h264_nvenc'),
-        h265: isMac ? output.includes('hevc_videotoolbox') : output.includes('hevc_nvenc'),
-        error: null,
-      })
-    })
-  })
+  const listing = await listHardwareEncoders(selection.path)
 
   if (listing.error) {
-    return { available: false, h264: false, h265: false, gpuName, kind, error: listing.error }
+    return {
+      ...metadata,
+      available: false,
+      h264: false,
+      h265: false,
+      gpuName,
+      kind,
+      error: [selection.warning, listing.error].filter(Boolean).join(' '),
+    }
   }
 
   let h264 = false
   let h265 = false
   let probeError = null
   if (listing.h264) {
-    const probe = await probeHardwareEncoder(isMac ? 'h264_videotoolbox' : 'h264_nvenc')
+    const probe = await probeHardwareEncoder(
+      isMac ? 'h264_videotoolbox' : 'h264_nvenc',
+      selection.path,
+      { forceRefresh: options.forceRefresh === true }
+    )
     h264 = probe.ok
     if (!probe.ok) probeError = probe.error
   }
   if (listing.h265) {
-    const probe = await probeHardwareEncoder(isMac ? 'hevc_videotoolbox' : 'hevc_nvenc')
+    const probe = await probeHardwareEncoder(
+      isMac ? 'hevc_videotoolbox' : 'hevc_nvenc',
+      selection.path,
+      { forceRefresh: options.forceRefresh === true }
+    )
     h265 = probe.ok
     if (!probe.ok && !probeError) probeError = probe.error
   }
 
   return {
+    ...metadata,
     available: h264 || h265,
     h264,
     h265,
     gpuName,
     kind,
-    ...(probeError && !h264 && !h265 ? { error: probeError } : {}),
+    ...((selection.warning || (probeError && !h264 && !h265))
+      ? { error: [selection.warning, probeError].filter(Boolean).join(' ') }
+      : {}),
   }
 })
 
