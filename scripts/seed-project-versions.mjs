@@ -14,6 +14,7 @@ import {
   appendVersion,
   emptyIndex,
   makeVersionId,
+  normalizeIndex,
   snapshotCandidates,
 } from '../src/services/projectVersions.js'
 
@@ -26,11 +27,11 @@ async function exists(p) {
   }
 }
 
-async function seedOne(root, label = 'baseline') {
+async function seedOne(root, label = 'baseline', { force = false } = {}) {
   const projectFile = path.join(root, PROJECT_FILE)
   if (!(await exists(projectFile))) return { skipped: true, reason: 'no-project-file' }
   const indexPath = path.join(root, VERSION_DIR, INDEX_FILE)
-  if (await exists(indexPath)) return { skipped: true, reason: 'already-versioned' }
+  if (!force && (await exists(indexPath))) return { skipped: true, reason: 'already-versioned' }
   const id = makeVersionId(label)
   const destRoot = path.join(root, VERSION_DIR, id)
   const copied = []
@@ -42,7 +43,11 @@ async function seedOne(root, label = 'baseline') {
     await fs.copyFile(src, dest)
     copied.push(rel)
   }
-  const index = appendVersion(emptyIndex(), {
+  if (!copied.includes(PROJECT_FILE)) return { skipped: true, reason: 'copy-failed' }
+  const prev = (await exists(indexPath))
+    ? normalizeIndex(JSON.parse(await fs.readFile(indexPath, 'utf8')))
+    : emptyIndex()
+  const index = appendVersion(prev, {
     id,
     label,
     createdAt: new Date().toISOString(),
@@ -55,14 +60,23 @@ async function seedOne(root, label = 'baseline') {
 }
 
 async function main() {
-  const root = process.argv[2] || path.join(process.env.HOME || '', 'VelornProjects')
-  const entries = await fs.readdir(root, { withFileTypes: true })
+  const args = process.argv.slice(2)
+  const force = args.includes('--force')
+  const labelArg = args.find((a) => a.startsWith('--label='))
+  const label = labelArg ? labelArg.slice('--label='.length) : (force ? 'snapshot' : 'baseline')
+  const positionals = args.filter((a) => !a.startsWith('--'))
+  const root = path.join(process.env.HOME || '', 'VelornProjects')
+  const only = positionals
+  const names = only.length
+    ? only
+    : (await fs.readdir(root, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('_') && !entry.name.startsWith('.'))
+      .map((entry) => entry.name)
   const summary = []
-  for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name.startsWith('_') || entry.name.startsWith('.')) continue
-    const projectRoot = path.join(root, entry.name)
-    const result = await seedOne(projectRoot)
-    summary.push({ project: entry.name, ...result })
+  for (const name of names) {
+    const projectRoot = path.isAbsolute(name) ? name : path.join(root, name)
+    const result = await seedOne(projectRoot, label, { force })
+    summary.push({ project: path.basename(projectRoot), ...result })
   }
   const made = summary.filter((row) => !row.skipped)
   const skipped = summary.filter((row) => row.skipped)

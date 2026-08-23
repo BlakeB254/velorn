@@ -16,10 +16,15 @@ export const PROJECT_FILE = 'project.comfystudio'
 export const OPTIONAL_SNAPSHOT_FILES = [
   'CONTEST.md',
   'SUBMIT.md',
+  'INSPECT.md',
   'docs/edit-map.md',
+  'docs/grok-cut/edit-map.md',
   'docs/PRODUCTION-BIBLE.md',
   'docs/QA-LOG.md',
   'docs/SHOT-CRAFT.md',
+  'docs/CDX-MIGRATION.md',
+  'docs/DANCE-PASS.md',
+  'docs/SESSION-HANDOFF-2026-08-20.md',
 ]
 
 export function snapshotCandidates() {
