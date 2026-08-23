@@ -3,7 +3,7 @@
 **Gate for deleting cdx-video-director MCP / custom CDX Studio**
 **Velorn is the permanent foundational video production + edit surface.**
 
-**Status:** 15/22 ✅ | 7 ❌ decomposed into child Kanban tasks (t_91b290aa orchestrator)
+**Status:** 21/22 ✅ | row 22 (delete cdx-video-director) still ❌ until Blake signs off. Ports #8–#14 cherry-picked onto `cdx/vendor-0.3.25` (v0.3.28) 2026-08-23.
 
 ## Decomposition (t_91b290aa)
 Child tasks created (all parented to t_91b290aa, assigned to programmer, branches off cdx-eval-0.3.25 in ~/opensource/velorn):
@@ -29,13 +29,13 @@ Update this checklist + Core #396 as each child lands. Final deletion card after
 | 5 | Studio QA record (studio_qa_record) | ✅ | director | merged | Per-shot verdicts | - |
 | 6 | Studio cast resolve (studio_cast_resolve) | ✅ | director | merged | Cast tiers, slots | - |
 | 7 | Studio slots mutate / list | ✅ | programmer | merged | Slot state on cards | - |
-| 8 | **Cast lock / ref gate** | ❌ | director+programmer | tbd (t_510ae56d) | cdx-cast-lock skill + ref gate logic from cdx-video-director | t_510ae56d |
-| 9 | **Shot routing matrix (cdx-shot-routing)** | ❌ | director+programmer | [PR #2](https://github.com/BlakeB254/velorn/pull/2) | Velorn-native router in `studio_flow` / `studio_route_shot` / storyboard UI. Flip ✅ after merge. | t_d9d90abe |
-| 10 | **CreativeOps ledger → production graph** | ❌ | director+programmer | [PR #5](https://github.com/BlakeB254/velorn/pull/5) | Velorn-native ledger + `studio_graph_ledger` / `app_graph_sync.py`. Flip ✅ after merge. | t_d34b92db |
-| 11 | **Take chain / VO / lipsync / foley** | ❌ | director+programmer | [PR #4](https://github.com/BlakeB254/velorn/pull/4) | Velorn-native take chain in `studio.voiceover` / `synthesize_voiceover` / `generate_lipsync_clip` / `generate_foley` / VSE lanes. Flip ✅ after merge. | t_f3e76d3f |
-| 12 | **Style packs / bible / franchises** | ❌ | director+programmer | [PR #6](https://github.com/BlakeB254/velorn/pull/6) | Velorn-native style packs / bible / franchises in `studio_style_pack` / `studio_bible` / `studio_franchise` / `studio_animation_styles`. Flip ✅ after merge. | t_978f5101 |
-| 13 | **Evaluation rubrics** | ❌ | director+programmer | [PR #7](https://github.com/BlakeB254/velorn/pull/7) | Velorn-native MediaRubric + studio_audit / velorn-studio-audit. Flip ✅ after merge. | t_5329eb27 |
-| 14 | **Core trace bridge + skill_version_id** | ❌ | director+programmer | [PR #8](https://github.com/BlakeB254/velorn/pull/8) | Velorn-native Core ledger + skill_version_id / entity resolve / map receipts. Flip ✅ after merge. | t_ed3aed05 |
+| 8 | **Cast lock / ref gate** | ✅ | director+programmer | [PR #3](https://github.com/BlakeB254/velorn/pull/3) onto vendor 0.3.28 | `castLock.js` + storyboard gate | t_510ae56d |
+| 9 | **Shot routing matrix (cdx-shot-routing)** | ✅ | director+programmer | [PR #2](https://github.com/BlakeB254/velorn/pull/2) onto vendor 0.3.28 | `shotRouting.js` / `studio_route_shot` / RouteChip | t_d9d90abe |
+| 10 | **CreativeOps ledger → production graph** | ✅ | director+programmer | [PR #5](https://github.com/BlakeB254/velorn/pull/5) onto vendor 0.3.28 | `creativeOps.js` / `app_graph_sync.py` | t_d34b92db |
+| 11 | **Take chain / VO / lipsync / foley** | ✅ | director+programmer | [PR #4](https://github.com/BlakeB254/velorn/pull/4) onto vendor 0.3.28 | `takeChain.js` / VO / lipsync / foley / VSE lanes | t_f3e76d3f |
+| 12 | **Style packs / bible / franchises** | ✅ | director+programmer | [PR #6](https://github.com/BlakeB254/velorn/pull/6) onto vendor 0.3.28 | StyleBiblePanel + catalogs | t_978f5101 |
+| 13 | **Evaluation rubrics** | ✅ | director+programmer | [PR #7](https://github.com/BlakeB254/velorn/pull/7) onto vendor 0.3.28 | MediaRubric + `velorn-studio-audit` | t_5329eb27 |
+| 14 | **Core trace bridge + skill_version_id** | ✅ | director+programmer | [PR #8](https://github.com/BlakeB254/velorn/pull/8) onto vendor 0.3.28 | `coreTraceBridge.js` | t_ed3aed05 |
 | 15 | cdx-film-lexicon integration | ✅ | director | merged | Shot lexicon | - |
 | 16 | cdx-viral-pacing in timeline | ✅ | director | merged | Edit pacing rules | - |
 | 17 | ComfyUI / LTX25 / H3 bundles in Velorn | ✅ | programmer | merged | cdx-generative-ecosystems routing | - |
@@ -43,7 +43,7 @@ Update this checklist + Core #396 as each child lands. Final deletion card after
 | 19 | Studio desk / pipeline | ✅ | director | merged | studio_desk, studio_pipeline | - |
 | 20 | Kanban map receipt per card | ✅ | operator | merged | POST /kanban/receipt for studio+beatlab | - |
 | 21 | GPU serial + drafts-only outward | ✅ | programmer | merged | Earlyoom / queue rules | - |
-| 22 | Deletion of cdx-video-director once complete | ❌ | director | final card | Only after all above ✅ and checklist updated + Core #396 closed | t_91b290aa (final) |
+| 22 | Deletion of cdx-video-director once complete | ❌ | director | final card | Ports 1–21 are on `cdx/vendor-0.3.25`. Do **not** delete `:7060` until Blake closes Core #396. | t_91b290aa (final) |
 
 **Instructions for each child card:** (see decomposition section above)
 - Director owns production semantics (extracted in checklist + skills like cdx-shot-routing, cdx-cast-lock, cdx-studio-audit, velorn-production, versioned-creative-pipelines).
