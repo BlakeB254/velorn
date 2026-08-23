@@ -47,8 +47,20 @@ import { handleProductionAction, handleSetProduction } from './mcpProduction'
 import { gateGeneration } from './castLock'
 import { getOutputTarget } from './outputRatio'
 import { getProductionType } from './productionTypes'
+import {
+  INDEX_FILE,
+  PROJECT_FILE,
+  VERSION_DIR,
+  appendVersion,
+  emptyIndex,
+  makeVersionId,
+  normalizeIndex,
+  resolveRestoreFiles,
+  shouldAutosaveAction,
+  snapshotCandidates,
+} from './projectVersions.js'
 
-export const MCP_ACTION_BRIDGE_VERSION = 7
+export const MCP_ACTION_BRIDGE_VERSION = 8
 
 const MCP_PROJECT_CHECKPOINTS = new Map()
 const MCP_PROJECT_CHECKPOINT_LIMIT = 20
@@ -2220,6 +2232,162 @@ async function handleSaveProject(payload = {}) {
       modified: nextProject?.modified || null,
     },
     message: `Saved "${nextProject?.name || project.name || 'the current project'}".`,
+  }
+}
+
+function electronFs() {
+  const api = typeof window !== 'undefined' ? window.electronAPI : null
+  if (!api?.pathJoin || !api?.copyFile || !api?.readFile || !api?.writeFile || !api?.createDirectory) {
+    throw new Error('On-disk project versions need the desktop app.')
+  }
+  return api
+}
+
+function projectRootOrThrow() {
+  const handle = useProjectStore.getState().currentProjectHandle
+  if (typeof handle !== 'string' || !handle.trim()) {
+    throw new Error('On-disk versions need an open project folder path.')
+  }
+  return handle
+}
+
+async function readVersionIndex(api, root) {
+  const indexPath = await api.pathJoin(root, VERSION_DIR, INDEX_FILE)
+  const result = await api.readFile(indexPath, { encoding: 'utf8' })
+  if (!result?.success) return emptyIndex()
+  try {
+    return normalizeIndex(JSON.parse(result.data))
+  } catch {
+    return emptyIndex()
+  }
+}
+
+async function writeVersionIndex(api, root, index) {
+  const indexPath = await api.pathJoin(root, VERSION_DIR, INDEX_FILE)
+  await api.createDirectory(await api.pathJoin(root, VERSION_DIR), { recursive: true })
+  const result = await api.writeFile(indexPath, index)
+  if (result?.success === false) throw new Error(result.error || 'could not write versions/index.json')
+}
+
+async function handleListProjectVersions() {
+  const api = electronFs()
+  const root = projectRootOrThrow()
+  const index = await readVersionIndex(api, root)
+  return {
+    success: true,
+    action: 'list_project_versions',
+    projectPath: root,
+    count: index.versions.length,
+    versions: index.versions.slice().reverse(),
+    liveFile: PROJECT_FILE,
+  }
+}
+
+async function handleSaveProjectVersion(payload = {}) {
+  const api = electronFs()
+  const root = projectRootOrThrow()
+  const label = String(payload.label || payload.name || 'snapshot').trim() || 'snapshot'
+  const previewOnly = payload.previewOnly !== false
+  const candidates = snapshotCandidates()
+  if (previewOnly) {
+    return {
+      previewOnly: true,
+      action: 'save_project_version',
+      message: 'Version plan only. Live project was not snapshotted.',
+      label,
+      files: candidates,
+      suggestedApplyPayload: { label, previewOnly: false },
+    }
+  }
+  const saved = await handleSaveProject({ previewOnly: false })
+  if (!saved?.success) throw new Error('Could not save the live project before snapshotting.')
+  const index = await readVersionIndex(api, root)
+  const id = makeVersionId(label)
+  const destRoot = await api.pathJoin(root, VERSION_DIR, id)
+  await api.createDirectory(destRoot, { recursive: true })
+  const copied = []
+  for (const rel of candidates) {
+    const src = await api.pathJoin(root, ...rel.split('/'))
+    const exists = await api.readFile(src, { encoding: 'utf8' })
+    if (!exists?.success) continue
+    const dest = await api.pathJoin(destRoot, ...rel.split('/'))
+    const copy = await api.copyFile(src, dest)
+    if (copy?.success === false) throw new Error(copy.error || `copy failed: ${rel}`)
+    copied.push(rel)
+  }
+  if (!copied.includes(PROJECT_FILE)) {
+    throw new Error('project.comfystudio was not copied — cannot create an empty version.')
+  }
+  const entry = {
+    id,
+    label,
+    createdAt: new Date().toISOString(),
+    files: copied,
+    ops: Array.isArray(payload.ops) ? payload.ops : [],
+  }
+  const next = appendVersion(index, entry)
+  await writeVersionIndex(api, root, next)
+  return {
+    success: true,
+    action: 'save_project_version',
+    version: next.versions[next.versions.length - 1],
+    projectPath: root,
+    count: next.versions.length,
+    message: `Saved version "${label}" (${id}) with ${copied.length} file(s). Live project is current.`,
+  }
+}
+
+async function handleRestoreProjectVersion(payload = {}) {
+  const api = electronFs()
+  const root = projectRootOrThrow()
+  const index = await readVersionIndex(api, root)
+  const requestedId = String(payload.versionId || payload.id || '').trim()
+  const entry = requestedId
+    ? index.versions.find((row) => row.id === requestedId)
+    : index.versions[index.versions.length - 1]
+  if (!entry) {
+    throw new Error(requestedId
+      ? `Version ${requestedId} was not found.`
+      : 'No on-disk project versions exist yet. Call save_project_version first.')
+  }
+  const files = resolveRestoreFiles(entry.files, payload.files)
+  const previewOnly = payload.previewOnly !== false
+  if (previewOnly) {
+    return {
+      previewOnly: true,
+      action: 'restore_project_version',
+      message: 'Restore plan only. No files were copied.',
+      version: entry,
+      files,
+      suggestedApplyPayload: { versionId: entry.id, files, previewOnly: false },
+    }
+  }
+  // Snapshot current live state so a restore is itself revertible.
+  await handleSaveProjectVersion({
+    label: `pre-restore-${entry.id}`,
+    previewOnly: false,
+    ops: [{ action: 'restore_project_version', versionId: entry.id }],
+  })
+  const srcRoot = await api.pathJoin(root, VERSION_DIR, entry.id)
+  for (const rel of files) {
+    const src = await api.pathJoin(srcRoot, ...rel.split('/'))
+    const dest = await api.pathJoin(root, ...rel.split('/'))
+    const copy = await api.copyFile(src, dest)
+    if (copy?.success === false) throw new Error(copy.error || `restore failed: ${rel}`)
+  }
+  if (files.includes(PROJECT_FILE)) {
+    const opened = await useProjectStore.getState().openProject(root)
+    if (!opened) throw new Error('Restored files but could not reopen the project.')
+  }
+  return {
+    success: true,
+    action: 'restore_project_version',
+    versionId: entry.id,
+    files,
+    reopened: files.includes(PROJECT_FILE),
+    message: files.length === (entry.files || []).length
+      ? `Restored version "${entry.label}" in full.`
+      : `Restored ${files.length} file(s) from "${entry.label}".`,
   }
 }
 
@@ -8499,6 +8667,12 @@ async function handleMcpAction(request = {}) {
       return handleDuplicateProject(request.payload || {})
     case 'open_project':
       return handleOpenProject(request.payload || {})
+    case 'list_project_versions':
+      return handleListProjectVersions(request.payload || {})
+    case 'save_project_version':
+      return handleSaveProjectVersion(request.payload || {})
+    case 'restore_project_version':
+      return handleRestoreProjectVersion(request.payload || {})
     case 'list_recent_projects':
       return handleListRecentProjects(request.payload || {})
     case 'list_glsl_effects':
@@ -8728,7 +8902,23 @@ async function handleMcpAction(request = {}) {
 }
 
 export async function runMcpAction(action, payload = {}) {
-  return handleMcpAction({ action, payload })
+  const result = await handleMcpAction({ action, payload })
+  if (!shouldAutosaveAction(action, payload)) return result
+  if (result?.success === false || result?.previewOnly === true) return result
+  try {
+    const saved = await handleSaveProject({ previewOnly: false })
+    return {
+      ...(result && typeof result === 'object' ? result : { result }),
+      persisted: Boolean(saved?.success),
+      persistedAt: saved?.project?.modified || null,
+    }
+  } catch (error) {
+    return {
+      ...(result && typeof result === 'object' ? result : { result }),
+      persisted: false,
+      persistError: error?.message || String(error),
+    }
+  }
 }
 
 export function startMcpActionBridge() {

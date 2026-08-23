@@ -2920,7 +2920,8 @@ function buildAiReviewPasses(snapshot) {
       'Call discover_production or get_mcp_recipes first. discover_production maps advertisement/commercial/music-video/show/ig-short/skit/PSA to tools + skills.',
       'Call get_mcp_recipes or get_ai_review_passes to choose a review or production pass.',
       'For a show or episode, call get_production_context first so you know show → season → episode → shot layers before writing. Use list_cuts before overwriting a draft.',
-      'Use create_project_checkpoint before risky multi-step AI edits; use restore_project_checkpoint with previewOnly before rolling back to a checkpoint.',
+      'After every applied write, the live project.comfystudio is autosaved so Blake can see current state. Call save_project_version label=... for a named revert point; list_project_versions / restore_project_version (files subset or full) to roll back.',
+      'Use create_project_checkpoint before risky multi-step AI edits (session RAM only); use on-disk save_project_version for durable revert. restore_project_checkpoint with previewOnly before rolling back a session checkpoint.',
       'Call analyze_timeline for mechanical issues before visual review.',
       'Use find_timeline_items before targeting clips, tracks, markers, transitions, or assets from a natural-language request.',
       'Use check_media_health before delivery or relinking work, then use relink_asset with previewOnly when an existing asset points at a missing file.',
@@ -8769,11 +8770,45 @@ function createToolDefinitions() {
     },
     {
       name: 'save_project',
-      description: 'Preview or explicitly save the current Velorn project, including Director state, assets, and the active timeline. Defaults to previewOnly.',
+      description: 'Preview or explicitly save the current Velorn project, including Director state, assets, and the active timeline. Applied MCP writes also autosave this live file so Blake can open the folder and see current state. Defaults to previewOnly.',
       inputSchema: {
         type: 'object',
         properties: {
           previewOnly: { type: 'boolean', description: 'Defaults to true.' },
+        },
+      },
+    },
+    {
+      name: 'list_project_versions',
+      description: 'List on-disk versions of the open project (versions/index.json). Works for every production type, not only show cuts. Read-only.',
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'save_project_version',
+      description: 'Save the live project then copy project.comfystudio (plus known docs) into versions/<id>/ so a set of edits can be reverted later. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          label: { type: 'string', description: 'Human label, e.g. before-titles or after-h3-import.' },
+          name: { type: 'string', description: 'Alias for label.' },
+          previewOnly: { type: 'boolean', description: 'When true, returns the snapshot plan without writing. Defaults to true.' },
+        },
+      },
+    },
+    {
+      name: 'restore_project_version',
+      description: 'Restore an on-disk project version. Omit files to restore the whole snapshot; pass files to restore only those paths (e.g. docs/edit-map.md). Snapshots current live state first. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          versionId: { type: 'string', description: 'Version id from list_project_versions. Latest if omitted.' },
+          id: { type: 'string', description: 'Alias for versionId.' },
+          files: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Subset of snapshot files to restore. Empty = all files in that version.',
+          },
+          previewOnly: { type: 'boolean', description: 'When true, returns the restore plan without copying. Defaults to true.' },
         },
       },
     },
@@ -11730,6 +11765,23 @@ class ComfyStudioMcpServer {
       case 'transcribe_music_video_audio':
       case 'assemble_music_video_timeline':
       case 'replace_music_video_timeline_shot':
+      case 'list_project_versions':
+        return this.runRendererActionTool('list_project_versions', args, {
+          bridgeName: 'MCP project version bridge',
+          suggestedTool: 'list_project_versions',
+        })
+      case 'save_project_version':
+        return this.runRendererActionTool('save_project_version', args, {
+          bridgeName: 'MCP project version bridge',
+          suggestedTool: 'save_project_version',
+          defaultPreviewOnly: true,
+        })
+      case 'restore_project_version':
+        return this.runRendererActionTool('restore_project_version', args, {
+          bridgeName: 'MCP project version bridge',
+          suggestedTool: 'restore_project_version',
+          defaultPreviewOnly: true,
+        })
       case 'save_project':
         return this.runRendererActionTool(name, args, {
           bridgeName: 'MCP Music Video creation bridge',
