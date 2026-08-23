@@ -622,9 +622,9 @@ function AgentWorkspace() {
       <main className="relative flex min-w-0 flex-1 flex-col bg-[radial-gradient(circle_at_top,rgba(117,92,255,0.12),transparent_40%),#05070d]">
         <div className="flex items-center justify-between border-b border-sf-dark-700 bg-black/25 px-5 py-3">
           <div>
-            <h2 className="text-sm font-semibold">Velorn Agent</h2>
+            <h2 className="text-sm font-semibold">CDX Studio Agent</h2>
             <p className="text-xs text-sf-text-muted">
-              Ask a local model to inspect, plan, preview, and operate the current project through Velorn tools.
+              Ask a local model to inspect, plan, preview, and operate the current project through CDX Studio tools (Velorn MCP).
             </p>
           </div>
           <div className="flex items-center gap-2">

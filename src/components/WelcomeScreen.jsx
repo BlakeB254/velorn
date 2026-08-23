@@ -684,7 +684,7 @@ function WelcomeScreen() {
           </div>
           {/* Subtle attribution */}
           <div className="absolute bottom-3 right-4 text-[10px] uppercase tracking-wider text-white/40 pointer-events-none">
-            Made with Velorn
+            CDX Studio · Velorn
           </div>
         </div>
       ) : null}
