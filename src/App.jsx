@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
 import { RefreshCw, ExternalLink, Loader2, BookmarkPlus } from 'lucide-react'
 import TitleBar from './components/TitleBar'
+import MobileTabBar from './components/MobileTabBar'
+import useIsMobile from './hooks/useIsMobile'
 import ExportPanel from './components/ExportPanel'
 import WorkspaceErrorBoundary from './components/WorkspaceErrorBoundary'
 import LeftPanel from './components/LeftPanel'
@@ -73,6 +75,7 @@ function App() {
   const [gettingStartedOpen, setGettingStartedOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState({ type: 'shot', id: '2.1' })
   const [mainTab, setMainTab] = useState('editor')
+  const isMobile = useIsMobile()
   const [hasMountedFlowAi, setHasMountedFlowAi] = useState(false)
   const [hasMountedGenerate, setHasMountedGenerate] = useState(false)
   const [hasMountedStoryboard, setHasMountedStoryboard] = useState(false)
@@ -572,6 +575,17 @@ function App() {
     })
   }, [persistLayout])
 
+  // Phone shell (plan §5): side panels start collapsed to their icon bars so
+  // the preview + timeline own the narrow screen; each keeps its own toggle.
+  useEffect(() => {
+    if (!isMobile) return
+    if (leftPanelExpanded) setLeftPanelExpanded(false)
+    if (inspectorExpanded) setInspectorExpanded(false)
+    if (mediaPoolOpen) setMediaPoolOpen(false)
+    // Only on the mobile transition — the user can re-expand afterwards.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile])
+
   const handleToggleLeftPanelFullHeight = useCallback(() => {
     setLeftPanelFullHeight(prev => {
       const next = !prev
@@ -639,6 +653,7 @@ function App() {
         onTabChange={setMainTab}
         editorLayout={editorLayout}
         onEditorLayoutChange={handleEditorLayoutChange}
+        compact={isMobile}
       />
 
       {showMediaPreparation && (
@@ -1172,7 +1187,12 @@ function App() {
         </div>
         )}
       </div>
-      
+
+      {/* Phone shell: the TitleBar tab strip moves to a bottom bar (plan §5) */}
+      {isMobile && (
+        <MobileTabBar activeTab={mainTab} onTabChange={setMainTab} />
+      )}
+
       {/* Bottom bar: settings menu + undo/redo */}
       <BottomBar
         projectName={currentProject?.name}

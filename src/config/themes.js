@@ -37,6 +37,12 @@ export const THEMES = [
     description: 'Warm dark tones with an amber accent',
     preview: { bg: '#1e1814', surface: '#2a221c', accent: '#a07040', text: '#e8e0d4' },
   },
+  {
+    id: 'cdx',
+    label: 'CDX Studio',
+    description: 'CDX dark glass with violet accent — local skin, not an upstream rename',
+    preview: { bg: '#0b0b10', surface: '#16161e', accent: '#8b5cf6', text: '#f4f4f8' },
+  },
 ]
 
 export const DEFAULT_THEME_ID = 'velorn'

@@ -1,4 +1,5 @@
-import { fromBlockingDoc, normalizeCameraRig, toBlockingCamera, EYE_HEIGHT_M } from './cameraRig'
+import { fromBlockingDoc, normalizeCameraRig, toBlockingCamera, EYE_HEIGHT_M } from './cameraRig.js'
+import { upgradeBlockingDoc } from './blockingV7.js'
 
 export function blockingRelPath(shotSlug) {
   const slug = String(shotSlug || 'shot').replace(/[^a-z0-9_-]+/gi, '-')
@@ -12,7 +13,8 @@ export async function loadBlockingDoc(projectPath, shotSlug) {
   try {
     const result = await api.readFile(path, { encoding: 'utf8' })
     if (!result?.success || !result.data) return null
-    return JSON.parse(result.data)
+    // Read-compat: v6 plain-dict and schema-1 dumps upgrade to v7 in memory.
+    return upgradeBlockingDoc(JSON.parse(result.data))
   } catch {
     return null
   }
@@ -24,7 +26,8 @@ export async function saveBlockingDoc(projectPath, shotSlug, doc) {
   const path = await api.pathJoin(projectPath, blockingRelPath(shotSlug))
   const dir = path.replace(/\/blocking\.json$/, '')
   if (api.createDirectory) await api.createDirectory(dir)
-  const result = await api.writeFile(path, `${JSON.stringify(doc, null, 2)}\n`)
+  // Writes are always blocking v7.
+  const result = await api.writeFile(path, `${JSON.stringify(upgradeBlockingDoc(doc), null, 2)}\n`)
   if (result && result.success === false) throw new Error(result.error || 'Could not write blocking.json')
   return path
 }

@@ -178,6 +178,36 @@
   --sf-text-muted: 104 120 136;
 }
 
+[data-theme="cdx"] {
+  --sf-dark-950: 11 11 16;
+  --sf-dark-900: 16 16 24;
+  --sf-dark-800: 22 22 30;
+  --sf-dark-700: 34 34 46;
+  --sf-dark-600: 48 48 64;
+  --sf-dark-500: 76 70 112;
+  --sf-dark-400: 110 100 150;
+
+  --sf-accent: 139 92 246;
+  --sf-accent-hover: 167 139 250;
+  --sf-accent-muted: 109 72 196;
+
+  --sf-blue: 129 140 248;
+  --sf-blue-hover: 165 180 252;
+  --sf-blue-muted: 99 102 241;
+
+  --sf-clip-video: 56 189 248;
+  --sf-clip-audio: 167 139 250;
+  --sf-clip-text: 250 204 21;
+
+  --sf-success: 52 211 153;
+  --sf-warning: 251 191 36;
+  --sf-error: 244 63 94;
+
+  --sf-text-primary: 244 244 248;
+  --sf-text-secondary: 196 196 210;
+  --sf-text-muted: 148 148 168;
+}
+
 [data-theme="ember"] {
   --sf-dark-950: 16 12 10;
   --sf-dark-900: 30 24 20;

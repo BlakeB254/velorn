@@ -7,6 +7,7 @@ import {
   normalizeShotSettings,
 } from '../../services/shotSettings'
 import { cameraPromptHint, emptyCameraRig, normalizeCameraRig } from '../../services/cameraRig'
+import { cardBackedRefIds, characterBuildLine, wardrobeLine } from '../../services/generationRefs'
 
 export const DEFAULT_FRAME_WORKFLOW = 'z-image-turbo'
 export const DEFAULT_VIDEO_WORKFLOW = 'ltx25-i2v'
@@ -221,6 +222,15 @@ export function composeGenerationPrompt(card, extra = {}) {
   const props = refNames(card.propRefs)
   if (characters) parts.push(`Characters in frame: ${characters}`)
   else parts.push('No principal characters in frame.')
+  // P5: accepted reference cards inject approved body descriptions (plan §4.5)
+  if (extra.references) {
+    for (const ref of card.characterRefs || []) {
+      const line = characterBuildLine(extra.references, ref?.name || ref?.assetId)
+      if (line) parts.push(line)
+      const wardrobe = wardrobeLine(extra.references, ref?.name || ref?.assetId)
+      if (wardrobe) parts.push(wardrobe)
+    }
+  }
   if (location) parts.push(`Location: ${location}`)
   if (props) parts.push(`Props: ${props}`)
   const lexicon = extra.lexiconLine
@@ -273,7 +283,10 @@ export function directorRefsForCard(project, card) {
   }
 }
 
-export function primaryRefIds(card) {
+export function primaryRefIds(card, references) {
+  // P5: accepted character-card anchors are the approved identity source and
+  // win over the loose asset pool when a referenced character has a card.
+  const backed = references ? cardBackedRefIds(references, card.characterRefs) : null
   const pool = [
     ...(card.characterRefs || []),
     ...(card.locationRef ? [card.locationRef] : (card.sceneRefs || [])),
@@ -281,8 +294,8 @@ export function primaryRefIds(card) {
     ...(card.ingredients || []),
   ]
   return {
-    first: pool[0]?.assetId || card.refAssetId1 || null,
-    second: pool[1]?.assetId || card.refAssetId2 || null,
+    first: backed?.first || pool[0]?.assetId || card.refAssetId1 || null,
+    second: backed?.second || pool[1]?.assetId || card.refAssetId2 || null,
   }
 }
 

@@ -54,6 +54,13 @@ import {
   saveProject as saveProjectFile,
 } from '../services/fileSystem'
 import { finalizeVelornGeneration } from '../services/generationPlacement'
+import {
+  musicArtistBuildLines,
+  musicCastReferenceCandidates,
+  musicLocationReferenceAssetId,
+  musicMemberAnchorSlots,
+  musicShotVocalAssetId,
+} from '../services/musicVideoRefs'
 import { enqueuePlaybackTranscode } from '../services/playbackCache'
 import { enqueueProxyTranscode, isProxyPlaybackEnabled } from '../services/proxyCache'
 import { formatCaptionCuesAsSrt, transcribeAsset } from '../services/captionTranscription'
@@ -1424,6 +1431,7 @@ function composeMusicShotReferencePrompt({
   concept = '',
   styleNotes = '',
   cameraDirection = '',
+  buildLines = [],
 }) {
   const keyframe = String(keyframePromptRaw || '').trim()
   const conceptLine = String(concept || '').trim()
@@ -1431,6 +1439,10 @@ function composeMusicShotReferencePrompt({
   // still-image prompt (issue #91).
   const styleLine = extractVisualStyleNotes(styleNotes)
   const cameraLine = String(cameraDirection || '').trim()
+  // Reference-card body lines ("Mara build: 180 cm, slim") pin the resolved
+  // artists' proportions into the still (characterBuildLine gates on
+  // accepted anchors + body data, so these only appear for carded artists).
+  const buildBlock = (Array.isArray(buildLines) ? buildLines : []).filter(Boolean).join('. ')
   const shotFocus = shotTypeOption?.id === 'b_roll'
     ? 'Environment-focused cinematic cutaway.'
     : shotTypeOption?.id === 'performance_wide'
@@ -1449,6 +1461,7 @@ function composeMusicShotReferencePrompt({
     shotFocus,
     conceptLine ? `Concept: ${conceptLine}.` : '',
     styleLine ? `Style: ${styleLine}.` : '',
+    buildBlock ? `${buildBlock}.` : '',
     renderRule,
     continuityFocus,
   ].filter(Boolean)
@@ -1522,6 +1535,7 @@ function buildMusicVideoPlanFromScript(options = {}) {
     targetDuration = 30,
     songDurationSeconds = 0,
     cast = [],
+    references = null,
   } = options
 
   // Warnings accumulator lives at the top of the function so every tier —
@@ -1740,8 +1754,22 @@ function buildMusicVideoPlanFromScript(options = {}) {
           message: `Shot ${flatShotIndex}: ${resolvedMembers.length} cast members resolved, but only two reference slots are available (${dropped.join(', ')} were dropped).`,
         })
       }
-      const slot1 = resolvedMembers[0]?.assetId || null
-      const slot2 = resolvedMembers[1]?.assetId || null
+      // Reference-card upgrade: when the lead resolved member's name matches
+      // a character card with accepted anchors, the card's close-up + full
+      // body (wardrobe-aware) take both reference slots instead of the raw
+      // cast images.
+      const leadCardAnchors = musicMemberAnchorSlots(references, resolvedMembers[0])
+      const slot1 = leadCardAnchors?.closeUp || resolvedMembers[0]?.assetId || null
+      const slot2 = leadCardAnchors
+        ? (leadCardAnchors.fullBody || null)
+        : (resolvedMembers[1]?.assetId || null)
+      // Scene ref: match the shot/coverage label against location cards and
+      // pin the accepted wide (fallback medium) slot for the keyframe queue.
+      const resolvedLocationAssetId = musicLocationReferenceAssetId(
+        references,
+        scriptShot.label || scene?.label || '',
+        coverageLabel
+      )
 
       const videoPrompt = composeMusicShotVideoPrompt({
         motionPromptRaw: scriptShot.motionPromptRaw || scriptShot.videoBeat,
@@ -1757,6 +1785,7 @@ function buildMusicVideoPlanFromScript(options = {}) {
         concept,
         styleNotes,
         cameraDirection: scriptShot.cameraDirection,
+        buildLines: musicArtistBuildLines(references, resolvedMembers.slice(0, 2).map((m) => m?.label || m?.slug || '')),
       })
 
       // Each script shot becomes its own scene with exactly one shot, because
@@ -1803,6 +1832,9 @@ function buildMusicVideoPlanFromScript(options = {}) {
           resolvedArtistAssetIds: [slot1, slot2].filter(Boolean),
           resolvedArtistSource: resolvedSource,
           resolvedArtistLabels: resolvedMembers.slice(0, 2).map((m) => m?.label || m?.slug || ''),
+          // Location-card scene ref (accepted wide/medium); threaded onto
+          // variants by flattenYoloPlanVariants for the keyframe queue.
+          resolvedLocationAssetId,
           // Phase 8 timing diagnostics — surfaced in the shot inspector and
           // consumed by the validation/coverage passes below.
           audioStartSource,
@@ -4897,6 +4929,16 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     () => yoloMusicAudioAssets.find((asset) => asset?.id === yoloMusicAudioAssetId) || null,
     [yoloMusicAudioAssets, yoloMusicAudioAssetId]
   )
+  // Wizard handoff: projects created via the music-video wizard record the
+  // chosen song as creation.musicVideo.songFileName. When no song is
+  // selected yet, auto-select the imported audio asset whose name matches
+  // that filename. Fails silently when nothing matches.
+  const yoloMusicWizardSongFileName = String(currentProject?.creation?.musicVideo?.songFileName || '').trim()
+  useEffect(() => {
+    if (yoloMusicAudioAssetId || !yoloMusicWizardSongFileName) return
+    const match = yoloMusicAudioAssets.find((asset) => String(asset?.name || '').trim() === yoloMusicWizardSongFileName)
+    if (match) setYoloMusicAudioAssetId(match.id)
+  }, [yoloMusicAudioAssetId, yoloMusicWizardSongFileName, yoloMusicAudioAssets])
   const yoloMusicSongDurationSeconds = useMemo(() => {
     const d = Number(yoloMusicAudioAsset?.duration)
     if (Number.isFinite(d) && d > 0) return d
@@ -6254,6 +6296,13 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       })
       .filter(Boolean)
   }, [yoloMusicCast, assets])
+  // Approved reference cards (character anchors, location slots, card vocal
+  // samples) for the current project — feeds cast/location/audio resolution
+  // in the music-video planner and queues.
+  const yoloMusicReferenceCards = useMemo(
+    () => currentProject?.references || null,
+    [currentProject?.references]
+  )
   // Active alt-script derivation.
   //
   // `yoloMusicActiveScriptId === null` means the user is editing the master
@@ -6315,6 +6364,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         targetDuration: yoloMusicTargetDuration,
         songDurationSeconds: yoloMusicSongDurationSeconds,
         cast: [],
+        references: yoloMusicReferenceCards,
       })
       // Cast-resolution warnings are noise on alts (cast is empty by design).
       // Filter them here so the tab status dot + parse preview match what the
@@ -6360,6 +6410,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     yoloMusicStyleNotes,
     yoloMusicTargetDuration,
     yoloMusicSongDurationSeconds,
+    yoloMusicReferenceCards,
   ])
   const yoloMusicActiveAltParse = yoloMusicActiveAltScript
     ? yoloMusicAltParseResults[yoloMusicActiveAltScript.id] || { state: 'empty' }
@@ -8941,6 +8992,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       targetDuration: effectiveTargetDuration,
       songDurationSeconds: effectiveSongDuration,
       cast: isAltTarget ? [] : effectiveCast,
+      references: yoloMusicReferenceCards,
     })
     if (!Array.isArray(nextPlan) || nextPlan.length === 0) {
       setFormError('Could not parse the director script. Make sure each shot starts with "Shot N:" and includes at least a Keyframe prompt and a Motion prompt.')
@@ -9009,6 +9061,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     yoloMusicResolvedCast,
     yoloMusicConcept,
     yoloMusicLyrics,
+    yoloMusicReferenceCards,
     yoloMusicScript,
     yoloMusicSongDurationSeconds,
     yoloMusicStyleNotes,
@@ -10392,10 +10445,12 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       }
       return null
     }
-    const defaultMusicReferenceAssetId = findExistingMusicImageAssetId([
-      ...yoloMusicResolvedCast.map((entry) => entry?.assetId),
-      yoloMusicArtistAsset?.id,
-    ])
+    const defaultMusicReferenceAssetId = findExistingMusicImageAssetId(
+      // Card-aware candidates: accepted anchor pairs (close-up, full body)
+      // for carded cast members, raw cast images otherwise, legacy single
+      // artist last.
+      musicCastReferenceCandidates(yoloMusicReferenceCards, yoloMusicResolvedCast, yoloMusicArtistAsset?.id)
+    )
     const getMusicVariantShotTypeOption = (variant) => {
       const rawShotType = String(variant?.musicShotType || variant?.shotType || '').trim()
       const resolvedShotType = resolveMusicVideoShotTypeFromText(rawShotType)
@@ -10418,13 +10473,20 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       const resolvedArtistAssetIds = Array.isArray(variant?.resolvedArtistAssetIds)
         ? variant.resolvedArtistAssetIds.filter(Boolean)
         : []
+      // Location-card scene refs only anchor non-performer (b-roll/cutaway)
+      // variants — performer shots keep the artist anchors in both slots.
+      const locationAssetId = !shouldUseDefaultMusicPerformerReference(variant)
+        ? (variant?.resolvedLocationAssetId || null)
+        : null
       const primaryAssetId = findExistingMusicImageAssetId([
         ...resolvedArtistAssetIds,
+        ...(locationAssetId ? [locationAssetId] : []),
         ...(shouldUseDefaultMusicPerformerReference(variant) ? [defaultMusicReferenceAssetId] : []),
       ])
-      const secondaryAssetId = findExistingMusicImageAssetId(
-        resolvedArtistAssetIds.filter((assetId) => assetId !== primaryAssetId)
-      )
+      const secondaryAssetId = findExistingMusicImageAssetId([
+        ...resolvedArtistAssetIds.filter((assetId) => assetId !== primaryAssetId),
+        ...(locationAssetId && locationAssetId !== primaryAssetId ? [locationAssetId] : []),
+      ])
       return { primaryAssetId, secondaryAssetId }
     }
     let variantsForJobs = variantsToQueue
@@ -10551,7 +10613,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             ? qwenMusicReferences.primaryAssetId
             : usesNanoBananaMusicOverride
               ? (nanoBananaOverrideAssetIds[0] || null)
-            : (variant.resolvedArtistAssetIds?.[0] || (shouldUseDefaultMusicReference ? yoloMusicArtistAsset?.id : null) || null)
+            : (variant.resolvedArtistAssetIds?.[0] || (shouldUseDefaultMusicReference ? defaultMusicReferenceAssetId : null) || (!shouldUseDefaultMusicReference ? variant?.resolvedLocationAssetId : null) || null)
         )
         : null
       const musicReferenceAssetId2 = isYoloMusicMode
@@ -10560,7 +10622,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             ? qwenMusicReferences.secondaryAssetId
             : usesNanoBananaMusicOverride
               ? (nanoBananaOverrideAssetIds[1] || null)
-            : (variant.resolvedArtistAssetIds?.[1] || null)
+            : (variant.resolvedArtistAssetIds?.[1] || (!shouldUseDefaultMusicReference && variant?.resolvedLocationAssetId && variant.resolvedLocationAssetId !== musicReferenceAssetId1 ? variant.resolvedLocationAssetId : null) || null)
         )
         : null
       const musicInputAsset = variantUsesReferenceMusicWorkflow && musicReferenceAssetId1
@@ -10694,6 +10756,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     yoloMusicArtistAsset?.id,
     yoloMusicCustomKeyframeWorkflow,
     yoloMusicCustomKeyframeValidation,
+    yoloMusicReferenceCards,
     yoloMusicResolvedCast,
     yoloMusicQualityProfile,
     yoloNormalizedAdStoryboardTier,
@@ -11451,6 +11514,21 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           'Keep it authentic, handheld phone-shot UGC. Do not add captions, subtitles, UI text, or on-screen words.',
         ].filter(Boolean).join(' ')
         : null
+      // Per-shot vocal reference (reference cards): when the shot's resolved
+      // artist has a character card with a voice sample attached and the
+      // target workflow consumes audio, the card vocal wins over the global
+      // song audio. The song stays the fallback. Mirrors the
+      // ugcVoiceAssetForVariant pattern above.
+      const musicCardVocalAssetId = isYoloMusicMode
+        ? musicShotVocalAssetId(yoloMusicReferenceCards, musicShot?.resolvedArtistLabels || [])
+        : null
+      const customMusicVideoAcceptsAudio = usesCustomMusicVideoWorkflow
+        && Boolean(yoloMusicCustomVideoValidation?.endpoints?.inputAudio)
+      const musicVocalRefAudioAssetId = musicCardVocalAssetId && (
+        effectiveWorkflowId === MUSIC_VIDEO_SHOT_WORKFLOW_ID
+          || customMusicVideoAcceptsAudio
+          || effectiveWorkflowId === 'ltx23-ia2v'
+      ) ? musicCardVocalAssetId : null
       jobs.push(createQueuedJob({
         category: 'video',
         workflowId: effectiveWorkflowId,
@@ -11474,12 +11552,17 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         ...(Object.keys(videoAssetFieldIds).length > 0 ? { assetFieldIds: videoAssetFieldIds } : {}),
         ...(isSeedanceUgcVideo ? { generateAudio: !seedanceVoiceAsset } : {}),
         ...(ugcVoiceAsset ? { audioAssetId: ugcVoiceAsset.id } : {}),
+        ...(!ugcVoiceAsset && isYoloMusicMode && effectiveWorkflowId === 'ltx23-ia2v' && musicVocalRefAudioAssetId
+          ? { audioAssetId: musicVocalRefAudioAssetId }
+          : {}),
         directorLabel: yoloQueueNameLabel,
         // Carry the song audio asset id + mode-specific audio metadata so runJob
         // can upload it once per job and pass the uploaded filename into the
-        // music-video workflow modifier.
-        musicAudioAssetId: isYoloMusicMode ? yoloMusicAudioAssetId : (isAdLipSyncShot ? yoloAdVoiceoverAssetId : null),
-        musicAudioKind: isYoloMusicMode ? yoloMusicAudioKind : (isAdLipSyncShot ? 'vocal_stem' : null),
+        // music-video workflow modifier. A card vocal sample on the shot's
+        // resolved artist overrides the global song for audio-accepting
+        // workflows (the card sample is a vocal stem by definition).
+        musicAudioAssetId: isYoloMusicMode ? (musicVocalRefAudioAssetId || yoloMusicAudioAssetId) : (isAdLipSyncShot ? yoloAdVoiceoverAssetId : null),
+        musicAudioKind: isYoloMusicMode ? (musicVocalRefAudioAssetId ? 'vocal_stem' : yoloMusicAudioKind) : (isAdLipSyncShot ? 'vocal_stem' : null),
         musicShot: musicShotPayload,
         customWorkflow: usesCustomMusicVideoWorkflow
           ? {
@@ -11569,6 +11652,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     yoloVideoFps,
     yoloModeKey,
     yoloModeLabel,
+    yoloMusicCustomVideoValidation,
+    yoloMusicReferenceCards,
     yoloQueueNameLabel,
     yoloStoryboardAssetMap,
     yoloUgcVoiceAssetMap,
@@ -13115,6 +13200,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             targetDuration: yoloMusicTargetDuration,
             songDurationSeconds: yoloMusicSongDurationSeconds,
             cast: targetPass ? [] : yoloMusicResolvedCast,
+            references: yoloMusicReferenceCards,
           }) : { scenes: [], warnings: [] }
           if (shouldParse && (!Array.isArray(parseResult.scenes) || parseResult.scenes.length === 0)) {
             throw new Error('Could not parse the director script. Each shot needs a Shot line plus Keyframe prompt and Motion prompt fields.')
@@ -13553,6 +13639,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     yoloMusicLyrics,
     yoloMusicPlan,
     yoloMusicProvidedLyrics,
+    yoloMusicReferenceCards,
     yoloMusicResolvedCast,
     yoloMusicScript,
     yoloMusicSongDurationSeconds,
@@ -17635,6 +17722,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                 {(isAdEasyMode || isBusinessAdCreator || isUgcAdCreator) ? (
                   <ActiveAdEasyComponent
                     assets={assets}
+                    creation={currentProject?.creation || null}
                     generationQueue={generationQueue}
                     yoloActivePlan={yoloActivePlan}
                     yoloQueueVariants={yoloQueueVariants}

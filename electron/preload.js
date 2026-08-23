@@ -281,6 +281,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getFileInfo: (filePath) => ipcRenderer.invoke('fs:getFileInfo', filePath),
   
   // ============================================
+  // Blocking bridge (Blender)
+  // ============================================
+  
+  /**
+   * Run the Blender bridge for a shot's blocking.json (green/pose/depth
+   * control passes + export.samples). See docs/blocking-v7-plan.md §6.
+   * @param {Object} payload - { projectPath, shotSlug, fps?, start?, frames?,
+   *   width?, height?, noMotion?, meshStandins?, noBillboards? }
+   * @returns {Promise<{success: boolean, controlDir?: string, blend?: string,
+   *   frames?: {start: number, end: number, fps: number}, log?: string,
+   *   error?: string}>}
+   */
+  blockingRender: (payload) => ipcRenderer.invoke('blocking:render', payload),
+  
+  // ============================================
   // Path Operations
   // ============================================
   

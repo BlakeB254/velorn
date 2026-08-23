@@ -1,0 +1,38 @@
+{
+  "_comment": "LIVE identity lock (2026-08-19). InsightFace INSwapper via CDXFacePaste — same engine that fixed Dini 10Eros faces. Does not need the ReActor Comfy node (not loaded on this box). IDENTITY_REF = cast.yaml face_closeup / face_refs / listing still. TARGET = drifted keyframe or extracted video frame. Klein face-edit REJECTED (wax). H3 FaceRefine REJECTED for stills (oval paste). Large-mask inpaint cannot insert identity (CTT 2026-07-25).",
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{TARGET}}"
+    },
+    "_meta": {
+      "title": "frame to face-lock"
+    }
+  },
+  "2": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{REF_IMAGE}}"
+    },
+    "_meta": {
+      "title": "locked identity still"
+    }
+  },
+  "3": {
+    "class_type": "CDXFacePaste",
+    "inputs": {
+      "body": ["1", 0],
+      "listing_face": ["2", 0]
+    },
+    "_meta": {
+      "title": "INSwapper — paste identity onto target"
+    }
+  },
+  "4": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["3", 0],
+      "filename_prefix": "{{PREFIX}}"
+    }
+  }
+}

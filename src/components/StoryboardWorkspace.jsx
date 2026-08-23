@@ -18,8 +18,14 @@ import OutputRatioBar from './storyboard/OutputRatioBar'
 import CutBar from './storyboard/CutBar'
 import { normalizeStudio } from '../services/studioStore'
 import { cardSlotView } from '../services/studioUi'
+import { cardBackedRefIds, missingAnchorWarnings } from '../services/generationRefs'
+import { getSlot, reviewSlot } from '../services/referenceCards'
+import { mapCard, normalizeReferences } from '../services/referencePanels'
 import StageRail from './studio/StageRail'
 import CastPanel from './studio/CastPanel'
+import CharacterReferencePanel from './studio/CharacterReferencePanel'
+import LocationReferencePanel from './studio/LocationReferencePanel'
+import PropsReferencePanel from './studio/PropsReferencePanel'
 import BlockingPanel from './studio/BlockingPanel'
 import {
   AssetPicker,
@@ -129,6 +135,33 @@ export default function StoryboardWorkspace() {
     run()
     return () => { cancelled = true }
   }, [board.cards, assets, currentProjectHandle])
+
+  // P5: route finished reference-slot generations back onto their card. The
+  // panels tag jobs `refslot:<cardId>:<slotId>`; generationPlacement stamps
+  // that onto the imported asset's storyboardCardId, so a 'generating' slot
+  // with a matching tagged asset gets the image parked as a review candidate
+  // (accepted refs are only replaced when the user accepts the candidate).
+  const processedRefSlots = useRef(new Set())
+  useEffect(() => {
+    if (!currentProject) return
+    const references = normalizeReferences(currentProject.references)
+    let nextReferences = references
+    let changed = false
+    for (const asset of assets || []) {
+      const tag = asset?.storyboardCardId || asset?.settings?.storyboardCardId || ''
+      if (!tag.startsWith('refslot:') || processedRefSlots.current.has(asset.id)) continue
+      processedRefSlots.current.add(asset.id)
+      const [, cardId, slotId] = tag.split(':')
+      if (!cardId || !slotId) continue
+      const card = [...references.characters, ...references.locations, ...references.props]
+        .find((entry) => entry.id === cardId)
+      if (!card || getSlot(card, slotId)?.status !== 'generating') continue
+      const now = new Date().toISOString()
+      nextReferences = mapCard(nextReferences, card.kind, cardId, (entry) => reviewSlot(entry, slotId, asset.id, { now }))
+      changed = true
+    }
+    if (changed) saveProject({ references: nextReferences })
+  }, [assets, currentProject, saveProject])
 
   const persist = useCallback((next) => {
     setStoryboardBoard({ ...next, cards: numberCards(next.cards || []) })
@@ -250,17 +283,28 @@ export default function StoryboardWorkspace() {
   const submitGenerate = async (card) => {
     const motion = findMotion(card.motionSlug, motionCatalog)
     const workflow = findFrameWorkflow(card.workflowId)
+    const references = currentProject?.references
     const prompt = composeGenerationPrompt(card, {
       motionTitle: motion?.title || '',
       mode: modeFromWorkflow(workflow.id, 'still'),
       projectLook,
+      references,
     })
     const sourceId = card.sourceAssetId || card.imageAssetId || null
     if (workflow.needsImage && !sourceId) {
       setGenerateError('This workflow needs a source or reference image.')
       return
     }
-    const refs = primaryRefIds(card)
+    // Plan §4.5: a character with a reference card generates from accepted
+    // anchors — warn when the card exists but the anchors aren't accepted yet.
+    const anchorWarnings = missingAnchorWarnings(references, card.characterRefs)
+    if (anchorWarnings.length) {
+      setGenerateError(
+        `Accepted face + body refs required before generating: ${anchorWarnings.join(', ')}. Accept both anchors on the character reference card first.`,
+      )
+      return
+    }
+    const refs = primaryRefIds(card, references)
     updateCard(card.id, {
       status: 'generating',
       hasGeneration: true,
@@ -305,7 +349,9 @@ export default function StoryboardWorkspace() {
       setGenerateError('Pick a motion first. The starting frame is compiled from that pose still plus a character ref.')
       return
     }
-    const characterId = card.characterRefs?.[0]?.assetId || card.sourceAssetId || card.imageAssetId || null
+    const backedRefs = cardBackedRefIds(currentProject?.references, card.characterRefs)
+    const characterId = backedRefs?.first
+      || card.characterRefs?.[0]?.assetId || card.sourceAssetId || card.imageAssetId || null
     if (!characterId) {
       setGenerateError('Add a character reference (or a source still) so identity comes from a photo, not the pose silhouette.')
       return
@@ -323,7 +369,7 @@ export default function StoryboardWorkspace() {
         type: 'image',
       })
       const prompt = [
-        composeGenerationPrompt(card, { motionTitle: motion.title, mode: 'still', projectLook }),
+        composeGenerationPrompt(card, { motionTitle: motion.title, mode: 'still', projectLook, references: currentProject?.references }),
         motionPosePrompt(motion),
       ].filter(Boolean).join('\n')
       updateCard(card.id, {
@@ -404,7 +450,7 @@ export default function StoryboardWorkspace() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-sf-dark-950">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-sf-dark-800">
+      <div className="flex items-center justify-between flex-wrap gap-2 px-5 py-3 border-b border-sf-dark-800">
         <div>
           <h1 className="text-sm font-semibold text-sf-text-primary">Storyboard</h1>
           <p className="text-[11px] text-sf-text-muted">
@@ -456,6 +502,24 @@ export default function StoryboardWorkspace() {
           <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Cast (series → season → episode)</summary>
           <div className="mt-2">
             <CastPanel studio={studio} season={production?.current?.seasonId} episode={production?.current?.episodeId} />
+          </div>
+        </details>
+        <details>
+          <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Character reference cards</summary>
+          <div className="mt-2">
+            <CharacterReferencePanel />
+          </div>
+        </details>
+        <details>
+          <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Location reference cards</summary>
+          <div className="mt-2">
+            <LocationReferencePanel />
+          </div>
+        </details>
+        <details>
+          <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Prop reference cards</summary>
+          <div className="mt-2">
+            <PropsReferencePanel />
           </div>
         </details>
       </div>

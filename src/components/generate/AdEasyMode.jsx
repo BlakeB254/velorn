@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Clipboard, ExternalLink, Film, Loader2, RefreshCw, X } from 'lucide-react'
 import { CUSTOM_AD_KEYFRAME_WORKFLOW_ID } from '../../config/generateWorkspaceConfig'
+import { generateAdConcept } from '../../services/conceptGenerator'
 
 const STEPS = [
   { id: 'setup', label: 'Setup' },
@@ -532,6 +533,7 @@ function flattenPlanShots(plan) {
 
 export default function AdEasyMode({
   assets,
+  creation = null,
   generationQueue,
   yoloActivePlan,
   yoloQueueVariants,
@@ -615,6 +617,30 @@ export default function AdEasyMode({
   const [isQueuingKeyframes, setIsQueuingKeyframes] = useState(false)
   const [isQueuingVideos, setIsQueuingVideos] = useState(false)
   const [isAssemblingTimeline, setIsAssemblingTimeline] = useState(false)
+  const [conceptBrief, setConceptBrief] = useState(
+    () => String(creation?.ad?.concept?.prompt || creation?.ad?.concept?.text || '')
+  )
+  const [isGeneratingConcept, setIsGeneratingConcept] = useState(false)
+  const [conceptError, setConceptError] = useState('')
+
+  // Prefill from the create wizard (creation.ad) without clobbering edits:
+  // only fields still holding the hardcoded demo defaults get replaced.
+  useEffect(() => {
+    const ad = creation?.ad
+    if (!ad) return
+    const orgName = String(ad.subject?.orgName || '').trim()
+    const firstOfferingName = String(ad.subject?.offerings?.[0]?.name || '').trim()
+    const brief = String(ad.concept?.prompt || ad.concept?.text || '').trim()
+    if (orgName) {
+      setBrand((current) => (current === DEFAULT_AD_EASY_MODE_DRAFT.brand ? orgName : current))
+    }
+    if (firstOfferingName) {
+      setProduct((current) => (current === DEFAULT_AD_EASY_MODE_DRAFT.product ? firstOfferingName : current))
+    }
+    if (brief) {
+      setConceptBrief((current) => (current.trim() ? current : brief))
+    }
+  }, [creation])
 
   useEffect(() => {
     if (typeof localStorage === 'undefined') return
@@ -859,6 +885,46 @@ export default function AdEasyMode({
       setLlmCopyStatus('Copied prompt')
     } catch (_) {
       setLlmCopyStatus('Select and copy manually')
+    }
+  }
+
+  const handleGenerateConcept = async () => {
+    const brief = conceptBrief.trim()
+    if (!brief || isGeneratingConcept) return
+    setIsGeneratingConcept(true)
+    setConceptError('')
+    try {
+      const wizardSubject = creation?.ad?.subject || null
+      const result = await generateAdConcept({
+        prompt: brief,
+        subject: {
+          mode: wizardSubject?.mode || 'manual',
+          orgId: wizardSubject?.orgId || '',
+          // The setup-step fields win over the wizard values when the user edited them.
+          orgName: String(brand || wizardSubject?.orgName || '').trim(),
+        },
+        offerings: Array.isArray(wizardSubject?.offerings) && wizardSubject.offerings.length
+          ? wizardSubject.offerings
+          : (product ? [{ id: '', name: product }] : []),
+      }, {
+        style: {
+          format: selectedFormat.label,
+          tone: selectedTone.text,
+          platform: selectedAspectRatio.label,
+          lengthSeconds: commercialLength,
+          shotCount,
+        },
+      })
+      if (result.ok) {
+        setDirectorScript(result.text)
+        setYoloScript(result.text)
+      } else {
+        setConceptError(result.error || 'Concept generation failed.')
+      }
+    } catch (error) {
+      setConceptError(error?.message || 'Concept generation failed.')
+    } finally {
+      setIsGeneratingConcept(false)
     }
   }
 
@@ -1427,6 +1493,38 @@ export default function AdEasyMode({
               <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">Model route</div>
               <div className="mt-1 text-xs text-sf-text-primary">{selectedKeyframeWorkflow.label} keyframes + {selectedVideoWorkflow.label} video</div>
             </div>
+          </div>
+          <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">Generate from brief</div>
+                <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-sf-text-muted">
+                  Turns the concept brief into a Director script in place — tries ComfyUI Gemini first, then LM Studio. No external copy-paste needed.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {isGeneratingConcept && <Loader2 className="h-3.5 w-3.5 animate-spin text-sf-text-muted" />}
+                <button
+                  type="button"
+                  onClick={handleGenerateConcept}
+                  disabled={!conceptBrief.trim() || isGeneratingConcept}
+                  className="rounded-lg border border-sf-accent/50 bg-sf-accent/10 px-3 py-2 text-xs text-sf-accent transition-colors hover:bg-sf-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isGeneratingConcept ? 'Generating…' : 'Generate concept from brief'}
+                </button>
+              </div>
+            </div>
+            <textarea
+              value={conceptBrief}
+              onChange={(event) => setConceptBrief(event.target.value)}
+              rows={3}
+              spellCheck={false}
+              placeholder="Concept brief from the create wizard — or type one here…"
+              className="mt-3 w-full resize-y rounded-lg border border-sf-dark-700 bg-sf-dark-950/70 px-3 py-2 text-[11px] leading-5 text-sf-text-secondary focus:border-sf-accent focus:outline-none"
+            />
+            {conceptError && (
+              <p className="mt-2 text-[10px] text-red-300">{conceptError}</p>
+            )}
           </div>
           <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">

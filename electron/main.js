@@ -4160,6 +4160,91 @@ ipcMain.handle('fs:getFileInfo', async (event, filePath) => {
 })
 
 // ============================================
+// IPC Handlers - Blocking bridge (Blender)
+// ============================================
+
+// docs/blocking-v7-plan.md §6 — run the Blender bridge for a shot's
+// blocking.json and produce the green/pose/depth control passes at
+// docs/blocking/<slug>/control/<shot>/<CAM>/{green,pose,depth}/f%04d.png.
+// Two spawns, mirroring scripts/blocking_roundtrip.sh: a fresh base scene,
+// then render_apply. cwd = the PROJECT ROOT so ref_set.front resolves
+// project-relative — the same semantics the G6 identity gate enforces in the
+// renderer (bridge_billboards resolves refs against the process cwd).
+ipcMain.handle('blocking:render', async (event, payload = {}) => {
+  const { projectPath, shotSlug } = payload
+  if (!projectPath || !shotSlug) {
+    return { success: false, error: 'blocking:render needs projectPath and shotSlug' }
+  }
+  const slug = String(shotSlug).replace(/[^a-z0-9_-]+/gi, '-')
+  const blockingRel = path.join('docs', 'blocking', slug)
+  const blockingDir = path.join(projectPath, blockingRel)
+  const blockingJson = path.join(blockingDir, 'blocking.json')
+  if (!fsSync.existsSync(blockingJson)) {
+    return { success: false, error: `no blocking.json at ${blockingJson} — save the blocking first` }
+  }
+  const bridgeDir = process.env.VELORN_BLENDER_BRIDGE
+    || path.join(os.homedir(), 'creative', '_library', 'blender-bridge')
+  const renderApply = path.join(bridgeDir, 'render_apply.py')
+  if (!fsSync.existsSync(renderApply)) {
+    return { success: false, error: `blender bridge not found at ${bridgeDir} (set VELORN_BLENDER_BRIDGE)` }
+  }
+  const blender = process.env.BLENDER || 'blender'
+  const workDir = path.join(blockingDir, '_bridge')
+  await fs.mkdir(workDir, { recursive: true })
+  const baseBlend = path.join(workDir, 'base.blend')
+  const appliedBlend = path.join(workDir, 'applied.blend')
+  const genScene = path.join(__dirname, 'blockingGenScene.py')
+
+  const fps = Number(payload.fps) > 0 ? Number(payload.fps) : 25
+  const start = Number.isFinite(Number(payload.start)) ? Math.max(1, Math.round(Number(payload.start))) : 1
+  const frameCount = Math.max(1, Math.round(Number(payload.frames) || 25))
+  const end = start + frameCount - 1
+  const width = Math.max(16, Math.round(Number(payload.width) || 768))
+  const height = Math.max(16, Math.round(Number(payload.height) || 1344))
+
+  const runBlender = (args) => new Promise((resolve) => {
+    const proc = spawn(blender, args, { cwd: projectPath, windowsHide: true })
+    let log = ''
+    const cap = (chunk) => { log += chunk; if (log.length > 200000) log = log.slice(-200000) }
+    proc.stdout.on('data', cap)
+    proc.stderr.on('data', cap)
+    proc.on('error', (err) => resolve({ code: -1, log: `${log}\n${err.message}` }))
+    proc.on('close', (code) => resolve({ code, log }))
+  })
+  const tail = (log) => String(log || '').trim().split('\n').slice(-40).join('\n')
+
+  const gen = await runBlender([
+    '-b', '--python', genScene, '--', baseBlend,
+    '--fps', String(fps), '--start', String(start), '--end', String(end),
+    '--width', String(width), '--height', String(height),
+  ])
+  if (gen.code !== 0) {
+    return { success: false, error: `base scene generation failed (blender exit ${gen.code})`, log: tail(gen.log) }
+  }
+  const applyArgs = [
+    '-b', baseBlend, '--python', renderApply, '--',
+    '--blocking', path.join(blockingRel, 'blocking.json'),
+    '--shot', slug, '--out', path.join(blockingRel, 'control'),
+    '--qa', '--export-samples', '--start', String(start), '--end', String(end),
+    '--save-blend', appliedBlend,
+  ]
+  if (payload.noMotion) applyArgs.push('--no-motion')
+  if (payload.meshStandins) applyArgs.push('--mesh-standins')
+  if (payload.noBillboards) applyArgs.push('--no-billboards')
+  const apply = await runBlender(applyArgs)
+  if (apply.code !== 0) {
+    return { success: false, error: `render_apply failed (blender exit ${apply.code})`, log: tail(apply.log) }
+  }
+  return {
+    success: true,
+    controlDir: path.join(blockingDir, 'control'),
+    blend: appliedBlend,
+    frames: { start, end, fps },
+    log: tail(apply.log),
+  }
+})
+
+// ============================================
 // IPC Handlers - Path Operations
 // ============================================
 
@@ -7292,7 +7377,9 @@ app.whenReady().then(async () => {
   registerFileProtocol()
   installLoopbackHeaderRewrite()
   mcpServer = createComfyStudioMcpServer({
-    port: DEFAULT_MCP_PORT,
+    // VELORN_MCP_PORT lets parallel instances (e2e harness, second window)
+    // bind their own MCP port instead of fighting over DEFAULT_MCP_PORT.
+    port: Number(process.env.VELORN_MCP_PORT) || DEFAULT_MCP_PORT,
     version: app.getVersion(),
     performAction: performMcpRendererAction,
     diagnoseComfyUIConnection: diagnoseComfyUIConnectionInternal,

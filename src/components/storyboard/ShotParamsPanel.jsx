@@ -45,7 +45,12 @@ const LOOK_GROUPS = [
 
 function ChipRow({ categoryId, value, mode, onChange, inherited = false, featuredOnly = false }) {
   const category = getCategory(categoryId)
-  const options = optionsForMode(categoryId, mode, { featuredOnly })
+  // Memoized: a fresh options array every render used to re-fire the preview
+  // effect below in an endless setState loop (max-update-depth warning).
+  const options = useMemo(
+    () => optionsForMode(categoryId, mode, { featuredOnly }),
+    [categoryId, mode, featuredOnly],
+  )
   const [urls, setUrls] = useState({})
 
   useEffect(() => {

@@ -28,14 +28,18 @@ const HIDDEN_TOP_TAB_IDS = new Set([
   'mog',
 ])
 
+/** The tabs the shell exposes — shared by TitleBar and the mobile tab bar. */
+export const VISIBLE_TOP_TABS = TOP_TABS.filter((tab) => !HIDDEN_TOP_TAB_IDS.has(tab.id))
+
 function TitleBar({
   projectName,
   activeTab = 'editor',
   onTabChange,
   editorLayout = 'default',
   onEditorLayoutChange,
+  compact = false,
 }) {
-  const tabs = TOP_TABS.filter((tab) => !HIDDEN_TOP_TAB_IDS.has(tab.id))
+  const tabs = VISIBLE_TOP_TABS
   const [windowState, setWindowState] = useState({
     isMaximized: false,
     isFullScreen: false,
@@ -94,7 +98,9 @@ function TitleBar({
       {/* Left - Spacer for center alignment */}
       <div className="w-[120px] flex-shrink-0" />
       
-      {/* Center - App mode tabs; extend 1px into content so grey touches with no black line */}
+      {/* Center - App mode tabs; extend 1px into content so grey touches with no black line.
+          On phone-sized viewports the tab strip moves to the bottom bar (plan §5). */}
+      {!compact && (
       <div
         className="absolute left-1/2 top-0 flex -translate-x-1/2 items-center justify-center"
         style={{
@@ -129,10 +135,11 @@ function TitleBar({
           ))}
         </div>
       </div>
+      )}
       
       {/* Right - Launcher chip + Window Controls (Windows style) */}
       <div className="no-drag flex items-center">
-        {activeTab === 'editor' && onEditorLayoutChange && (
+        {!compact && activeTab === 'editor' && onEditorLayoutChange && (
           <div className="mr-2 flex items-center gap-0.5 rounded bg-sf-dark-800 p-0.5">
             {EDITOR_LAYOUTS.map(({ id, Icon, label }) => (
               <button

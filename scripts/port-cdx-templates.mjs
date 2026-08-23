@@ -67,6 +67,7 @@ const PORTS = [
   { src: 'qwen_keyframe_multiref.json', dest: 'cdx_keyframe_multiref.json' },
   { src: 'ltx_union_control_flf.json', dest: 'cdx_ltx_union_control_flf.json' },
   { src: 'reactor_facelock.json', dest: 'cdx_reactor_facelock.json' },
+  { src: 'inswapper_facelock.json', dest: 'cdx_inswapper_facelock.json' },
   { src: 'qwen_edit_inpaint_ref.json', dest: 'cdx_qwen_inpaint_ref.json' },
   { src: 'extract_depth_image.json', dest: 'cdx_extract_depth_image.json' },
   { src: 'extract_depth_video.json', dest: 'cdx_extract_depth_video.json' },

@@ -1,0 +1,40 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": ""
+    },
+    "_meta": {
+      "title": "VELORN_INPUT_IMAGE"
+    }
+  },
+  "2": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": ""
+    },
+    "_meta": {
+      "title": "VELORN_REFERENCE_IMAGE_1"
+    }
+  },
+  "3": {
+    "class_type": "CDXFacePaste",
+    "inputs": {
+      "body": ["1", 0],
+      "listing_face": ["2", 0]
+    },
+    "_meta": {
+      "title": "INSwapper — paste identity onto target"
+    }
+  },
+  "4": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["3", 0],
+      "filename_prefix": "velorn/cdx"
+    },
+    "_meta": {
+      "title": "VELORN_OUTPUT_IMAGE"
+    }
+  }
+}

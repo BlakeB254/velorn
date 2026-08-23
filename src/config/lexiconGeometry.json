@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "source": "cdx-video-director app/studio/shot_settings.py GEOMETRY (canonical), plus Velorn-only angle ids",
+  "minCameraZM": 0.6,
+  "eyeHeightM": 1.55,
+  "defaultFovDeg": 40.95,
+  "lenses": {
+    "24mm-wide": 74.0,
+    "35mm-anamorphic": 54.0,
+    "50mm-normal": 40.0,
+    "85mm-portrait": 24.0,
+    "135mm-long": 15.0,
+    "macro-ecu": 10.0,
+    "fish-eye": 120.0
+  },
+  "angles": {
+    "eye-level": { "pitch_deg": 0.0, "z_m": 1.55, "roll_deg": 0.0 },
+    "high-angle": { "pitch_deg": -30.0, "z_m": 2.6, "roll_deg": 0.0 },
+    "low-angle": { "pitch_deg": 12.0, "z_m": 0.7, "roll_deg": 0.0 },
+    "birds-eye": { "pitch_deg": -75.0, "z_m": 8.0, "roll_deg": 0.0 },
+    "dutch-angle": { "pitch_deg": 0.0, "z_m": 1.55, "roll_deg": 18.0 },
+    "profile-90": { "pitch_deg": 0.0, "z_m": 1.55, "roll_deg": 0.0 },
+    "pov": { "pitch_deg": -5.0, "z_m": 1.6, "roll_deg": 0.0 },
+    "worms-eye": { "pitch_deg": 28.0, "z_m": 0.6, "roll_deg": 0.0 },
+    "top-down": { "pitch_deg": -88.0, "z_m": 8.0, "roll_deg": 0.0 }
+  },
+  "framings": {
+    "extreme-close-up": 0.5,
+    "tight-medium": 1.2,
+    "medium-close-up": 1.8,
+    "medium-shot": 2.5,
+    "wide-medium": 3.5,
+    "full-shot": 4.5,
+    "wide-establishing": 9.0,
+    "extreme-wide": 15.0,
+    "over-the-shoulder": 1.5
+  }
+}

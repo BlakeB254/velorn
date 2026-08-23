@@ -1567,3 +1567,34 @@ export async function runFlowGraph(document, options = {}) {
   }
 }
 
+/**
+ * Standalone text-generation run over a bundled text workflow (today:
+ * 'google-gemini-flash-lite'). Loads the graph, applies prompt/systemPrompt,
+ * queues it, and polls until ComfyUI returns the text output.
+ *
+ * Throws on any failure — callers treat this as one fail-open backend in a
+ * chain (no Partner API key, ComfyUI down, execution error → fall through).
+ */
+export async function runTextWorkflow({ prompt, systemPrompt = '', model = '', workflowId = 'google-gemini-flash-lite' } = {}) {
+  const id = String(workflowId || '').trim()
+  if (!TEXT_OUTPUT_WORKFLOW_IDS.has(id)) {
+    throw new Error(`Workflow "${id}" is not a text-output workflow.`)
+  }
+  const workflowJson = await loadWorkflowDefinition(id)
+  const modifiedWorkflow = modifyGeminiPromptWorkflow(workflowJson, {
+    prompt: String(prompt || ''),
+    systemPrompt: String(systemPrompt || ''),
+    ...(model ? { model: String(model) } : {}),
+  })
+  const promptId = await comfyui.queuePrompt(modifiedWorkflow)
+  if (!promptId) {
+    throw new Error('Failed to queue the text workflow in ComfyUI.')
+  }
+  markPromptHandledByApp(promptId)
+  const result = await pollForResult(promptId, id, '')
+  if (!result || result.type !== 'text' || !String(result.text || '').trim()) {
+    throw new Error('ComfyUI finished without returning text output.')
+  }
+  return String(result.text).trim()
+}
+

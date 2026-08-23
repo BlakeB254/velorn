@@ -402,25 +402,27 @@ export const useProjectStore = create(
        * @param {number} options.width - Resolution width
        * @param {number} options.height - Resolution height
        * @param {number} options.fps - Frame rate
+       * @param {object} [options.scaffold] - Optional CreateProjectWizard scaffold:
+       *   { production, references, creation } merged into the project file.
        */
-      createProject: async ({ name, width, height, fps, type }) => {
+      createProject: async ({ name, width, height, fps, type, scaffold }) => {
         const state = get()
-        
+
         if (!state.defaultProjectsHandle) {
           set({ error: 'No projects location set. Please select a projects folder first.' })
           return null
         }
-        
+
         set({ isLoading: true, error: null })
-        
+
         try {
           // Create project folder structure
           const projectHandleOrPath = await createProjectFolder(state.defaultProjectsHandle, name)
-          
+
           // Create default timeline
           const defaultTimeline = createDefaultTimeline('Timeline 1')
-          
-          const production = bootstrapProduction({
+
+          const production = scaffold?.production || bootstrapProduction({
             name,
             type: normalizeProductionType(type, 'show'),
           })
@@ -464,6 +466,8 @@ export const useProjectStore = create(
             production,
             productionCuts,
             storyboardBoard: { version: 1, cards: [] },
+            ...(scaffold?.references ? { references: scaffold.references } : {}),
+            ...(scaffold?.creation ? { creation: scaffold.creation } : {}),
           }
           
           // Save project file

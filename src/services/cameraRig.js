@@ -12,6 +12,8 @@
  * Everything here is pure so it runs under `node --test`.
  */
 
+import lexiconGeometry from '../config/lexiconGeometry.json' with { type: 'json' }
+
 export const CAMERA_RIG_VERSION = 1
 
 export const COORDINATE_FRAME = Object.freeze({
@@ -152,54 +154,71 @@ export function normalizeCameraRig(raw) {
  * Map film-lexicon angle / framing / lens onto a starting rig.
  * Does not invent a new language — it only places the numeric handle so a
  * "low angle + 24mm" still has xyz the Blender / pose lane can use.
+ *
+ * pitch / z / roll per angle, fov per lens and subject distance per framing
+ * come from the shared canonical table (`src/config/lexiconGeometry.json`).
+ * Ids with no table entry keep the camera where it is.
  */
+const LENS_FOV_DEG = lexiconGeometry.lenses
+const ANGLE_POSE = lexiconGeometry.angles
+const FRAMING_DISTANCE_M = lexiconGeometry.framings
+
+const hasKey = (table, key) => Object.prototype.hasOwnProperty.call(table, key)
+
 export function presetFromLexicon({ camera_angle_id = '', framing_id = '', lens_id = '' } = {}) {
   const camera = emptyCamera()
   const angle = String(camera_angle_id || '')
   const framing = String(framing_id || '')
   const lens = String(lens_id || '')
 
-  if (angle === 'low-angle' || angle === 'worms-eye' || framing === 'wide-low-angle') {
-    camera.z_m = angle === 'worms-eye' ? 0.35 : 0.75
-    camera.pitch_deg = angle === 'worms-eye' ? 28 : 16
+  if (angle === 'worms-eye' || angle === 'low-angle' || framing === 'wide-low-angle') {
+    const pose = ANGLE_POSE[angle] || ANGLE_POSE['low-angle']
+    camera.z_m = pose.z_m
+    camera.pitch_deg = pose.pitch_deg
+    camera.roll_deg = pose.roll_deg
     camera.y_m = -2.4
-  } else if (angle === 'high-angle') {
-    camera.z_m = 2.6
-    camera.pitch_deg = -22
-    camera.y_m = -2.2
-  } else if (angle === 'birds-eye' || angle === 'top-down' || angle === 'overhead') {
-    camera.z_m = 6.5
-    camera.pitch_deg = -88
+  } else if (angle === 'overhead') {
+    const pose = ANGLE_POSE['top-down']
+    camera.z_m = pose.z_m
+    camera.pitch_deg = pose.pitch_deg
+    camera.roll_deg = pose.roll_deg
     camera.y_m = 0.2
     camera.x_m = 0
-  } else if (angle === 'dutch-angle') {
-    camera.roll_deg = 18
-  } else if (angle === 'profile-90') {
-    camera.x_m = 3.2
-    camera.y_m = 0.4
-    camera.yaw_deg = -90
-  } else if (angle === 'pov') {
-    camera.z_m = 1.6
-    camera.y_m = 0.4
-    camera.pitch_deg = 0
+  } else if (hasKey(ANGLE_POSE, angle)) {
+    const pose = ANGLE_POSE[angle]
+    camera.z_m = pose.z_m
+    camera.pitch_deg = pose.pitch_deg
+    camera.roll_deg = pose.roll_deg
+    if (angle === 'high-angle') {
+      camera.y_m = -2.2
+    } else if (angle === 'birds-eye' || angle === 'top-down') {
+      camera.y_m = 0.2
+      camera.x_m = 0
+    } else if (angle === 'profile-90') {
+      camera.x_m = 3.2
+      camera.y_m = 0.4
+      camera.yaw_deg = -90
+    } else if (angle === 'pov') {
+      camera.y_m = 0.4
+    }
   }
 
-  if (framing === 'extreme-close-up' || framing === 'insert-detail') {
+  if (hasKey(FRAMING_DISTANCE_M, framing)) {
+    // Canonical framing: move the camera to the subject distance along -Y.
+    camera.y_m = -FRAMING_DISTANCE_M[framing]
+  } else if (framing === 'insert-detail') {
     camera.y_m = Math.max(camera.y_m, -0.85)
     camera.fov_deg = 28
-  } else if (framing === 'tight-medium' || framing === 'medium-close-up') {
-    camera.y_m = Math.min(camera.y_m, -1.4)
-  } else if (framing === 'wide-establishing' || framing === 'extreme-wide' || framing === 'full-shot') {
-    camera.y_m = Math.min(camera.y_m, -5.5)
-    camera.fov_deg = 55
   }
 
-  if (lens.includes('24mm') || lens.includes('fish-eye') || lens === 'macro-ecu') {
-    camera.fov_deg = lens.includes('fish') ? 110 : (lens === 'macro-ecu' ? 24 : 74)
+  if (hasKey(LENS_FOV_DEG, lens)) {
+    camera.fov_deg = LENS_FOV_DEG[lens]
+  } else if (lens.includes('24mm') || lens.includes('fish') || lens.includes('macro')) {
+    camera.fov_deg = lens.includes('fish') ? LENS_FOV_DEG['fish-eye'] : (lens.includes('macro') ? LENS_FOV_DEG['macro-ecu'] : LENS_FOV_DEG['24mm-wide'])
   } else if (lens.includes('85mm') || lens.includes('135mm') || lens.includes('portrait')) {
-    camera.fov_deg = lens.includes('135') ? 18 : 24
+    camera.fov_deg = lens.includes('135') ? LENS_FOV_DEG['135mm-long'] : LENS_FOV_DEG['85mm-portrait']
   } else if (lens.includes('35mm')) {
-    camera.fov_deg = 54
+    camera.fov_deg = LENS_FOV_DEG['35mm-anamorphic']
   }
 
   return {
@@ -295,6 +314,10 @@ export function cameraSummary(rig) {
 
 export function toBlockingCamera(rig) {
   const cam = normalizeCameraRig(rig).camera
+  // NOTE: `cuts` and `path` are deliberately absent — they are not rig
+  // fields, and returning them here made ensureBlockingCamera /
+  // applyRigToBlocking WIPE camera.cuts and camera.path on every
+  // load/edit (found by the multi-camera cuts work, 2026-08-19).
   return {
     camera_id: cam.camera_id,
     object_name: cam.camera_id,
@@ -304,8 +327,6 @@ export function toBlockingCamera(rig) {
     facing_deg: ((cam.yaw_deg % 360) + 360) % 360,
     pitch_deg: cam.pitch_deg,
     roll_deg: cam.roll_deg,
-    cuts: [],
-    path: [],
   }
 }
 

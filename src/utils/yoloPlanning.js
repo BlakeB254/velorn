@@ -735,6 +735,10 @@ export function flattenYoloPlanVariants(plan = []) {
             resolvedArtistAssetIds: Array.isArray(shot?.resolvedArtistAssetIds)
               ? shot.resolvedArtistAssetIds.filter(Boolean).slice(0, 2)
               : [],
+            // Location-card scene ref (accepted wide/medium slot), matched
+            // from the shot/coverage label by the music plan builder. The
+            // keyframe queue uses it as the b-roll reference image.
+            resolvedLocationAssetId: shot?.resolvedLocationAssetId || null,
             nanoBananaReferenceOverride: shot?.nanoBananaReferenceOverrideEnabled
               ? {
                   enabled: true,

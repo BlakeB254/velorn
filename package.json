@@ -29,10 +29,27 @@
     "test:mcp-h3": "node --test ./tests/mcpH3ReferenceVideo.test.js",
     "test:mcp-my-workflows": "node --test ./tests/myWorkflowCatalog.test.js",
     "test:studio-store": "node --test ./tests/studioStore.test.js",
+    "test:blocking-v7": "node --test ./tests/blockingV7.test.js",
+    "test:blocking-scene": "node --test ./tests/blockingScene.test.js",
     "test:production-store": "node --test ./tests/productionStore.test.js",
     "test:cdx-workflows": "node --test ./tests/cdxWorkflowPort.test.js",
     "test:cdx-isolation": "node --test ./tests/cdxStudioIsolation.test.js",
-    "test:output-ratio": "node --test ./tests/outputRatio.test.js"
+    "test:output-ratio": "node --test ./tests/outputRatio.test.js",
+    "test:blocking-gates": "node --test ./tests/blockingGates.test.js",
+    "test:blocking-render": "node --test ./tests/blockingRender.test.js",
+    "test:reference-cards": "node --test ./tests/referenceCards.test.js",
+    "test:create-wizard": "node --test ./tests/createWizard.test.js",
+    "test:cdx-directory": "node --test ./tests/cdxDirectory.test.js",
+    "test:concept-generator": "node --test ./tests/conceptGenerator.test.js",
+    "test:reference-panels": "node --test ./tests/referencePanels.test.js",
+    "test:generation-refs": "node --test ./tests/generationRefs.test.js",
+    "test:music-video-refs": "node --test ./tests/musicVideoRefs.test.js",
+    "test:blocking-roundtrip": "bash ./scripts/blocking_roundtrip.sh",
+    "test:blocking-panel-e2e": "xvfb-run -a node scripts/blocking_panel_e2e.mjs",
+    "test:create-wizard-e2e": "xvfb-run -a node scripts/create_wizard_e2e.mjs",
+    "test:reference-panel-e2e": "xvfb-run -a node scripts/reference_panel_e2e.mjs",
+    "test:mobile-shell-e2e": "xvfb-run -a node scripts/mobile_shell_e2e.mjs",
+    "test:reference-slot-e2e": "xvfb-run -a node scripts/reference_slot_e2e.mjs"
   },
   "keywords": [
     "animatic",
@@ -66,6 +83,7 @@
     "mp4box": "^2.4.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "three": "^0.160.1",
     "zustand": "^4.4.7"
   },
   "devDependencies": {

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { FolderOpen, Plus, Film, AlertCircle, Loader2, Trash2, KeyRound, CheckCircle2, Compass, LayoutGrid, List, Minus, Square, Copy, X } from 'lucide-react'
 import useProjectStore from '../stores/projectStore'
 import useAssetsStore from '../stores/assetsStore'
-import NewProjectDialog from './NewProjectDialog'
+import CreateProjectWizard from './CreateProjectWizard'
 import ComfyLauncherChip from './ComfyLauncherChip'
 import CreditsChip from './CreditsChip'
 import GettingStartedModal from './GettingStartedModal'
@@ -634,7 +634,7 @@ function WelcomeScreen() {
       {/* Header bar — always a solid dark strip, never overlaps the image.
           The top border visually separates the header from the native window
           controls strip above it (matches the border below the banner). */}
-      <div className="relative z-30 flex-shrink-0 flex items-center justify-between px-8 py-4 bg-sf-dark-950 border-t border-b border-sf-dark-800/60">
+      <div className="relative z-30 flex-shrink-0 flex items-center justify-between px-4 sm:px-8 py-4 bg-sf-dark-950 border-t border-b border-sf-dark-800/60">
         {headerContent}
       </div>
 
@@ -642,7 +642,7 @@ function WelcomeScreen() {
 
       {showHeroBackground ? (
         /* Hero band: full-bleed dark outer, centered cinematic inner. */
-        <div className="welcome-hero relative z-0 flex-shrink-0 h-[62vh] min-h-[420px] max-h-[720px] overflow-visible select-none bg-sf-dark-950">
+        <div className="welcome-hero relative z-0 flex-shrink-0 h-[62vh] min-h-[420px] max-h-[720px] max-sm:h-[30vh] max-sm:min-h-[180px] overflow-visible select-none bg-sf-dark-950">
           <div className="relative mx-auto h-full w-full max-w-[2400px] overflow-visible">
             {/* Keep the overlay text locked to the same 16:9 plate as the logo media. */}
             <div
@@ -693,8 +693,8 @@ function WelcomeScreen() {
           the hero band with a negative top margin so more projects are
           visible above the fold. */}
       <div
-        className={`flex-1 overflow-auto px-6 pb-8 ${showHeroBackground
-          ? 'relative z-10 -mt-[305px] pt-12'
+        className={`flex-1 overflow-auto px-4 sm:px-6 pb-8 ${showHeroBackground
+          ? 'relative z-10 -mt-[305px] pt-12 max-sm:-mt-[110px] max-sm:pt-6'
           : 'py-8'}`}
       >
         <div className="max-w-5xl mx-auto">
@@ -976,8 +976,8 @@ function WelcomeScreen() {
         </div>{/* /max-w-5xl */}
       </div>
       
-      {/* New Project Dialog */}
-      <NewProjectDialog
+      {/* New Project Wizard */}
+      <CreateProjectWizard
         isOpen={showNewProjectDialog}
         onClose={() => setShowNewProjectDialog(false)}
       />

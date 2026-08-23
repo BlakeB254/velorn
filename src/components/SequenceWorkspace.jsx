@@ -247,12 +247,14 @@ export default function SequenceWorkspace() {
       setOpenId(card.id)
       return
     }
-    const refs = primaryRefIds(card)
+    const references = currentProject?.references
+    const refs = primaryRefIds(card, references)
     const motion = findMotion(card.motionSlug, motionCatalog)
     const prompt = composeGenerationPrompt(card, {
       motionTitle: motion?.title || '',
       mode: modeFromWorkflow(workflow.id, 'video'),
       projectLook,
+      references,
       bridge: needs.includes('last') && nextCard
         ? `Last frame is shot ${nextCard.order}: ${nextCard.title}. ${nextCard.description || ''}`
         : '',
