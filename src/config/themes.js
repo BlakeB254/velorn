@@ -45,7 +45,7 @@ export const THEMES = [
   },
 ]
 
-export const DEFAULT_THEME_ID = 'velorn'
+export const DEFAULT_THEME_ID = 'cdx'
 
 export function getStoredThemeId() {
   try {
@@ -57,7 +57,9 @@ export function getStoredThemeId() {
 
 export function applyTheme(themeId) {
   const id = THEMES.find((t) => t.id === themeId) ? themeId : DEFAULT_THEME_ID
-  if (id === DEFAULT_THEME_ID) {
+  // Upstream Velorn tokens live on :root with no data-theme. Every other
+  // skin — including CDX Studio — must set the attribute or CSS will not apply.
+  if (id === 'velorn') {
     document.documentElement.removeAttribute('data-theme')
   } else {
     document.documentElement.setAttribute('data-theme', id)
