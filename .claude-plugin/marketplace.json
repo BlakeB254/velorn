@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "cdx-studio",
+  "description": "The CDX Studio plugin — MCP server, skills, commands and an agent for driving the CDX Studio video workstation.",
+  "owner": {
+    "name": "CDX"
+  },
+  "plugins": [
+    {
+      "name": "cdx-studio",
+      "description": "Drive CDX Studio: the live MCP surface, the context stack that feeds generation, production types and flows, reference-card cascades, and running the GPU on another machine.",
+      "author": {
+        "name": "CDX"
+      },
+      "category": "media",
+      "source": "./plugin",
+      "license": "GPL-3.0-only"
+    }
+  ]
+}

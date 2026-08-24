@@ -1,0 +1,18 @@
+{
+  "name": "cdx-studio",
+  "description": "Drive CDX Studio — an AI video workstation forked from Velorn (formerly ComfyStudio). Bundles the live MCP server, the context-stack model, the production-type taxonomy, reference-card cascades, and the remote-GPU topology, so an agent can plan, generate and edit without rediscovering how the app works.",
+  "version": "1.0.0",
+  "author": {
+    "name": "CDX"
+  },
+  "license": "GPL-3.0-only",
+  "keywords": [
+    "video",
+    "editing",
+    "comfyui",
+    "mcp",
+    "generation",
+    "velorn",
+    "nle"
+  ]
+}

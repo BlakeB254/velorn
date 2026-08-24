@@ -1,0 +1,73 @@
+CDX Studio
+==========
+
+CDX Studio is a modified version of Velorn.
+
+  Upstream:  Velorn — https://github.com/VelornLabs/velorn
+             Copyright (C) Velorn contributors
+             Originally released under the name "ComfyStudio".
+
+  License:   GNU General Public License v3.0 only (GPL-3.0-only)
+             The full license text is in LICENSE and is unmodified.
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, version 3.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+
+Statement of modifications (GPL-3.0 section 5a)
+-----------------------------------------------
+
+The following changes were made to the upstream Velorn source. Each is
+downstream of upstream commit a8fd71b on branch cdx/vendor-0.3.25.
+
+2026-08-24  Rebranded the application surface from "Velorn" to "CDX Studio"
+            across the renderer and the Electron main process: window and app
+            identity, splash markup, error dialogs, installer labels, the
+            injected ComfyUI bridge display name, and the MCP tool-description
+            surface.
+
+            Not renamed, deliberately: the lowercase `velorn*` and
+            `comfystudio*` identifiers. These are wire protocol shared between
+            the renderer, the Electron main process, the injected ComfyUI
+            Python bridge, and existing on-disk project files
+            (`project.comfystudio`). They are compatibility surface, and
+            renaming them would break existing projects and erase provenance.
+
+            Upstream attribution in package.json ("Velorn contributors", the
+            VelornLabs repository URLs) is preserved unchanged.
+
+2026-08-24  Added src/services/contextStack.js — a single resolver for the
+            layers of creative context that feed a generation, reporting per
+            layer what it contributes, whether it is ready, and why not.
+
+2026-08-24  Added src/services/movementRefs.js and wired the previously
+            unreferenced src/services/kimodoMotion.js — movement as a fourth
+            reference kind bound to characters, realised as SMPL-X22 motion.
+
+2026-08-24  Changed src/components/storyboard/boardShared.jsx so prompt
+            assembly draws its reference context from the context stack rather
+            than re-deriving each layer, and
+            src/components/StoryboardWorkspace.jsx to record context
+            provenance on each generation.
+
+2026-08-24  Extended src/services/projectListing.js and
+            src/components/WelcomeScreen.jsx with franchise grouping,
+            production-type filtering and sorting, and per-type project
+            displays including brand and offering context for advertising work.
+
+2026-08-24  Added src/components/studio/ContextStackPanel.jsx,
+            MovementReferencePanel.jsx and BrandContextPanel.jsx.
+
+2026-08-24  Added the plugin/ directory: a Claude Code plugin exposing the
+            MCP server, skills, commands and an agent for driving CDX Studio.
+
+2026-08-24  Preserved the upstream README at docs/upstream/README.velorn.md.
+
+
+Third-party components retain their own licenses; see package.json and the
+dependency tree for details.

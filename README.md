@@ -1,314 +1,260 @@
 <div align="center">
 
-# Velorn
+# CDX Studio
 
-**The open-source AI video workstation — a real editor for you, and 100+ MCP tools for your agent.**
+**An AI video workstation where every layer of creative context is explicit, inspectable, and feeds generation.**
 
-[![Latest Release](https://img.shields.io/github/v/release/VelornLabs/velorn?label=Latest&color=6C63FF)](https://github.com/VelornLabs/velorn/releases/latest)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
-[![Platforms](https://img.shields.io/badge/Platforms-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-444444)](https://github.com/VelornLabs/velorn/releases/latest)
-
-[![Website](https://img.shields.io/badge/Website-velorn.ai-0A9396)](https://velorn.ai)
-[![Follow on X](https://img.shields.io/badge/Follow-%40getvelorn-000000?logo=x&logoColor=white)](https://x.com/getvelorn)
-[![Join our Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/QWZUuUChVK)
-
-[![Download for Windows](https://img.shields.io/badge/Windows-Download-0078D4?style=for-the-badge)](https://github.com/VelornLabs/velorn/releases/latest)
-[![Download for macOS](https://img.shields.io/badge/macOS-Download-1a1a1a?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/VelornLabs/velorn/releases/latest)
-[![Download for Linux](https://img.shields.io/badge/Linux-Download-E95420?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/VelornLabs/velorn/releases/latest)
-
-English · [Español](docs/i18n/README.es.md) · [简体中文](docs/i18n/README.zh-CN.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Português (Brasil)](docs/i18n/README.pt-BR.md) · [Français](docs/i18n/README.fr.md)
+[![Based on Velorn](https://img.shields.io/badge/based%20on-Velorn-6C63FF)](https://github.com/VelornLabs/velorn)
+[![Platforms](https://img.shields.io/badge/Platforms-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-444444)](#running-it)
 
 </div>
 
-<p align="center"><img src="docs/readme/agent-editing.gif" alt="One prompt: Claude builds the edit in Velorn via MCP" width="860"></p>
-<p align="center"><i>One prompt. The agent generates media, builds the timeline, and mixes the audio — live, via MCP.</i></p>
+CDX Studio is a desktop video editor and AI production environment. It is a customized fork of
+[**Velorn**](https://github.com/VelornLabs/velorn), which was itself formerly named **ComfyStudio**.
 
-Velorn is an open-source desktop video editor and AI video workstation. It brings planning, generation, asset management, timeline editing, captions, effects, and export into one project-based app.
+It keeps everything Velorn does well — a real timeline, project-based media management, captions,
+effects, export, and a large MCP surface for agents — and adds a **context stack**: an explicit model
+of every layer of creative context that feeds a generation, so a shot is never generated with half
+its context silently missing.
 
-Editing, captions, export, project management, and MCP editorial tools work without ComfyUI. All current generation features require a locally running ComfyUI instance.
+---
 
-Use built-in local and cloud workflows, bring your own ComfyUI API workflow JSON, or install the bundled Velorn Bridge so a graph open in ComfyUI can be sent back into Velorn.
+## Credit and lineage
 
-<p align="center">
-  <img src="docs/readme/editor-timeline.png" alt="Velorn editor with generated assets, preview, timeline tracks, and inspector" />
-</p>
+This project stands on other people's work, and the chain is worth stating plainly:
 
-## What Velorn Is For
+| Stage | Name | Notes |
+|---|---|---|
+| Original | **ComfyStudio** | The project's original name. Still visible throughout this codebase as the `comfystudio` namespace — the `project.comfystudio` project file, the `comfystudio_bridge` ComfyUI extension, and the `comfystudio-*` browser events. |
+| Upstream | **[Velorn](https://github.com/VelornLabs/velorn)** | ComfyStudio renamed. Everything in `src/`, `electron/`, the MCP server, the timeline, the export pipeline and the generation stack originates here. Copyright © Velorn contributors. |
+| This fork | **CDX Studio** | A customized downstream build. See [What this fork adds](#what-this-fork-adds). |
 
-- Creating music videos from lyrics, timing, characters, keyframes, video shots, and timeline edits.
-- Building UGC-style creator ads and small-business ads with editable shot plans.
-- Running curated local and cloud image/video workflows from one Generate workspace.
-- Running custom ComfyUI image, video, keyframe, and music-video workflows inside the app.
-- Editing generated clips with tracks, transitions, effects, captions, proxy/cache tools, and export.
-- Keeping generated media, prompts, workflow outputs, and timelines organized inside a project.
+An even earlier `project.storyflow` file name is still honored when opening old projects, so the
+lineage runs at least four names deep.
 
-For generation, Velorn is not a replacement for ComfyUI. It is the production layer around ComfyUI: plan the work, send jobs to ComfyUI, collect the outputs, and finish the edit.
+**The overwhelming majority of this code was written by the Velorn contributors, not by us.** This
+fork exists to serve one production pipeline; it is not a competing product, and upstream Velorn is
+where you should start if you want the maintained, supported application. The original Velorn README
+is preserved at [`docs/upstream/README.velorn.md`](docs/upstream/README.velorn.md).
 
-<p align="center">
-  <img src="docs/readme/create-workflows.png" alt="Velorn Create workspace with UGC, business ad, music video, and short film creators" />
-</p>
+### License
 
-## Download
+CDX Studio is **GPL-3.0-only**, the same license as Velorn, because it must be — GPL-3.0 is a
+copyleft license and a derivative work cannot be relicensed. That means:
 
-Most users should download the packaged desktop app from the [GitHub Releases page](https://github.com/VelornLabs/velorn/releases).
+- the complete corresponding source for anything distributed lives in this repository;
+- the upstream copyright and license notices are preserved verbatim in [`LICENSE`](LICENSE);
+- modified files carry a change notice, per GPL-3.0 §5 (see [`NOTICE`](NOTICE));
+- if you redistribute this, in source or binary form, you inherit the same obligations.
 
-Release assets include:
+Identifiers that read `velorn` or `comfystudio` in the code — `velornMeta`, `velorn_workflows`,
+the MCP `serverInfo.name`, the `comfystudio_bridge` — are **deliberately left alone**. They are wire
+protocol shared with the injected ComfyUI Python bridge and with existing project files. Renaming
+them would break compatibility and erase provenance, so they stay.
 
-- `Windows Installer`
-- `Windows Portable`
-- `Mac (Apple Silicon)`
-- `Mac (Intel)`
-- `Linux AppImage`
-- `Linux deb`
+---
 
-Ignore GitHub's auto-generated source-code archives unless you plan to build Velorn from source.
+## How it works
 
-## Main Features
+CDX Studio is an Electron app in two halves, plus whatever GPU you point it at.
 
-### Generate
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Renderer (React + Vite)                                     │
+│    timeline · storyboard · generate · captions · inspector   │
+│    reference cards · context stack panel                     │
+└───────────────┬──────────────────────────────────────────────┘
+                │ Electron IPC (preload.js)
+┌───────────────▼──────────────────────────────────────────────┐
+│  Main process (Node)                                         │
+│    file system · ffmpeg export · ComfyUI launcher            │
+│    MCP server  ──────────────────►  127.0.0.1:19790/mcp      │
+└───────────────┬──────────────────────────────────────────────┘
+                │ HTTP / WebSocket, loopback only
+┌───────────────▼──────────────────────────────────────────────┐
+│  ComfyUI  127.0.0.1:8188   (the GPU)                         │
+└──────────────────────────────────────────────────────────────┘
+```
 
-Generate runs built-in local workflows, cloud/partner workflows, and custom ComfyUI workflows.
+**Editing does not require a GPU.** Timeline editing, captions, export, project management and the
+editorial MCP tools all work with no ComfyUI running. Only generation needs it.
 
-- Local image, video, image-edit, audio, and utility workflows.
-- Cloud workflows such as Nano Banana 2, GPT Image 2, Seedance, Kling, and other partner-node routes where available.
-- Custom Image and Custom Video workflows for users who want Velorn to run their own ComfyUI API graphs.
-- API JSON import for advanced users who prefer exporting workflows manually from ComfyUI.
-- Velorn Bridge support so compatible graphs can be sent from ComfyUI back to the correct Velorn panel.
-- Workflow setup checks for missing nodes, models, credentials, and configuration.
-- A Featured / My Workflows / Templates browser with Local and Cloud filters. Imported community workflows appear in Featured next to the built-ins.
+### The loopback rule
 
-<p align="center">
-  <img src="docs/readme/generate-featured.png" alt="Velorn Generate browser with Featured workflows, Local and Cloud filters, and the dependency checker" />
-</p>
+CDX Studio will only talk to ComfyUI on `127.0.0.1` or `localhost`
+(`src/services/localComfyConnection.js`). A remote host is rejected outright. This is inherited from
+Velorn and it is a good default — it keeps a creative tool from being pointed at an arbitrary
+network endpoint.
 
-The Templates tab browses the official ComfyUI template catalog (500+ templates with size and popularity info) and launches any of them into the embedded ComfyUI tab.
+It also means **you do not need to patch anything to use a remote GPU** — see
+[Running the GPU on another machine](#running-the-gpu-on-another-machine).
 
-<p align="center">
-  <img src="docs/readme/generate-templates.png" alt="Velorn Templates browser showing the official ComfyUI template catalog with categories and filters" />
-</p>
+### The project model
 
-### Create
+A project is a folder, not a database. It holds media, a `project.comfystudio` manifest, and the
+derived caches. Media paths are stored relative to the project where possible, so a project folder
+can be moved or synced between machines and still open.
 
-Create contains guided creator workflows built on Velorn's Director Mode engine.
+Versions of a show live *inside* the show as production cuts — never as sibling project folders.
 
-- **Music Video Creation** - turns a song, lyric timing, characters, references, and a director script into keyframes, video shots, and an editable timeline.
-- **UGC Creator** - builds creator-style social ads with hooks, dialogue, product demos, try-ons, testimonials, and editable shot-by-shot outputs.
-- **Business Ad Creator** - builds offer-first ads for local businesses, ecommerce products, events, services, and small teams.
-- **Short Film Creation** - experimental script-to-scene coverage workflow. This is still very beta and may have rough edges.
+---
 
-### Music Video Creation
+## What this fork adds
 
-The Music Video Creator supports:
+Everything below is additive; none of it changes Velorn's editing behavior.
 
-- Song import and lyric timing.
-- ASR transcription or pasted-lyrics alignment into SRT.
-- People/cast setup, including existing character sheets.
-- Per-shot keyframe prompts, reference images, prompt copy, prompt editing, image replacement, and shot reruns.
-- Built-in keyframe routes such as Qwen Image Edit and Nano Banana 2.
-- Custom keyframe workflows using Velorn endpoint nodes.
-- Built-in video routes such as LTX 2.3 Music and WAN 2.2.
-- Custom video workflows with optional injected keyframe image, prompt, seed, width, height, FPS, duration, and audio.
-- Timeline assembly from generated shot assets.
+### 1. The context stack
 
-### Timeline Editor
+Upstream, each layer of creative context reached generation by its own path: franchise and style
+through the production block, character anchors and wardrobe through `generationRefs`, landmarks
+through blocking. Nothing showed the whole set, so a shot could be generated with half its context
+absent and nobody would know.
 
-The editor includes:
+`src/services/contextStack.js` resolves every layer in the order it applies:
 
-- Project asset browser.
-- Multi-track video/audio timeline.
-- Clip trimming, moving, snapping, overlap replacement behavior, and transitions.
-- Text, shape, title, solid-color, adjustment-layer, keyframe, and visual effect tools.
-- Inspector controls.
-- Proxy/cache tools for smoother playback.
-- Export panel for final renders.
+```
+franchise → brand → style → production type → location
+          → character → wardrobe → prop → movement → blocking
+```
 
-### Captions
+For each layer it reports **what it contributes** (prompt lines, reference images, structured data),
+whether it is `ready` / `partial` / `missing` / `inactive`, and **why** it is not ready. The
+flattened contributions are what generation actually consumes, so the panel and the prompt cannot
+disagree.
 
-Captions can be generated from edited timeline audio and styled in-app.
+Two layers that upstream dropped on the floor now reach the prompt: **franchise invariants** (the
+durable "never break this" rules of a shared universe) and the **movement action** bound to a
+character.
 
-- Timeline-aware transcription.
-- Caption style presets.
-- Font, color, outline, background, shadow, and animation controls.
-- Saved caption style presets for reuse.
-- Live preview with play/scrub controls and safe-zone overlays.
-- Export-ready caption renders.
+Every generation is stamped with a `contextProvenance` record — a stable signature plus the layer
+ids and statuses — so a clip that already exists can still say what produced it.
 
-### Export
+Reference-image selection is deliberately *not* driven by the stack: the stack's asset list is
+ordered by layer (location before character), and feeding that to `referenceImage1/2` would
+silently reorder identity references. The character anchor pair remains the authority there.
 
-The Export tab includes practical render presets, hardware-accelerated options where available, numbered PNG image sequence export, queue controls, and project-aware output settings.
+### 2. Movement references (kimodo.cpp)
 
-<p align="center">
-  <img src="docs/readme/export-settings.png" alt="Velorn export settings with presets, codec controls, and export queue" />
-</p>
+A fourth reference kind alongside character / location / prop. A movement binds one named action
+("throws a right hook then backpedals") to one character and is realised by a local kimodo.cpp
+service as SMPL-X22 motion data.
 
-### Stock
+Movements have no slot grid — their product is motion, not images — so they carry their own
+`empty → generating → review → accepted` lifecycle. Regenerating keeps the accepted clip in place so
+a character is never left bare mid-flight, and only motion *metadata* is stored in the project;
+kimodo's per-frame rotation and root-translation arrays stay on disk behind `out_dir`.
 
-The Stock tab uses Pexels so you can search and import photos or videos directly into the current project. A Pexels API key is optional and can be added in Settings.
+Multi-character beats can be generated as one shared arena via kimodo's `/scene` endpoint rather
+than as unrelated single clips.
 
-<p align="center">
-  <img src="docs/readme/stock-pexels.png" alt="Velorn Stock tab with Pexels photo and video search" />
-</p>
+### 3. Home organization
 
-### ComfyUI Integration
+Projects group by **franchise** (the durable IP universe) and filter by **production type** — show,
+movie, skit, commercial, parody, music video, PSA, documentary and more, each carrying its own
+pacing, aspect and output target in `src/services/productionTypes.js`, and each mapped to a
+production flow.
 
-Velorn talks to a local ComfyUI server and can also help launch it.
+### 4. Brand context for advertising work
 
-- Default endpoint: `http://127.0.0.1:8188`
-- Custom port support in Settings.
-- Windows launcher support for a configured ComfyUI start script.
-- macOS launcher support for a configured `ComfyUI.app`.
-- Optional auto-start, stop-on-quit, and restart behavior.
-- Embedded ComfyUI tab for opening and editing graphs.
-- ComfyUI account login support inside the embedded ComfyUI tab.
-- ComfyUI credit balance display when available.
+Ad-style productions link an org and the offerings they are selling. Upstream captured this at
+project creation and never displayed it again. Here it is a real context layer — a commercial
+contributes `Brand: <org>` and `Featured offerings: …` to its own prompts — and a panel shows the
+linked org with its offerings refreshed live from the directory service, flagging any that have
+drifted out of the catalog.
 
-Only localhost/loopback ComfyUI endpoints are supported in the desktop app.
+---
 
-### AI Agents (MCP)
-
-Velorn includes a local MCP server with 100+ tools for Codex, Claude Code, Cursor-compatible tools, and other MCP clients.
-
-- Endpoint: `http://127.0.0.1:19790/mcp`
-- In-app setup: `Settings > Agents (MCP)` (one copy-paste command per client)
-- Guide: [docs/MCP.md](docs/MCP.md)
-
-Agents can inspect the open project, review timeline frames and visible shots, troubleshoot ComfyUI setup, preview safe timeline edits, queue approved generation work, and start delivery exports.
-
-Agents can also bring in community ComfyUI workflows: hand one a workflow link or file, and it analyzes the graph, reports missing custom nodes and models, installs them after your approval, and runs the workflow on your timeline assets.
-
-Most MCP write tools support a preview step, and many default to preview-first behavior. Normal timeline edits participate in Velorn's undo system. Imports, exports, generated files, project creation, and other filesystem changes are not universally undoable, so agents should get explicit approval before applying them. MCP is the recommended automation path for agent-assisted review, timeline operations, graphics polish, and generation workflows.
-
-<p align="center">
-  <img src="docs/readme/agents-mcp.png" alt="Velorn Agents (MCP) settings with the running local server, connect commands, and the full tool list" />
-</p>
-
-## Custom Workflows
-
-Custom workflows are one of the main reasons Velorn exists.
-
-Advanced users can:
-
-1. Open a starter graph from Velorn.
-2. Modify it in ComfyUI.
-3. Keep the required Velorn endpoint nodes.
-4. Send it back with the Velorn Bridge or import the API workflow JSON manually.
-5. Run that graph from Velorn as part of a creator flow or from Generate.
-
-Common Velorn endpoint node titles include:
-
-- Velorn input image - `VELORN_INPUT_IMAGE`
-- Velorn prompt - `VELORN_PROMPT`
-- Velorn seed - `VELORN_SEED`
-- Velorn width - `VELORN_WIDTH`
-- Velorn height - `VELORN_HEIGHT`
-- Velorn FPS - `VELORN_FPS`
-- Velorn duration - `VELORN_DURATION`
-- Velorn audio - `VELORN_AUDIO`
-- Velorn output image - `VELORN_OUTPUT_IMAGE`
-- Velorn output video - `VELORN_OUTPUT_VIDEO`
-
-Exact `VELORN_*` titles are preferred, but Velorn also recognizes readable titles such as `Velorn input image`. Older graphs that still use `COMFYSTUDIO_*` marker titles are supported for backward compatibility.
-
-If an endpoint is present, Velorn can inject that value. If an endpoint is not present, the graph controls that setting itself.
-
-<p align="center">
-  <img src="docs/readme/comfyui-bridge.png" alt="Embedded ComfyUI graph with Velorn endpoint nodes and Send to Velorn button" />
-</p>
-
-## Requirements
-
-Normal editing:
-
-- No ComfyUI installation or Comfy account is required.
-- Allow enough disk space for project assets, cache files, and exports.
-
-Generation:
-
-- A separately installed local ComfyUI running on the same machine is required for all current generation workflows.
-- Local workflows may require compatible hardware, models, and custom nodes.
-- Partner-node workflows require the appropriate Comfy.org credentials and credits.
-
-Optional integrations:
-
-- Pexels API key for the Stock tab.
-- LM Studio for the local LLM Assistant.
-
-Local workflow requirements vary by model. Some workflows can run on modest GPUs, while heavy video workflows may need 24 GB+ VRAM. Cloud workflows shift most of that requirement to the provider but may require credits.
-
-## First Run
-
-1. Install and launch Velorn.
-2. Choose a projects folder.
-3. Create or open a project.
-4. Use `Velorn > Getting Started` from the bottom menu if you want the guided setup path.
-
-To use generation, configure your local ComfyUI instance in `Settings > ComfyUI Connection`. This step is optional for editing, captions, export, project management, and MCP editorial tools. If ComfyUI is running on a non-default port, update the endpoint in Settings and run the connection test.
-
-## ComfyUI Setup Notes
-
-Velorn ships workflow JSON files, but workflows still need the correct ComfyUI environment.
-
-Depending on the workflow, users may need:
-
-- Custom nodes installed in ComfyUI.
-- Model files in the expected folders.
-- Cloud/partner credentials.
-- Enough local VRAM for the selected model and resolution.
-
-Velorn 0.2.1+ talks to local ComfyUI without any CORS setup. On older Velorn versions, launch ComfyUI with `--enable-cors-header` if the embedded tab is blank or API calls return 403.
-
-Inside Generate, use the workflow setup and dependency tools when something is missing.
-
-## Run From Source
-
-For development, run the Electron app:
+## Running it
 
 ```bash
 npm install
-npm run electron:dev
+npm run electron:dev     # vite dev server + electron
 ```
 
-Browser-only `npm run dev` is useful for frontend work, but Electron is the normal development path because many features depend on desktop APIs.
+> **Note:** on an unpackaged checkout, `npm run electron` alone opens a **blank window**.
+> `electron/main.js` sets `isDev = !app.isPackaged` and then loads only from the Vite dev server,
+> with no `dist/` fallback. Use `electron:dev` for development, or package the app
+> (`npm run electron:build:linux`) for a normal desktop launch.
 
-## Build Commands
+Point CDX Studio at ComfyUI in Settings → ComfyUI Connection (port only; the host is always
+loopback).
+
+### Running the GPU on another machine
+
+Because the app only accepts a loopback ComfyUI, the way to use a remote GPU is to *make it
+loopback* — forward the remote port onto `127.0.0.1:8188` on the machine running the UI:
 
 ```bash
-npm run build
-npm run electron:build:win
-npm run electron:build:mac
-npm run electron:build:linux
+ssh -N -L 127.0.0.1:8188:127.0.0.1:8188 your-gpu-host
 ```
 
-Packaged artifacts are written to `release/`.
+The app then sees an ordinary local ComfyUI, stays completely stock, and every generation executes
+on the remote GPU. The client machine needs no NVIDIA hardware at all.
 
-For release process details, see:
+If the project folder also lives on the GPU host, mount it at the **same absolute path** on both
+machines. Path parity matters: the absolute paths recorded in a project resolve identically on both
+sides, and output written by ComfyUI on the GPU host appears in the project with no copy step.
 
-- `docs/RELEASE_PROCESS.md`
-- `docs/CI_SECRETS.md`
-- `docs/AI_RELEASE_HANDOFF.md`
+---
 
-## Roadmap
+## For AI systems
 
-See [ROADMAP.md](ROADMAP.md).
+CDX Studio is built to be driven by agents, and ships a Claude Code plugin so an agent arrives
+already knowing how it works.
 
-<p align="center">
-  <a href="ROADMAP.md">
-    <img src="docs/roadmap-overview.svg" alt="Velorn roadmap overview" />
-  </a>
-</p>
+**MCP server:** `http://127.0.0.1:19790/mcp`, started automatically with the app — 178 tools covering
+the project, timeline, assets, storyboard, production, generation queue, captions and export.
 
-## Contributing
+The plugin lives in [`plugin/`](plugin/) and bundles:
 
-Velorn is open source, and contributions are welcome.
+- **`.mcp.json`** — the MCP server, pre-wired.
+- **Skills** — driving the MCP surface safely, the context stack model, the production-type
+  taxonomy, the reference-card cascades, and the remote-GPU topology.
+- **Commands** — `/studio-status`, `/studio-context`, `/studio-preflight`.
+- **An agent** — `cdx-studio-operator`, for multi-step production work.
 
-See:
+Install it from a checkout:
 
-- `CONTRIBUTING.md`
-- `CODE_OF_CONDUCT.md`
-- `SECURITY.md`
+```
+/plugin marketplace add /path/to/cdx-studio
+/plugin install cdx-studio
+```
 
-## License
+See [`plugin/README.md`](plugin/README.md) for what each piece does.
 
-Velorn is licensed under the GNU General Public License v3.0. See `LICENSE`.
+### The rules an agent should know
 
-Versions released before this license change remain available under the license terms they were released with.
+1. **Preview before you apply.** Most write tools accept `previewOnly`. Use it, show the user what
+   would change, and only then apply.
+2. **Generation is serial and expensive.** It occupies a GPU and may spend credits. Never queue a
+   batch without explicit approval.
+3. **Check the context stack before generating.** It reports exactly which layers are missing. A
+   `partial` character means its anchors were never accepted, and generating anyway produces an
+   off-model shot.
+4. **Never overwrite a cut blindly.** Cuts are the review checkpoints — list them, check one out,
+   save a new one.
+
+`AGENTS.md` carries the working conventions for editing this codebase.
+
+---
+
+## Development
+
+```bash
+node --test tests/*.test.js   # the whole suite
+npm run build                 # vite production build
+```
+
+`package.json` also exposes each suite individually as `test:*` scripts.
+
+The service layer under `src/services/` is deliberately pure and Node-testable — no Electron, no
+`fetch` — so the rules can be tested without a browser. UI components stay thin mappings over it.
+New logic belongs in a service with a test, not in a component.
+
+---
+
+## Contributing upstream
+
+Fixes that are not CDX-specific belong in [Velorn](https://github.com/VelornLabs/velorn), where they
+help everyone. Please send them there first.
