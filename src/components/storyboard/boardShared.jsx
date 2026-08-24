@@ -7,7 +7,8 @@ import {
   normalizeShotSettings,
 } from '../../services/shotSettings'
 import { cameraPromptHint, emptyCameraRig, normalizeCameraRig } from '../../services/cameraRig'
-import { cardBackedRefIds, characterBuildLine, wardrobeLine } from '../../services/generationRefs'
+import { cardBackedRefIds } from '../../services/generationRefs'
+import { resolveContextStack } from '../../services/contextStack'
 import { applyStyleNegative, applyStylePack } from '../../services/stylePacks'
 import { getAnimationStyle } from '../../services/animationStyles'
 
@@ -224,14 +225,18 @@ export function composeGenerationPrompt(card, extra = {}) {
   const props = refNames(card.propRefs)
   if (characters) parts.push(`Characters in frame: ${characters}`)
   else parts.push('No principal characters in frame.')
-  // P5: accepted reference cards inject approved body descriptions (plan §4.5)
+  // The context stack is the single authority for what reference context
+  // reaches the prompt: franchise invariants, approved body descriptions
+  // (plan §4.5), active wardrobe, and the movement action bound to each
+  // character. Resolving it here rather than re-deriving per layer keeps the
+  // prompt and the Context stack panel showing the same thing.
   if (extra.references) {
-    for (const ref of card.characterRefs || []) {
-      const line = characterBuildLine(extra.references, ref?.name || ref?.assetId)
-      if (line) parts.push(line)
-      const wardrobe = wardrobeLine(extra.references, ref?.name || ref?.assetId)
-      if (wardrobe) parts.push(wardrobe)
-    }
+    const stack = resolveContextStack({
+      references: extra.references,
+      production: extra.production,
+      shot: card,
+    })
+    parts.push(...stack.promptLines)
   }
   if (location) parts.push(`Location: ${location}`)
   if (props) parts.push(`Props: ${props}`)

@@ -20,6 +20,7 @@ import { normalizeStudio } from '../services/studioStore'
 import { gateGeneration } from '../services/castLock'
 import { cardSlotView, slotForCard } from '../services/studioUi'
 import { cardBackedRefIds, missingAnchorWarnings } from '../services/generationRefs'
+import { contextProvenance, resolveContextStack } from '../services/contextStack'
 import { getSlot, reviewSlot } from '../services/referenceCards'
 import { mapCard, normalizeReferences } from '../services/referencePanels'
 import { routeShotFromCard } from '../services/shotRouting'
@@ -232,6 +233,13 @@ export default function StoryboardWorkspace() {
 
   const buildVelornMeta = (card, placement) => {
     const refs = directorRefsForCard(currentProject, card)
+    // Record which context layers fed this generation, so a clip that already
+    // exists can still be explained long after the cards have moved on.
+    const stack = resolveContextStack({
+      references: currentProject?.references,
+      production,
+      shot: card,
+    })
     return {
       placement,
       cardId: card.id,
@@ -240,6 +248,7 @@ export default function StoryboardWorkspace() {
       motionSlug: card.motionSlug || '',
       characters: refs.characters,
       location: refs.location,
+      context: contextProvenance(stack, { now: new Date().toISOString() }),
     }
   }
 
@@ -324,6 +333,7 @@ export default function StoryboardWorkspace() {
       mode: modeFromWorkflow(workflow.id, 'still'),
       projectLook,
       references,
+      production,
       stylePack: production?.stylePack,
       animationStyle: production?.animationStyle,
     })

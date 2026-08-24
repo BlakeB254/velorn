@@ -262,6 +262,7 @@ export default function SequenceWorkspace() {
       mode: modeFromWorkflow(workflow.id, 'video'),
       projectLook,
       references,
+      production,
       stylePack: production?.stylePack,
       animationStyle: production?.animationStyle,
       kind: 'video',
@@ -615,6 +616,8 @@ export default function SequenceWorkspace() {
           const clipStatus = shotClipStatus(card)
           const needsReview = Boolean(card.videoAssetId) && card.status !== 'accepted' && card.status !== 'generating'
           const promptPreview = composeGenerationPrompt(card, {
+            references: currentProject?.references,
+            production,
             stylePack: production?.stylePack,
             animationStyle: production?.animationStyle,
             kind: 'video',

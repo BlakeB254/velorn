@@ -396,7 +396,11 @@ export function resolveContextStack({ references, production = {}, shot = null, 
 
   // With no shot, resolve everything the project has so the panel can show
   // the whole context set rather than nothing.
-  const wantLocations = shot ? (shot.location ?? shot.locationName ?? shot.locations) : refs.locations.map((c) => c.id)
+  // Storyboard cards say `locationRef` / `propRefs`; other callers say
+  // `location` / `props`. Accept both rather than making callers adapt.
+  const wantLocations = shot
+    ? (shot.location ?? shot.locationRef ?? shot.locationName ?? shot.locations)
+    : refs.locations.map((c) => c.id)
   const wantCharacters = shot ? (shot.characterRefs ?? shot.characters) : refs.characters.map((c) => c.id)
   const wantProps = shot ? (shot.props ?? shot.propRefs) : refs.props.map((c) => c.id)
   const wantMovements = shot ? (shot.movementIds ?? shot.movements) : refs.movements.map((c) => c.id)

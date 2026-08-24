@@ -57,6 +57,7 @@
     "test:reference-panels": "node --test ./tests/referencePanels.test.js",
     "test:movement-refs": "node --test ./tests/movementRefs.test.js",
     "test:context-stack": "node --test ./tests/contextStack.test.js",
+    "test:context-stack-generation": "node --test ./tests/contextStackGeneration.test.js",
     "test:generation-refs": "node --test ./tests/generationRefs.test.js",
     "test:music-video-refs": "node --test ./tests/musicVideoRefs.test.js",
     "test:blocking-roundtrip": "bash ./scripts/blocking_roundtrip.sh",
