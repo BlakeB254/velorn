@@ -1,5 +1,5 @@
 /**
- * Which folders appear on the Velorn home project list.
+ * Which folders appear on the CDX Studio home project list.
  * Versions of a show live *inside* that show (productionCuts), never as
  * sibling project folders. Archived mistakes go under `_archive/`.
  */

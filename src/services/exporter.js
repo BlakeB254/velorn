@@ -3983,7 +3983,7 @@ export const exportTimeline = async (options = {}, onProgress = () => {}) => {
 
   const api = typeof window !== 'undefined' ? window.electronAPI : null
   if (!api?.exists || !api?.createDirectory || !api?.deleteDirectory || !api?.pathJoin || !api?.writeFileFromArrayBuffer) {
-    throw new Error('PNG sequence export requires the Velorn desktop app.')
+    throw new Error('PNG sequence export requires the CDX Studio desktop app.')
   }
 
   return withOwnedPngSequenceOutput({

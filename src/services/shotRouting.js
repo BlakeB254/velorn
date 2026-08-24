@@ -1,11 +1,11 @@
 /**
- * Velorn-native shot routing matrix.
+ * CDX Studio-native shot routing matrix.
  *
  * Spec sources (semantics only — not a port of Studio Python):
  *   cdx-shot-routing          script call → lane
  *   cdx-generative-ecosystems exactly ONE ecosystem per job
  *
- * Maps a shot description onto Velorn workflow ids. Does not queue GPU work.
+ * Maps a shot description onto CDX Studio workflow ids. Does not queue GPU work.
  * GPU jobs stay serial; outward artifacts stay drafts until a human cut.
  */
 
@@ -97,7 +97,7 @@ export const ROUTING_MATRIX = Object.freeze({
     icLora: null,
     clientSafe: true,
     needs: ['text'],
-    notes: 'Directed VO. Velorn lane is ElevenLabs TTS; Studio Qwen3-TTS/Applio stay on the take-chain card.',
+    notes: 'Directed VO. CDX Studio lane is ElevenLabs TTS; Studio Qwen3-TTS/Applio stay on the take-chain card.',
   },
   surgical_fix: {
     class: 'surgical_fix',
@@ -129,7 +129,7 @@ export const ROUTING_MATRIX = Object.freeze({
     icLora: null,
     clientSafe: true,
     needs: [],
-    notes: 'Ideogram 4 is the lettering ecosystem. Velorn has no Ideogram workflow yet — Grok stills, then composite.',
+    notes: 'Ideogram 4 is the lettering ecosystem. CDX Studio has no Ideogram workflow yet — Grok stills, then composite.',
   },
   talking_character: {
     class: 'talking_character',

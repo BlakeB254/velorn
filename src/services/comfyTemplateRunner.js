@@ -39,7 +39,7 @@ export async function fetchOfficialComfyTemplate(spec) {
 export async function convertUiWorkflowToApi(uiWorkflow) {
   const api = typeof window !== 'undefined' ? window.electronAPI : null
   if (!api?.convertComfyWorkflowGraph) {
-    throw new Error('Converting ComfyUI templates needs the Velorn desktop app with ComfyUI running.')
+    throw new Error('Converting ComfyUI templates needs the CDX Studio desktop app with ComfyUI running.')
   }
   const conversion = await api.convertComfyWorkflowGraph({
     workflowGraph: uiWorkflow,

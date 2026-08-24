@@ -1,5 +1,5 @@
 /**
- * Velorn-native animation / film style cards.
+ * CDX Studio-native animation / film style cards.
  *
  * Spec only from CDX Studio animation_styles.py + studio_animation_styles MCP.
  * Catalog is vendored; user overlays are optional extras passed at call time.

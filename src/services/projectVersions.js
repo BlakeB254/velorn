@@ -17,6 +17,7 @@ export const OPTIONAL_SNAPSHOT_FILES = [
   'CONTEST.md',
   'SUBMIT.md',
   'INSPECT.md',
+  'NEXT.md',
   'docs/edit-map.md',
   'docs/grok-cut/edit-map.md',
   'docs/PRODUCTION-BIBLE.md',

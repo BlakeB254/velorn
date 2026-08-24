@@ -51,7 +51,7 @@ export default function usePreviewPopout({ getSourceElement, onTogglePlay }) {
     child.__velornBlitToken = blitToken
 
     const doc = child.document
-    doc.title = 'Velorn Preview'
+    doc.title = 'CDX Studio Preview'
     doc.documentElement.style.height = '100%'
     doc.body.style.cssText = 'margin:0;height:100%;background:#000;overflow:hidden;'
     doc.body.textContent = ''

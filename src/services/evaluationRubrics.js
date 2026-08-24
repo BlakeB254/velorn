@@ -1,5 +1,5 @@
 /**
- * Velorn-native media evaluation rubrics.
+ * CDX Studio-native media evaluation rubrics.
  *
  * Spec (semantics only — not a port of Studio Python):
  *   services/cdx-video-director/app/studio/evaluation_rubrics.py
@@ -58,7 +58,7 @@ const RUBRICS = Object.freeze({
 
 export function rubricFor(mediaKind) {
   const rubric = RUBRICS[mediaKind]
-  if (!rubric) throw new Error(`unsupported Velorn media kind: ${mediaKind}`)
+  if (!rubric) throw new Error(`unsupported CDX Studio media kind: ${mediaKind}`)
   return rubric
 }
 

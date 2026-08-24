@@ -1,5 +1,5 @@
 /**
- * Velorn-native production bible.
+ * CDX Studio-native production bible.
  *
  * Spec only from CDX Studio production_bible.py + shortFilmDirector import:
  *   assemble franchise + cast + locations + style + story + constraints

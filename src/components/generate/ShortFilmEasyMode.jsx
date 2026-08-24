@@ -502,7 +502,7 @@ function buildLlmBrief({ draft, characters, locations }) {
     `  - ${location.slug}: ${location.name}. ${location.description || 'No description yet.'}`
   ))
 
-  return `You are writing and directing a short film for Velorn.
+  return `You are writing and directing a short film for CDX Studio.
 
 Return a production-ready short film script and shot plan that can be parsed into dialogue audio, keyframes, videos, and an editor timeline.
 
@@ -863,7 +863,7 @@ export default function ShortFilmEasyMode({
 
   const importFromOpenProject = async () => {
     if (!currentProject) {
-      setImportStatus('Open a Velorn project first.')
+      setImportStatus('Open a CDX Studio project first.')
       return
     }
     setImportStatus('Loading cast, locations, script, and storyboard…')

@@ -997,7 +997,7 @@ function ExportPanel() {
   const rtxSourceResolution = resolveResolution()
   const rtxTargetResolution = resolveRtx4kDimensions(rtxSourceResolution.width, rtxSourceResolution.height)
   const rtxToggleDisabledReason = !window.electronAPI?.checkRtxVideoUpscaleRuntime
-    ? 'RTX upscale is available only in the Velorn desktop app.'
+    ? 'RTX upscale is available only in the CDX Studio desktop app.'
     : window.electronAPI.platform !== 'win32'
       ? 'NVIDIA RTX Video Super Resolution is currently available on Windows only.'
       : settings.format !== 'mp4'
@@ -1196,7 +1196,7 @@ function ExportPanel() {
         let finalOutputPath
         if (isPngSequence) {
           if (!window.electronAPI.selectDirectory) {
-            throw new Error('PNG image sequence folder selection is unavailable. Restart Velorn and try again.')
+            throw new Error('PNG image sequence folder selection is unavailable. Restart CDX Studio and try again.')
           }
           setExportStatus('Choose where to save the PNG image sequence...')
           const selectedParentFolder = await window.electronAPI.selectDirectory({
@@ -1289,7 +1289,7 @@ function ExportPanel() {
           if (workerExportCompletionRef.current === completionRecord) {
             workerExportCompletionRef.current = null
           }
-          throw new Error('Could not correlate the export worker job. Restart Velorn and try again.')
+          throw new Error('Could not correlate the export worker job. Restart CDX Studio and try again.')
         }
         return await workerExportCompletion
       } catch (err) {
@@ -1311,14 +1311,14 @@ function ExportPanel() {
       throw new Error(
         window.electronAPI.runExportInWorker
           ? 'Export worker unavailable: the project location is not a local folder path. Re-open the project from disk and try again.'
-          : 'Export worker unavailable. Restart Velorn and try again.'
+          : 'Export worker unavailable. Restart CDX Studio and try again.'
       )
     }
 
     if (isPngSequence) {
       setExportStatus('Export failed')
       setIsExporting(false)
-      throw new Error('PNG image sequence export is available in the Velorn desktop app.')
+      throw new Error('PNG image sequence export is available in the CDX Studio desktop app.')
     }
 
     const directAbortController = new AbortController()
@@ -1500,7 +1500,7 @@ function ExportPanel() {
                 type="button"
                 onClick={handleResetSettings}
                 className="flex items-center gap-1 rounded border border-sf-dark-600 bg-sf-dark-800 px-2 py-1 text-[10px] text-sf-text-muted transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary"
-                title="Reset export settings to the default Velorn export setup"
+                title="Reset export settings to the default CDX Studio export setup"
               >
                 <RotateCcw className="h-3 w-3" />
                 Reset defaults
@@ -1577,7 +1577,7 @@ function ExportPanel() {
           </div>
           <p className="mt-1 text-[10px] text-sf-text-muted shrink-0">
             {settings.format === 'png-seq'
-              ? `Choose a parent location when export starts. Velorn will create ${sanitizePngSequenceBaseName(settings.filename || defaultFilename)}_png with frames named ${sanitizePngSequenceBaseName(settings.filename || defaultFilename)}_000001.png and onward.`
+              ? `Choose a parent location when export starts. CDX Studio will create ${sanitizePngSequenceBaseName(settings.filename || defaultFilename)}_png with frames named ${sanitizePngSequenceBaseName(settings.filename || defaultFilename)}_000001.png and onward.`
               : 'Output location will be chosen when export starts.'}
           </p>
           

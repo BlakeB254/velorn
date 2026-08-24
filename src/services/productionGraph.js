@@ -1,5 +1,5 @@
 /**
- * Velorn production graph — CreativeOps ledger + app facts → THE MAP.
+ * CDX Studio production graph — CreativeOps ledger + app facts → THE MAP.
  *
  * Mirrors cdx_common.app_graph semantics (World Twin / Beat Lab / Studio)
  * without importing CDX Python. Edges use graph_contract vocabulary:
@@ -269,7 +269,7 @@ export function buildProductionGraph({
 export function receiptFromGraph(graph, {
   cardId = '',
   board = 'cdx-creative',
-  summary = 'CreativeOps ledger mapped to Velorn production graph',
+  summary = 'CreativeOps ledger mapped to CDX Studio production graph',
   confidence = 0.8,
 } = {}) {
   const nodes = (graph.nodes || []).map((node) => ({

@@ -1,4 +1,4 @@
-/** Velorn-native style pack catalog. Semantics from CDX Studio styles/style-packs (spec only). */
+/** CDX Studio-native style pack catalog. Semantics from CDX Studio styles/style-packs (spec only). */
 export const STYLE_PACK_CATALOG = [
   {
     "id": "bw-detective-noir",

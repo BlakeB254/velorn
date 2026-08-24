@@ -1,5 +1,5 @@
 /**
- * QA verdicts as Velorn production-graph nodes/edges.
+ * QA verdicts as CDX Studio production-graph nodes/edges.
  *
  * Independent of the CreativeOps ledger port. Uses the same vocabulary
  * (related_to / uses, method + confidence + evidence) so a later graph

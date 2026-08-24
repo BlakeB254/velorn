@@ -1,5 +1,5 @@
 /**
- * CDX Studio production types, mirrored in Velorn.
+ * CDX Studio production types, mirrored in CDX Studio.
  *
  * Canonical ids match the CDX Studio production-type schemas
  * plus production-types pacing. Agents should call
@@ -215,7 +215,7 @@ export const PRODUCTION_FLOWS = Object.freeze([
       'list_cuts / checkout_cut — pick Draft 1 vs Grok Draft 1, never overwrite blindly',
       'studio_cast_resolve + studio_ref_gate + studio_cast_lock — lock cast before gen',
       'studio_blocking_add_character — add a stand-in only after the ref gate passes',
-      'studio_route_shot / studio_flow.routing — pick ONE ecosystem + Velorn workflow per shot',
+      'studio_route_shot / studio_flow.routing — pick ONE ecosystem + CDX Studio workflow per shot',
       'production_readiness + synthesize_voiceover / finalize_take — every dialogue line needs a finalized canonical take',
       'generate_lipsync_clip / generate_foley — previewOnly first, GPU serial, drafts only',
       'studio_franchise / studio_style_pack / studio_bible — inherit house look, seal bible',
@@ -294,7 +294,7 @@ export const PRODUCTION_FLOWS = Object.freeze([
     types: ['website-tour'],
     steps: [
       'set_production type=website-tour',
-      'Use HyperFrames / site-capture skills for the reel; import the mp4 into Velorn',
+      'Use HyperFrames / site-capture skills for the reel; import the mp4 into CDX Studio',
       'studio_creative_ops op=link kind=hyperframes — metadata only, do not move media',
       'import_asset_from_path + add_asset_to_timeline + save_cut',
     ],
@@ -396,7 +396,7 @@ export function productionRecipeCards() {
   return PRODUCTION_FLOWS.map((flow) => ({
     id: `production_${flow.id.replace(/-/g, '_')}`,
     title: flow.title,
-    goal: `Run the ${flow.title} Velorn flow.`,
+    goal: `Run the ${flow.title} CDX Studio flow.`,
     prompt: flow.steps.join(' '),
     tools: flow.tools,
     types: flow.types,

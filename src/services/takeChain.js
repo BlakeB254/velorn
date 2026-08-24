@@ -1,5 +1,5 @@
 /**
- * Velorn-native take chain, VO, lipsync, and foley.
+ * CDX Studio-native take chain, VO, lipsync, and foley.
  *
  * Spec sources (semantics only — not a port of Studio Python):
  *   cdx-video-direction-dialogue   record → convert → finalize → lipdub
@@ -51,21 +51,21 @@ export const VOICE_PROFILES = Object.freeze([
     engine: 'elevenlabs',
     velornWorkflowId: VO_WORKFLOW_ID,
     available: true,
-    note: 'Velorn TTS lane. Directed VO goes through ElevenLabs, drafts only.',
+    note: 'CDX Studio TTS lane. Directed VO goes through ElevenLabs, drafts only.',
   },
   {
     id: 'qwen3-directed',
     engine: 'qwen3',
     velornWorkflowId: VO_WORKFLOW_ID,
     available: true,
-    note: 'Studio Qwen3-TTS maps onto the Velorn ElevenLabs workflow until a local TTS workflow lands.',
+    note: 'Studio Qwen3-TTS maps onto the CDX Studio ElevenLabs workflow until a local TTS workflow lands.',
   },
   {
     id: 'chatterbox',
     engine: 'chatterbox',
     velornWorkflowId: VO_WORKFLOW_ID,
     available: true,
-    note: 'Studio Chatterbox maps onto the Velorn ElevenLabs workflow.',
+    note: 'Studio Chatterbox maps onto the CDX Studio ElevenLabs workflow.',
   },
   {
     id: 'blake-recorded',

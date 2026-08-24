@@ -3,7 +3,7 @@ export const THEME_STORAGE_KEY = 'comfystudio-theme'
 export const THEMES = [
   {
     id: 'velorn',
-    label: 'Velorn',
+    label: 'CDX Studio',
     description: 'Default brand theme with deep blues, violet, and readable old-gold accents',
     preview: { bg: '#030610', surface: '#11172a', accent: '#987000', text: '#f4eef8' },
   },
@@ -57,7 +57,7 @@ export function getStoredThemeId() {
 
 export function applyTheme(themeId) {
   const id = THEMES.find((t) => t.id === themeId) ? themeId : DEFAULT_THEME_ID
-  // Upstream Velorn tokens live on :root with no data-theme. Every other
+  // Upstream CDX Studio tokens live on :root with no data-theme. Every other
   // skin — including CDX Studio — must set the attribute or CSS will not apply.
   if (id === 'velorn') {
     document.documentElement.removeAttribute('data-theme')

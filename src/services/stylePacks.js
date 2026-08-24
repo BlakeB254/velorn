@@ -1,5 +1,5 @@
 /**
- * Velorn-native style packs.
+ * CDX Studio-native style packs.
  *
  * Spec only from CDX Studio style_packs.py + styles/README.md:
  *   one pack per production; beat prompts describe WHAT happens;

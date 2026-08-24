@@ -1,5 +1,5 @@
 /**
- * Official ComfyUI / LTX Creative Studio templates Velorn can call.
+ * Official ComfyUI / LTX Creative Studio templates CDX Studio can call.
  * These are not copied into the app — they are fetched from the running
  * ComfyUI instance (/templates/… or /extensions/…) and queued as-is.
  */

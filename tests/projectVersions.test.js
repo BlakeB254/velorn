@@ -39,6 +39,7 @@ test('shouldAutosaveAction only after applied writes', () => {
 
 test('snapshotCandidates always include the live project file', () => {
   assert.equal(snapshotCandidates()[0], 'project.comfystudio')
+  assert.ok(snapshotCandidates().includes('NEXT.md'))
 })
 
 test('makeVersionId is unique-enough and filesystem-safe', () => {

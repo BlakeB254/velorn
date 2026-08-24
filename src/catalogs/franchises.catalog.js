@@ -1,4 +1,4 @@
-/** Velorn-native franchise catalog. Semantics from CDX Studio franchises/*.yaml (spec only). */
+/** CDX Studio-native franchise catalog. Semantics from CDX Studio franchises/*.yaml (spec only). */
 export const FRANCHISE_CATALOG = [
   {
     "slug": "chi-town-triplets",

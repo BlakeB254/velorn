@@ -1,5 +1,5 @@
 /**
- * Velorn → CDX platform directory client (:7017 core API).
+ * CDX Studio → CDX platform directory client (:7017 core API).
  *
  * Powers the CreateProjectWizard's ad/subject step: org search, offering
  * lookup, and unified knowledge-base search (which also surfaces people —

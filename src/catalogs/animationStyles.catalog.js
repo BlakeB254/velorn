@@ -1,4 +1,4 @@
-/** Velorn-native animation/film style cards. Semantics from CDX Studio styles/animation-styles.yaml (spec only). */
+/** CDX Studio-native animation/film style cards. Semantics from CDX Studio styles/animation-styles.yaml (spec only). */
 export const ANIMATION_STYLE_CATALOG = [
   {
     "id": "classic-2d-cel",

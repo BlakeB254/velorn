@@ -4,7 +4,7 @@
  */
 export async function ensureGenerateWorkspace(timeoutMs = 8000) {
   if (typeof window === 'undefined') {
-    throw new Error('Generate engine is only available in the Velorn app window.')
+    throw new Error('Generate engine is only available in the CDX Studio app window.')
   }
   window.dispatchEvent(new CustomEvent('comfystudio-ensure-generate-workspace'))
   const started = Date.now()

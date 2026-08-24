@@ -1,11 +1,11 @@
 /**
- * Velorn → CDX Media DAM client.
+ * CDX Studio → CDX Media DAM client.
  *
  * Uploads a generated file to Media DAM (:7130) with project + production
  * metadata so assets land in the project folder (keyframes / clips /
  * reference / audio) instead of as untagged Comfy leftovers.
  *
- * Fail-open: DAM being down must never fail a Velorn generation.
+ * Fail-open: DAM being down must never fail a CDX Studio generation.
  */
 
 const DEFAULT_DAM_URL = 'http://127.0.0.1:7130'

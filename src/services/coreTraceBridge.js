@@ -1,5 +1,5 @@
 /**
- * Velorn-native Core trace bridge.
+ * CDX Studio-native Core trace bridge.
  *
  * Semantics come from CDX Studio / cdx-video-director (spec only):
  * coded telemetry on the ledger, skill_version_id on every run,
@@ -721,7 +721,7 @@ export function buildMapReceipt(input = {}) {
   const nodes = [
     {
       key: productionKey,
-      name: String(input.production_name || input.title || 'Velorn production'),
+      name: String(input.production_name || input.title || 'CDX Studio production'),
       type: 'project',
       action: input.action || 'updated',
       id: input.core_project_id || CORE_PROJECT_ID,
@@ -766,7 +766,7 @@ export function buildMapReceipt(input = {}) {
   const receipt = {
     card_id: input.card_id || input.cardId || '',
     board: input.board || 'cdx-creative',
-    summary: String(input.summary || 'Velorn Core trace bridge cited skill_version_id'),
+    summary: String(input.summary || 'CDX Studio Core trace bridge cited skill_version_id'),
     confidence: typeof input.confidence === 'number' ? input.confidence : 0.8,
     nodes,
     edges,

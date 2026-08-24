@@ -366,7 +366,7 @@ function buildTrackElements({
 }
 
 export function buildPremiereXml({
-  projectName = 'Velorn Project',
+  projectName = 'CDX Studio Project',
   timelineName = 'Timeline',
   timelineSettings = {},
   timeline = {},
@@ -419,7 +419,7 @@ export function buildPremiereXml({
   })
 
   const sequenceId = sanitizeId(`sequence-${timelineName}`, 'sequence-1')
-  const projectLabel = sanitizeName(projectName, 'Velorn Project')
+  const projectLabel = sanitizeName(projectName, 'CDX Studio Project')
   const sequenceLabel = sanitizeName(timelineName, 'Timeline')
 
   return [
@@ -456,7 +456,7 @@ export function buildPremiereXml({
     ...audioTrackElements,
     `      </audio>`,
     `    </media>`,
-    `    <description>Exported from Velorn project: ${escapeXml(projectLabel)}</description>`,
+    `    <description>Exported from CDX Studio project: ${escapeXml(projectLabel)}</description>`,
     `  </sequence>`,
     `</xmeml>`,
     '',

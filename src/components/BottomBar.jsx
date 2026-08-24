@@ -122,18 +122,18 @@ function BottomBar({ onOpenSettings, onOpenGettingStarted, projectName }) {
         {projectName || 'Untitled'}
       </div>
       <Separator />
-      {/* Velorn - dropdown: Leave, Settings, Project Selection, Save Project (with dividers) */}
+      {/* CDX Studio - dropdown: Leave, Settings, Project Selection, Save Project (with dividers) */}
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setMenuOpen((o) => !o)}
           className="flex items-center gap-2 px-2 py-1 rounded text-sf-text-muted hover:text-sf-text-primary hover:bg-sf-dark-800 transition-colors"
-          title="Velorn"
+          title="CDX Studio"
         >
           <svg
             className="block h-[14px] w-[45px]"
             viewBox="0 0 52 16"
             role="img"
-            aria-label="Velorn"
+            aria-label="CDX Studio"
           >
             <defs>
               <linearGradient id="velorn-bottombar-gradient" x1="0" y1="0" x2="52" y2="0" gradientUnits="userSpaceOnUse">
@@ -159,7 +159,7 @@ function BottomBar({ onOpenSettings, onOpenGettingStarted, projectName }) {
               fontWeight="800"
               letterSpacing="0"
             >
-              Velorn
+              CDX Studio
             </text>
           </svg>
           <ChevronDown

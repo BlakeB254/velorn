@@ -1,5 +1,5 @@
 /**
- * Velorn-native CreativeOps ledger.
+ * CDX Studio-native CreativeOps ledger.
  *
  * Spec sources (semantics only — not a port of Studio Python):
  *   ai-creativeops-pipelines     append-only workspace, queues, ready pool

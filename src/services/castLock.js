@@ -1,5 +1,5 @@
 /**
- * Velorn-native cast lock + reference gate.
+ * CDX Studio-native cast lock + reference gate.
  *
  * Production semantics (SPEC only — not a port of the Python modules):
  *   - Rule zero: do not generate a character shot until that character has an

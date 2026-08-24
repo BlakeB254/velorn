@@ -1,5 +1,5 @@
 /**
- * After a ComfyUI job finishes, seed the result into the Velorn project
+ * After a ComfyUI job finishes, seed the result into the CDX Studio project
  * (storyboard frame, sequence versions, cover, character/location refs)
  * and push a tagged copy into Media DAM.
  */

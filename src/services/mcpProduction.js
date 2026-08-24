@@ -145,7 +145,7 @@ import {
 
 function requireProject() {
   const project = useProjectStore.getState().currentProject
-  if (!project) throw new Error('No Velorn project is open.')
+  if (!project) throw new Error('No CDX Studio project is open.')
   return project
 }
 
@@ -417,7 +417,7 @@ function cutsIndex() {
 
 function persistCuts(index, extra = {}) {
   const store = useProjectStore.getState()
-  if (!store.currentProject) throw new Error('No Velorn project is open.')
+  if (!store.currentProject) throw new Error('No CDX Studio project is open.')
   if (extra.production) store.setProduction?.(extra.production)
   if (extra.storyboardBoard) store.setStoryboardBoard?.(extra.storyboardBoard)
   if (extra.timelines) {

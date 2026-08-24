@@ -1,5 +1,5 @@
 /**
- * Compiled agent packet for a Velorn project.
+ * Compiled agent packet for a CDX Studio project.
  *
  * One object an MCP/CLI client can read to understand:
  *   show → season → episode → shot

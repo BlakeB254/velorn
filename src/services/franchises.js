@@ -1,5 +1,5 @@
 /**
- * Velorn-native franchises (shared IP universes).
+ * CDX Studio-native franchises (shared IP universes).
  *
  * Spec only from CDX Studio franchises.py:
  *   a franchise is the durable identity layer; episodes/projects link to it
@@ -125,7 +125,7 @@ export function checkFranchiseConsistency(production = {}, {
       ok: !slug,
       slug: slug || null,
       found: false,
-      issues: slug ? [`franchise '${slug}' is not in the Velorn catalog`] : [],
+      issues: slug ? [`franchise '${slug}' is not in the CDX Studio catalog`] : [],
       invariants: [],
     }
   }

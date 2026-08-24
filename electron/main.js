@@ -3815,7 +3815,7 @@ async function createWindow(restoredWindowState = null) {
         return {
           action: 'allow',
           overrideBrowserWindowOptions: {
-            title: 'Velorn Preview',
+            title: 'CDX Studio Preview',
             autoHideMenuBar: true,
             backgroundColor: '#000000',
             minWidth: 240,

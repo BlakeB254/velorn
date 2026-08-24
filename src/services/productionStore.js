@@ -1,7 +1,7 @@
 /**
  * Production packet — show / season / episode hierarchy on project.comfystudio.
  *
- * A Velorn project file is the live workspace for the CURRENT episode.
+ * A CDX Studio project file is the live workspace for the CURRENT episode.
  * `production` is the durable index + bible so agents understand:
  *   show concept → season arc → this episode's storyboard / sequence
  *

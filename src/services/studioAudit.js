@@ -1,10 +1,10 @@
 /**
- * Velorn-native studio audit — one join that answers "what do I do next?"
+ * CDX Studio-native studio audit — one join that answers "what do I do next?"
  *
  * Spec (semantics only — not a port of the Studio CLI):
  *   cdx-studio-audit  +  skill cdx-studio-audit
  *
- * Reads Velorn project data (slots / storyboard / studio.qa / optional VO),
+ * Reads CDX Studio project data (slots / storyboard / studio.qa / optional VO),
  * never the cdx-video-director MCP on :7060.
  *
  * Verdicts (same names, same priority as Studio):
@@ -232,8 +232,8 @@ export function auditProject(project = {}, extras = {}) {
     audit_gaps: [
       'DONE ≠ PASSED. A clip on the board is not a pass. Watch it and record studio_qa_record / velorn-studio-audit --record.',
       'VO canonical state is only known when the take-chain port (or extras.canonicalShots / extras.missingCanonical) is present. Without it, dialogue shots lock→READY_TO_GENERATE instead of guessing DIALOGUE_BLOCKED.',
-      'Spatial gates are derived from Velorn blocking/camera/plates. G5_has_3d alone does not mean blocking is authored — check G1_blocking and G3_env_plate.',
-      'This audit reads the open Velorn project (project.comfystudio). It does not call cdx-video-director :7060.',
+      'Spatial gates are derived from CDX Studio blocking/camera/plates. G5_has_3d alone does not mean blocking is authored — check G1_blocking and G3_env_plate.',
+      'This audit reads the open CDX Studio project (project.comfystudio). It does not call cdx-video-director :7060.',
     ],
     policy: { gpuSerial: true, outward: 'draft' },
   }
