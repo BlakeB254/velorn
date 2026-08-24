@@ -234,6 +234,7 @@ export function composeGenerationPrompt(card, extra = {}) {
     const stack = resolveContextStack({
       references: extra.references,
       production: extra.production,
+      creation: extra.creation,
       shot: card,
     })
     parts.push(...stack.promptLines)

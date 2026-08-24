@@ -263,6 +263,7 @@ export default function SequenceWorkspace() {
       projectLook,
       references,
       production,
+      creation: currentProject?.creation,
       stylePack: production?.stylePack,
       animationStyle: production?.animationStyle,
       kind: 'video',
@@ -618,6 +619,7 @@ export default function SequenceWorkspace() {
           const promptPreview = composeGenerationPrompt(card, {
             references: currentProject?.references,
             production,
+            creation: currentProject?.creation,
             stylePack: production?.stylePack,
             animationStyle: production?.animationStyle,
             kind: 'video',

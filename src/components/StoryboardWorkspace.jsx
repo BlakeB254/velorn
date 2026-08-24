@@ -32,6 +32,7 @@ import LocationReferencePanel from './studio/LocationReferencePanel'
 import PropsReferencePanel from './studio/PropsReferencePanel'
 import MovementReferencePanel from './studio/MovementReferencePanel'
 import ContextStackPanel from './studio/ContextStackPanel'
+import BrandContextPanel from './studio/BrandContextPanel'
 import StyleBiblePanel from './studio/StyleBiblePanel'
 import BlockingPanel from './studio/BlockingPanel'
 import QaPanel, { AuditChip } from './studio/QaPanel'
@@ -238,6 +239,7 @@ export default function StoryboardWorkspace() {
     const stack = resolveContextStack({
       references: currentProject?.references,
       production,
+      creation: currentProject?.creation,
       shot: card,
     })
     return {
@@ -334,6 +336,7 @@ export default function StoryboardWorkspace() {
       projectLook,
       references,
       production,
+      creation: currentProject?.creation,
       stylePack: production?.stylePack,
       animationStyle: production?.animationStyle,
     })
@@ -601,6 +604,15 @@ export default function StoryboardWorkspace() {
             <ContextStackPanel />
           </div>
         </details>
+        {/* Only for productions that are selling something. */}
+        {currentProject?.creation?.ad?.subject && (
+          <details>
+            <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Brand &amp; offerings</summary>
+            <div className="mt-2">
+              <BrandContextPanel />
+            </div>
+          </details>
+        )}
         <details>
           <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Character reference cards</summary>
           <div className="mt-2">

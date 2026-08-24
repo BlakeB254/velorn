@@ -40,9 +40,16 @@ export default function ContextStackPanel({ shot = null, blocking = null, showIn
   const stack = useMemo(() => resolveContextStack({
     references: currentProject?.references,
     production: currentProject?.production,
+    creation: currentProject?.creation,
     shot,
     blocking,
-  }), [currentProject?.references, currentProject?.production, shot, blocking])
+  }), [
+    currentProject?.references,
+    currentProject?.production,
+    currentProject?.creation,
+    shot,
+    blocking,
+  ])
 
   const visible = showInactive ? stack.layers : stack.layers.filter((l) => l.status !== 'inactive')
 

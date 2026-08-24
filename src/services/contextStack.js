@@ -9,8 +9,8 @@
  * generated with half its context silently absent.
  *
  * `resolveContextStack` walks the layers from outermost identity to innermost
- * action — franchise → style → production type → location → character →
- * wardrobe → prop → movement → blocking — and returns, per layer:
+ * action — franchise → brand → style → production type → location →
+ * character → wardrobe → prop → movement → blocking — and returns, per layer:
  *
  *   status        ready | partial | missing | inactive
  *   contributes   the prompt lines / reference asset ids / structured data
@@ -30,6 +30,7 @@ import { getProductionType } from './productionTypes.js'
 import { loadFranchise } from './franchises.js'
 import { loadStylePack } from './stylePacks.js'
 import { normalizeReferences } from './referencePanels.js'
+import { subjectFromProject } from './projectListing.js'
 import { anchorsAccepted, getSlot } from './referenceCards.js'
 import {
   characterBuildLine,
@@ -48,6 +49,7 @@ import {
 /** Outermost identity first, innermost action last. */
 export const CONTEXT_LAYER_ORDER = Object.freeze([
   'franchise',
+  'brand',
   'style',
   'productionType',
   'location',
@@ -60,6 +62,7 @@ export const CONTEXT_LAYER_ORDER = Object.freeze([
 
 export const LAYER_LABELS = Object.freeze({
   franchise: 'Franchise',
+  brand: 'Brand',
   style: 'Style',
   productionType: 'Type',
   location: 'Location',
@@ -145,6 +148,53 @@ function franchiseLayer(production) {
       defaultAspect: franchise.default_aspect,
       stylePack: franchise.style_pack || '',
       animationStyle: franchise.animation_style || '',
+    },
+  })
+}
+
+/**
+ * What an ad-style project is actually selling. The creation wizard captures
+ * the CDX org and its offerings (creation.ad.subject) and nothing put them
+ * into generation — so a commercial never named its own product. `live` is
+ * the optionally-refreshed record from the CDX directory (core-api :7017);
+ * without it the stored names still carry the layer, so the stack works
+ * offline.
+ */
+function brandLayer(subject, live) {
+  if (!subject || typeof subject !== 'object') {
+    return layer('brand', { status: 'inactive', detail: 'no brand subject' })
+  }
+  const orgName = asString(live?.name || subject.orgName).trim()
+  const offerings = (Array.isArray(subject.offerings) ? subject.offerings : [])
+    .map((item) => asString(item?.name).trim())
+    .filter(Boolean)
+  if (!orgName && !offerings.length) {
+    return layer('brand', {
+      id: asString(subject.orgId) || 'brand',
+      status: 'partial',
+      detail: 'subject linked but unnamed',
+      gaps: [{ kind: 'brand', id: asString(subject.orgId), reason: 'the linked org has no name on file' }],
+    })
+  }
+  const promptLines = []
+  if (orgName) promptLines.push(`Brand: ${orgName}`)
+  if (offerings.length) promptLines.push(`Featured offering${offerings.length === 1 ? '' : 's'}: ${offerings.join(', ')}`)
+  const voice = asString(live?.voice).trim()
+  if (voice) promptLines.push(`Brand voice: ${voice}`)
+  return layer('brand', {
+    id: asString(subject.orgId) || orgName,
+    label: orgName || 'Brand',
+    status: 'ready',
+    detail: offerings.length
+      ? `${offerings.length} offering${offerings.length === 1 ? '' : 's'}`
+      : 'no offerings selected',
+    promptLines,
+    data: {
+      mode: subject.mode,
+      orgId: asString(subject.orgId),
+      orgName,
+      offerings,
+      live: live || null,
     },
   })
 }
@@ -387,10 +437,18 @@ function blockingLayer(blocking) {
  *                                    the whole project's context
  * @param {object}  [input.blocking]  blocking v7 scene, passed in (Electron)
  */
-export function resolveContextStack({ references, production = {}, shot = null, blocking = null } = {}) {
+export function resolveContextStack({
+  references,
+  production = {},
+  shot = null,
+  blocking = null,
+  creation = null,
+  brand = null,
+} = {}) {
   const refs = normalizeReferences(references)
 
   const franchise = franchiseLayer(production)
+  const brandResolved = brandLayer(subjectFromProject({ creation }), brand)
   const style = styleLayer(production, franchise.contributes.data)
   const type = productionTypeLayer(production)
 
@@ -413,6 +471,7 @@ export function resolveContextStack({ references, production = {}, shot = null, 
 
   const layers = [
     franchise,
+    brandResolved,
     style,
     type,
     ...locations,

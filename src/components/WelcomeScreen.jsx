@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { FolderOpen, Plus, Film, AlertCircle, Loader2, Trash2, KeyRound, CheckCircle2, Compass, LayoutGrid, List, Minus, Square, Copy, X } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { FolderOpen, Plus, Film, AlertCircle, Loader2, Trash2, KeyRound, CheckCircle2, Compass, LayoutGrid, List, Minus, Square, Copy, X, Search, Layers } from 'lucide-react'
 import useProjectStore from '../stores/projectStore'
 import useAssetsStore from '../stores/assetsStore'
 import CreateProjectWizard from './CreateProjectWizard'
@@ -13,6 +13,15 @@ import {
   COMFY_PARTNER_KEY_CHANGED_EVENT,
 } from '../services/comfyPartnerAuth'
 import { resolveThumbnailUrl } from '../utils/projectThumbnail'
+import {
+  PROJECT_SORTS,
+  UNAFFILIATED,
+  filterProjects,
+  groupProjectsByFranchise,
+  sortProjects,
+  typeFacets,
+  typeLabel,
+} from '../services/projectListing'
 
 const WELCOME_ASSET_BASE_URL = (() => {
   const rawBase = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
@@ -150,6 +159,42 @@ function HeroVideoLoop({ src, poster, fadeSeconds = 5, className = '', style = {
   )
 }
 
+/**
+ * What a project is, at a glance: its production type, the franchise it
+ * belongs to, and — for ad-style work — the org it is selling for and the
+ * offerings attached. The org/offering link was captured by the creation
+ * wizard and never surfaced anywhere until now.
+ */
+function ProjectMetaLine({ project }) {
+  const type = project.productionType ? typeLabel(project.productionType) : ''
+  const franchise = project.franchiseName || ''
+  const subject = project.subject || null
+  const offerings = (subject?.offerings || []).map((item) => item.name).filter(Boolean)
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {type && (
+        <span className="px-1 rounded border border-sf-dark-600 text-[9px] uppercase tracking-wide text-sf-text-secondary">
+          {type}
+        </span>
+      )}
+      {franchise && (
+        <span className="px-1 rounded border border-sf-accent/40 text-[9px] text-sf-accent/90">
+          {franchise}
+        </span>
+      )}
+      {subject?.orgName && (
+        <span
+          className="px-1 rounded border border-emerald-500/40 text-[9px] text-emerald-300"
+          title={offerings.length ? `Offerings: ${offerings.join(', ')}` : 'Linked CDX org'}
+        >
+          {subject.orgName}
+          {offerings.length > 0 && <span className="opacity-70"> · {offerings.length}</span>}
+        </span>
+      )}
+    </span>
+  )
+}
+
 function WelcomeScreen() {
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false)
   const [recentProjectsList, setRecentProjectsList] = useState([])
@@ -167,6 +212,11 @@ function WelcomeScreen() {
   const [deleteProjectError, setDeleteProjectError] = useState('')
   const [isDeletingProject, setIsDeletingProject] = useState(false)
   const [duplicatingProjectKey, setDuplicatingProjectKey] = useState('')
+  // Home organisation: franchise grouping + production-type filter/sort.
+  const [typeFilter, setTypeFilter] = useState([])
+  const [sortMode, setSortMode] = useState('recent')
+  const [groupByFranchise, setGroupByFranchise] = useState(true)
+  const [projectQuery, setProjectQuery] = useState('')
   
   const {
     isFirstRun,
@@ -252,6 +302,31 @@ function WelcomeScreen() {
     // recentProjects is only a fallback when no folder is set
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultProjectsHandle, getRecentProjectsList])
+
+  const availableTypes = useMemo(() => typeFacets(recentProjectsList), [recentProjectsList])
+
+  const visibleProjects = useMemo(() => sortProjects(
+    filterProjects(recentProjectsList, { types: typeFilter, query: projectQuery }),
+    sortMode,
+  ), [recentProjectsList, typeFilter, projectQuery, sortMode])
+
+  /**
+   * One flat section when grouping is off, otherwise one per franchise with
+   * unaffiliated last. Headers are suppressed for a single unnamed section so
+   * an ungrouped list looks exactly as it always did.
+   */
+  const projectSections = useMemo(() => {
+    if (!groupByFranchise) return [{ slug: 'all', name: '', showHeader: false, projects: visibleProjects }]
+    const groups = groupProjectsByFranchise(visibleProjects)
+    // If nothing is in a franchise there is only one bucket, and labelling it
+    // "Unaffiliated" is noise — show it bare, exactly as the list always was.
+    const onlyLoose = groups.length === 1 && groups[0].slug === UNAFFILIATED
+    return groups.map((group) => ({ ...group, showHeader: !onlyLoose }))
+  }, [visibleProjects, groupByFranchise])
+
+  const toggleTypeFilter = (id) => setTypeFilter((prev) => (
+    prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+  ))
 
   const thumbnailSignature = recentProjectsList
     .map((project) => `${project.path || project.name}:${project.thumbnail || ''}`)
@@ -772,7 +847,83 @@ function WelcomeScreen() {
               </div>
             )}
           </div>
-          
+
+          {/* Organisation bar — search, type filter, sort, franchise grouping */}
+          {recentProjectsList.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <div className="relative">
+                <Search className="w-3 h-3 text-sf-text-muted absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={projectQuery}
+                  onChange={(e) => setProjectQuery(e.target.value)}
+                  placeholder="Search projects, franchises, brands…"
+                  aria-label="Search projects"
+                  className="w-56 bg-sf-dark-900 border border-sf-dark-700 rounded-md pl-7 pr-2 py-1 text-[11px] text-sf-text-primary placeholder-sf-text-muted focus:outline-none focus:border-sf-accent"
+                />
+              </div>
+
+              {availableTypes.length > 1 && (
+                <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filter by production type">
+                  {availableTypes.map((facet) => {
+                    const on = typeFilter.includes(facet.id)
+                    return (
+                      <button
+                        key={facet.id}
+                        type="button"
+                        onClick={() => toggleTypeFilter(facet.id)}
+                        aria-pressed={on}
+                        className={`px-1.5 py-0.5 rounded border text-[10px] transition-colors ${on
+                          ? 'border-sf-accent text-sf-accent bg-sf-accent/10'
+                          : 'border-sf-dark-700 text-sf-text-muted hover:text-sf-text-primary hover:border-sf-dark-500'}`}
+                      >
+                        {facet.label}
+                        <span className="ml-1 opacity-60">{facet.count}</span>
+                      </button>
+                    )
+                  })}
+                  {typeFilter.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setTypeFilter([])}
+                      className="px-1.5 py-0.5 rounded border border-sf-dark-700 text-[10px] text-sf-text-muted hover:text-sf-text-primary"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <span className="flex-1" />
+
+              <button
+                type="button"
+                onClick={() => setGroupByFranchise((prev) => !prev)}
+                aria-pressed={groupByFranchise}
+                title="Group by franchise"
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] transition-colors ${groupByFranchise
+                  ? 'border-sf-accent text-sf-accent bg-sf-accent/10'
+                  : 'border-sf-dark-700 text-sf-text-muted hover:text-sf-text-primary'}`}
+              >
+                <Layers className="w-3 h-3" />
+                Franchise
+              </button>
+
+              <label className="inline-flex items-center gap-1 text-[10px] text-sf-text-muted">
+                Sort
+                <select
+                  value={sortMode}
+                  onChange={(e) => setSortMode(e.target.value)}
+                  className="bg-sf-dark-900 border border-sf-dark-700 rounded px-1.5 py-0.5 text-[10px] text-sf-text-secondary focus:outline-none focus:border-sf-accent"
+                >
+                  {PROJECT_SORTS.map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+
           {loadingProjects ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 text-sf-accent animate-spin" />
@@ -789,10 +940,27 @@ function WelcomeScreen() {
                 New Project
               </button>
             </div>
-          ) : projectListViewMode === 'list' ? (
+          ) : visibleProjects.length === 0 ? (
+            <div className="bg-sf-dark-900 border border-sf-dark-700 rounded-xl p-8 text-center">
+              <p className="text-sf-text-primary font-medium mb-1">No projects match</p>
+              <p className="text-xs text-sf-text-muted">Clear the search or type filter to see everything again.</p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {projectSections.map((section) => (
+                <div key={section.slug}>
+                  {section.showHeader && (
+                    <div className="flex items-baseline gap-2 mb-2">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-sf-text-secondary">
+                        {section.name}
+                      </h3>
+                      <span className="text-[10px] text-sf-text-muted">{section.projects.length}</span>
+                    </div>
+                  )}
+                  {projectListViewMode === 'list' ? (
             /* List view — compact rows with small thumbnails */
             <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900 shadow-lg shadow-black/40 overflow-hidden divide-y divide-sf-dark-800">
-              {recentProjectsList.map((project, index) => {
+              {section.projects.map((project, index) => {
                 const thumbKey = project.path || project.name
                 const projectKey = getProjectKey(project)
                 const isDuplicating = duplicatingProjectKey === projectKey
@@ -823,11 +991,13 @@ function WelcomeScreen() {
                       {/* Name */}
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium text-sf-text-primary truncate">{project.name}</p>
-                        <p className="text-[10px] text-sf-text-muted truncate">
-                          {project.productionType ? `${project.productionType}` : ''}
-                          {project.versionCount ? `${project.productionType ? ' · ' : ''}${project.versionCount} version${project.versionCount === 1 ? '' : 's'}` : ''}
-                          {project.path ? `${project.productionType || project.versionCount ? ' · ' : ''}${project.path}` : ''}
-                        </p>
+                        <div className="flex items-center gap-1.5 text-[10px] text-sf-text-muted truncate">
+                          <ProjectMetaLine project={project} />
+                          {project.versionCount > 0 && (
+                            <span>{project.versionCount} version{project.versionCount === 1 ? '' : 's'}</span>
+                          )}
+                          {project.path && <span className="truncate opacity-70">{project.path}</span>}
+                        </div>
                       </div>
                       {/* Metadata columns */}
                       <div className="hidden sm:flex flex-shrink-0 items-center gap-4 text-[11px] text-sf-text-muted tabular-nums">
@@ -861,13 +1031,13 @@ function WelcomeScreen() {
                 )
               })}
             </div>
-          ) : (
+                  ) : (
             /* Grid view — thumbnail cards */
             <div
               className="grid gap-3"
               style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}
             >
-              {recentProjectsList.map((project, index) => {
+              {section.projects.map((project, index) => {
                 const thumbKey = project.path || project.name
                 const projectKey = getProjectKey(project)
                 const isDuplicating = duplicatingProjectKey === projectKey
@@ -911,6 +1081,9 @@ function WelcomeScreen() {
                         <p className="text-[12px] font-medium text-sf-text-primary truncate">
                           {project.name}
                         </p>
+                        <div className="mt-1">
+                          <ProjectMetaLine project={project} />
+                        </div>
                         <div className="flex items-center gap-1.5 text-[10px] text-sf-text-muted mt-0.5 truncate">
                           <span>{formatDate(project.modified)}</span>
                           {project.versionCount > 0 && (
@@ -955,6 +1128,10 @@ function WelcomeScreen() {
                   </div>
                 )
               })}
+            </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
           </div>
