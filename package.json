@@ -55,6 +55,8 @@
     "test:cdx-directory": "node --test ./tests/cdxDirectory.test.js",
     "test:concept-generator": "node --test ./tests/conceptGenerator.test.js",
     "test:reference-panels": "node --test ./tests/referencePanels.test.js",
+    "test:movement-refs": "node --test ./tests/movementRefs.test.js",
+    "test:context-stack": "node --test ./tests/contextStack.test.js",
     "test:generation-refs": "node --test ./tests/generationRefs.test.js",
     "test:music-video-refs": "node --test ./tests/musicVideoRefs.test.js",
     "test:blocking-roundtrip": "bash ./scripts/blocking_roundtrip.sh",
@@ -119,7 +121,7 @@
     "appId": "com.comfystudio.app",
     "productName": "CDX Studio",
     "executableName": "velorn",
-    "copyright": "Copyright © 2024-2026",
+    "copyright": "Copyright \u00a9 2024-2026",
     "asarUnpack": [
       "**/node_modules/ffmpeg-static/**",
       "**/node_modules/ffprobe-static/**"
@@ -224,7 +226,7 @@
       "maintainer": "Velorn contributors <opensource@velorn.ai>",
       "desktop": {
         "Name": "CDX Studio",
-        "Comment": "CDX Studio — local NLE on Velorn"
+        "Comment": "CDX Studio \u2014 local NLE on Velorn"
       },
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     },

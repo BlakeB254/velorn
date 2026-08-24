@@ -17,12 +17,13 @@ import {
   getSlot,
   newCharacterCard,
   newLocationCard,
+  newMovementCard,
   newPropCard,
   unlocks,
 } from './referenceCards.js'
 
 export function emptyReferences() {
-  return { characters: [], locations: [], props: [] }
+  return { characters: [], locations: [], props: [], movements: [] }
 }
 
 /** Tolerate missing/partial references blocks from older project files. */
@@ -34,10 +35,18 @@ export function normalizeReferences(raw) {
     characters: list(raw.characters),
     locations: list(raw.locations),
     props: list(raw.props),
+    // `movements` post-dates the original three kinds; older project files
+    // simply have none.
+    movements: list(raw.movements),
   }
 }
 
-const KIND_KEY = { character: 'characters', location: 'locations', prop: 'props' }
+const KIND_KEY = {
+  character: 'characters',
+  location: 'locations',
+  prop: 'props',
+  movement: 'movements',
+}
 
 export function listKeyForKind(kind) {
   const key = KIND_KEY[kind]
@@ -89,7 +98,9 @@ export function addCardByName(references, kind, name) {
     ? newCharacterCard({ id, name: clean })
     : kind === 'location'
       ? newLocationCard({ id, name: clean })
-      : newPropCard({ id, name: clean })
+      : kind === 'movement'
+        ? newMovementCard({ id, name: clean })
+        : newPropCard({ id, name: clean })
   return { references: { ...refs, [key]: [...refs[key], card] }, card }
 }
 

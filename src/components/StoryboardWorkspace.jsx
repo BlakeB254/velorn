@@ -29,6 +29,8 @@ import CastPanel from './studio/CastPanel'
 import CharacterReferencePanel from './studio/CharacterReferencePanel'
 import LocationReferencePanel from './studio/LocationReferencePanel'
 import PropsReferencePanel from './studio/PropsReferencePanel'
+import MovementReferencePanel from './studio/MovementReferencePanel'
+import ContextStackPanel from './studio/ContextStackPanel'
 import StyleBiblePanel from './studio/StyleBiblePanel'
 import BlockingPanel from './studio/BlockingPanel'
 import QaPanel, { AuditChip } from './studio/QaPanel'
@@ -582,6 +584,13 @@ export default function StoryboardWorkspace() {
             />
           </div>
         </details>
+        {/* Open by default: the whole context set, in the order it applies. */}
+        <details open>
+          <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Context stack</summary>
+          <div className="mt-2">
+            <ContextStackPanel />
+          </div>
+        </details>
         <details>
           <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Character reference cards</summary>
           <div className="mt-2">
@@ -598,6 +607,12 @@ export default function StoryboardWorkspace() {
           <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Prop reference cards</summary>
           <div className="mt-2">
             <PropsReferencePanel />
+          </div>
+        </details>
+        <details>
+          <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Movement reference cards</summary>
+          <div className="mt-2">
+            <MovementReferencePanel />
           </div>
         </details>
       </div>

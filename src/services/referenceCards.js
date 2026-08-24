@@ -31,6 +31,18 @@ export const CHARACTER_SLOTS = Object.freeze([...CHARACTER_ANCHORS, ...CHARACTER
 export const LOCATION_SLOTS = Object.freeze(['wide', 'medium', 'detail', 'birds_eye'])
 export const PROP_SLOTS = Object.freeze(['hero', 'alt_1', 'alt_2'])
 
+/**
+ * Movement cards have no slot grid — their product is motion data, not
+ * images — so they carry a single status instead. The lifecycle rules live
+ * in movementRefs.js; only the shape lives here, next to the other
+ * constructors, so referencePanels.js can build one without importing the
+ * movement module (which would close an import cycle).
+ */
+export const MOVEMENT_STATUS = Object.freeze(['empty', 'generating', 'review', 'accepted'])
+
+/** Matches the kimodo_serve.py defaults so the card and the service agree. */
+export const MOVEMENT_DEFAULTS = Object.freeze({ frames: 90, steps: 30, seed: 42 })
+
 const emptySlot = () => ({ status: 'empty', assetId: null, history: [], updatedAt: null })
 
 function slotsOf(ids) {
@@ -68,6 +80,39 @@ export function newPropCard({ id, name }) {
     id,
     name: name || id,
     slots: slotsOf(PROP_SLOTS),
+  }
+}
+
+function clampInt(value, fallback, min, max) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.max(min, Math.min(max, Math.round(parsed)))
+}
+
+export function normalizeMovementParams(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {}
+  return {
+    frames: clampInt(src.frames, MOVEMENT_DEFAULTS.frames, 1, 1200),
+    steps: clampInt(src.steps, MOVEMENT_DEFAULTS.steps, 1, 200),
+    seed: clampInt(src.seed, MOVEMENT_DEFAULTS.seed, 0, 2 ** 31 - 1),
+  }
+}
+
+/** A named action bound to ONE character, realised by kimodo.cpp. */
+export function newMovementCard({ id, name, characterId = '', prompt = '', params } = {}) {
+  return {
+    kind: 'movement',
+    id,
+    name: name || id,
+    characterId: characterId ? String(characterId) : '',
+    prompt: prompt ? String(prompt) : '',
+    params: normalizeMovementParams(params),
+    status: 'empty',
+    motion: null, // accepted motion metadata
+    candidate: null, // motion awaiting review
+    history: [],
+    error: '',
+    updatedAt: null,
   }
 }
 
