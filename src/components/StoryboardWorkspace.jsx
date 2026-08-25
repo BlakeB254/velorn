@@ -100,6 +100,67 @@ export default function StoryboardWorkspace() {
     [currentProject]
   )
 
+  // Whichever card the operator currently has open. The context stack resolves
+  // per shot when there is one, and falls back to the project stack otherwise.
+  const selectedCard = useMemo(() => {
+    const id = editCardId || generateCardId || blockingCardId || qaCardId
+    if (!id) return null
+    return board.cards.find((card) => card.id === id) || null
+  }, [board.cards, editCardId, generateCardId, blockingCardId, qaCardId])
+
+  // A gap in the stack should be one click from the panel that fixes it.
+  const contextStackRef = useRef(null)
+  const panelRefs = {
+    cast: useRef(null),
+    style: useRef(null),
+    brand: useRef(null),
+    character: useRef(null),
+    location: useRef(null),
+    prop: useRef(null),
+    movement: useRef(null),
+  }
+
+  // Rail stage -> the panel that unblocks it. Values are LAYER_PANEL keys.
+  const STAGE_PANEL = {
+    script: 'style',
+    cast: 'cast',
+    scenes: 'location',
+    storyboard: 'character',
+    flf: 'movement',
+    video: 'movement',
+    review: 'movement',
+    edit: 'movement',
+    deliver: 'movement',
+  }
+
+  const LAYER_PANEL = {
+    franchise: 'style',
+    style: 'style',
+    productionType: 'style',
+    brand: 'brand',
+    character: 'character',
+    wardrobe: 'character',
+    location: 'location',
+    prop: 'prop',
+    movement: 'movement',
+    blocking: 'movement',
+    cast: 'cast',
+  }
+
+  // Accepts a context-layer kind ('wardrobe') or a panel key ('character')
+  // directly, so the stage rail and the context stack can share one entry point.
+  const openPanelForLayer = useCallback((kind) => {
+    const key = LAYER_PANEL[kind] || (panelRefs[kind] ? kind : null)
+    const node = key && panelRefs[key]?.current
+    if (!node) {
+      contextStackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+    node.open = true
+    node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     loadMotionCatalog().then(setMotionCatalog)
   }, [])
@@ -554,8 +615,26 @@ export default function StoryboardWorkspace() {
         <StageRail
           studio={studio}
           extras={{ videoCount: board.cards.filter((card) => card.videoAssetId).length }}
+          onStageClick={(stage) => openPanelForLayer(STAGE_PANEL[stage] || 'movement')}
         />
-        <details>
+        {/*
+          The context stack is the SUMMARY of the panels below it, so it is a
+          persistent header rather than one more peer accordion. Tier 2 and 3
+          are its inputs, indented behind a rule to show the direction of flow.
+        */}
+        <div
+          ref={contextStackRef}
+          className="rounded border border-sf-dark-700 bg-sf-dark-900/60 p-2"
+        >
+          <ContextStackPanel
+            shot={selectedCard || null}
+            onLayerClick={(layer) => openPanelForLayer(layer?.kind)}
+          />
+        </div>
+
+        <p className="text-[9px] uppercase tracking-wide text-sf-text-muted pt-1">Identity sources</p>
+        <div className="pl-2 border-l border-sf-dark-700 space-y-1">
+        <details ref={panelRefs.cast}>
           <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Cast (series → season → episode)</summary>
           <div className="mt-2">
             <CastPanel
@@ -567,7 +646,7 @@ export default function StoryboardWorkspace() {
             />
           </div>
         </details>
-        <details>
+        <details ref={panelRefs.style}>
           <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Style / bible / franchise</summary>
           <div className="mt-2">
             <StyleBiblePanel
@@ -597,46 +676,44 @@ export default function StoryboardWorkspace() {
             />
           </div>
         </details>
-        {/* Open by default: the whole context set, in the order it applies. */}
-        <details open>
-          <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Context stack</summary>
-          <div className="mt-2">
-            <ContextStackPanel />
-          </div>
-        </details>
         {/* Only for productions that are selling something. */}
         {currentProject?.creation?.ad?.subject && (
-          <details>
+          <details ref={panelRefs.brand}>
             <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Brand &amp; offerings</summary>
             <div className="mt-2">
               <BrandContextPanel />
             </div>
           </details>
         )}
-        <details>
+        </div>
+
+        <p className="text-[9px] uppercase tracking-wide text-sf-text-muted pt-1">Reference inputs</p>
+        <div className="pl-2 border-l border-sf-dark-700 space-y-1">
+        <details ref={panelRefs.character}>
           <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Character reference cards</summary>
           <div className="mt-2">
             <CharacterReferencePanel />
           </div>
         </details>
-        <details>
+        <details ref={panelRefs.location}>
           <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Location reference cards</summary>
           <div className="mt-2">
             <LocationReferencePanel />
           </div>
         </details>
-        <details>
+        <details ref={panelRefs.prop}>
           <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Prop reference cards</summary>
           <div className="mt-2">
             <PropsReferencePanel />
           </div>
         </details>
-        <details>
+        <details ref={panelRefs.movement}>
           <summary className="cursor-pointer text-[11px] text-sf-text-secondary">Movement reference cards</summary>
           <div className="mt-2">
             <MovementReferencePanel />
           </div>
         </details>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto p-5">

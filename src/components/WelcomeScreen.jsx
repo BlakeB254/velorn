@@ -56,6 +56,8 @@ function getWelcomeAssetPath(filename) {
  * we need is "when remaining time on the active video dips below
  * fadeSeconds, kick off the other one."
  */
+// Retained for the day a CDX-branded hero plate exists; the hero is currently
+// typographic because every asset in public/ carries a former product name.
 function HeroVideoLoop({ src, poster, fadeSeconds = 5, className = '', style = {} }) {
   const videoARef = useRef(null)
   const videoBRef = useRef(null)
@@ -253,8 +255,6 @@ function WelcomeScreen() {
     ? Math.round((mediaPreparationCompleted / mediaPreparationTotal) * 100)
     : 0
   const showMediaPreparation = Boolean(isLoading && mediaPreparation?.active && mediaPreparationTotal > 0)
-  const welcomeHeroVideoSrc = getWelcomeAssetPath('velorn-project-selection-page.mp4')
-  const welcomeHeroPosterSrc = getWelcomeAssetPath('velorn-home-balanced-plate-4.webp')
   const desktopMode = isElectronMode()
   
   // Keep partner-key status fresh so the chip in the header reflects
@@ -720,46 +720,52 @@ function WelcomeScreen() {
         <div className="welcome-hero relative z-0 flex-shrink-0 h-[62vh] min-h-[420px] max-h-[720px] max-sm:h-[30vh] max-sm:min-h-[180px] overflow-visible select-none bg-sf-dark-950">
           <div className="relative mx-auto h-full w-full max-w-[2400px] overflow-visible">
             {/* Keep the overlay text locked to the same 16:9 plate as the logo media. */}
-            <div
-              className="absolute left-1/2 top-0 aspect-video"
-              style={{
-                width: 'max(100%, calc(100vh * 16 / 9))',
-                transform: 'translateX(-50%) translateY(-8%) scale(1.08)',
-                transformOrigin: 'center top',
-              }}
-            >
-              <HeroVideoLoop
-                src={welcomeHeroVideoSrc}
-                poster={welcomeHeroPosterSrc}
-                fadeSeconds={2}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
+            {/*
+              Typographic hero. The previous plate was a video whose wordmark was
+              rendered into the pixels ("Velorn"), so the rebrand could not reach
+              it by swapping strings, and every other asset in public/ carries an
+              even older name. Setting the wordmark in type keeps the band on
+              brand without depending on an asset that does not exist yet, and
+              the tagline no longer has to be hand-positioned to land under a
+              logo baked into a frame.
+            */}
+            <div className="absolute inset-0 overflow-hidden">
               <div
                 className="pointer-events-none absolute inset-0"
                 style={{
                   background: [
-                    'linear-gradient(90deg, rgba(3, 6, 16, 0.74) 0%, rgba(3, 6, 16, 0.22) 20%, rgba(3, 6, 16, 0) 42%, rgba(3, 6, 16, 0) 58%, rgba(3, 6, 16, 0.24) 80%, rgba(3, 6, 16, 0.76) 100%)',
-                    'linear-gradient(180deg, rgba(3, 6, 16, 0.22) 0%, rgba(3, 6, 16, 0) 28%, rgba(3, 6, 16, 0.18) 64%, rgba(3, 6, 16, 0.68) 100%)',
-                    'radial-gradient(ellipse at center, rgba(3, 6, 16, 0) 0%, rgba(3, 6, 16, 0) 42%, rgba(3, 6, 16, 0.22) 72%, rgba(3, 6, 16, 0.48) 100%)',
+                    'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(242, 213, 144, 0.10) 0%, rgba(3, 6, 16, 0) 60%)',
+                    'linear-gradient(180deg, rgba(9, 14, 28, 1) 0%, rgba(5, 9, 20, 1) 55%, rgba(3, 6, 16, 1) 100%)',
                   ].join(', '),
                 }}
               />
-              <div
-                className="absolute whitespace-nowrap text-right font-semibold uppercase tracking-[0.22em] text-[#f2d590]/90 pointer-events-none"
-                style={{
-                  top: '31.6%',
-                  right: '35%',
-                  fontSize: 'clamp(7px, 0.39vw, 9.4px)',
-                  textShadow: '0 0 14px rgba(247, 210, 132, 0.5), 0 0 5px rgba(255, 231, 176, 0.22), 0 1px 8px rgba(0, 0, 0, 0.72)',
-                }}
-              >
-                Generate shots. Shape edits. Deliver stories.
+              <div className="relative h-full w-full flex flex-col items-center justify-center px-6 pb-[26%] max-sm:pb-[18%] select-none">
+                <h1
+                  className="font-semibold tracking-[-0.02em] text-transparent bg-clip-text text-center"
+                  style={{
+                    fontSize: 'clamp(38px, 6.4vw, 104px)',
+                    backgroundImage:
+                      'linear-gradient(180deg, #fdf3dc 0%, #f2d590 46%, #c9a04f 100%)',
+                    textShadow: '0 2px 40px rgba(247, 210, 132, 0.16)',
+                  }}
+                >
+                  CDX Studio
+                </h1>
+                <p
+                  className="mt-4 whitespace-nowrap font-semibold uppercase text-[#f2d590]/75"
+                  style={{
+                    fontSize: 'clamp(8px, 0.72vw, 12px)',
+                    letterSpacing: '0.34em',
+                  }}
+                >
+                  Generate shots. Shape edits. Deliver stories.
+                </p>
               </div>
             </div>
           </div>
           {/* Subtle attribution */}
           <div className="absolute bottom-3 right-4 text-[10px] uppercase tracking-wider text-white/40 pointer-events-none">
-            CDX Studio · CDX Studio
+            CDX Studio
           </div>
         </div>
       ) : null}

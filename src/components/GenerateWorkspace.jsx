@@ -155,6 +155,7 @@ import {
   resolveMusicVideoShotTypeFromText,
   splitCastNameList,
 } from '../config/musicVideoShotConfig'
+import ContextFlow from './studio/ContextFlow'
 import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from '../config/topazVideoUpscaleConfig'
 import {
   buildShortFilmVideoPrompt,
@@ -20040,6 +20041,14 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             </button>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+          {/*
+            Context at the moment of spend. This screen commits GPU time and
+            cloud credits, and used to show nothing about the franchise, style
+            or cast that the shot is supposed to inherit.
+          */}
+          <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-sf-dark-700">
+            <ContextFlow compact />
+          </div>
           <div className="flex-shrink-0 p-4 border-b border-sf-dark-700">
             <button
               onClick={handleGenerate}
