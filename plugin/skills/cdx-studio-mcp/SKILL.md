@@ -7,7 +7,7 @@ tools: Read, Bash, Grep
 # Driving CDX Studio over MCP
 
 CDX Studio runs an MCP server at `http://127.0.0.1:19790/mcp` whenever the app is open. It exposes
-~178 tools across the project, timeline, assets, storyboard, production, generation queue, captions
+~182 tools across the project, timeline, assets, storyboard, production, generation queue, captions
 and export.
 
 The server identifies itself as `velorn` — that is the upstream project name and is deliberate
@@ -60,7 +60,7 @@ Cuts are the review checkpoints. `list_cuts` → `checkout_cut` → `save_cut` u
 
 ## Finding the right tool
 
-There are ~178, so do not guess names:
+There are ~182, so do not guess names:
 
 - `get_mcp_recipes` — task-shaped recipes for common jobs.
 - `discover_production` / `list_production_catalog` — the production types and their flows.
@@ -71,6 +71,13 @@ There are ~178, so do not guess names:
 
 **Inspect an edit** — `get_project` → `get_timeline` → `analyze_timeline`, and
 `inspect_visible_shots` for a fast-cut review pass.
+
+**Movement (kimodo)** — `studio_movement_list` → `studio_movement_add` → `studio_movement_generate`
+→ `studio_movement_accept`. A movement binds one named action to one character and its product is
+motion data, not an image, so it has no slot grid. Generation runs on the local kimodo.cpp service
+(SMPL-X22, 22 joints) and lands in `review`; accepting is a human act, same as any other reference
+kind. A regenerate keeps the accepted clip until a new one is accepted. The accepted card carries an
+`outDir` — hand that to a renderer to get previz or a first/last-frame pair.
 
 **Place generated media** — `import_asset_from_path` → `add_asset_to_timeline` (or
 `add_assets_to_timeline` for review lanes) → `save_cut`.

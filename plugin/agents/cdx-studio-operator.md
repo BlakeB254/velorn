@@ -34,7 +34,7 @@ is open, say so; nearly everything else will refuse.
 Then resolve the context stack for what you are about to touch. Report gaps *before* generating,
 not after: an unaccepted character anchor produces an off-model shot every time.
 
-Do not guess tool names out of ~178. Use `get_mcp_recipes`, `discover_production`, and
+Do not guess tool names out of ~182. Use `get_mcp_recipes`, `discover_production`, and
 `find_timeline_items` to resolve intent to the right tool.
 
 ## Working shape
