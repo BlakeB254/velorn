@@ -6683,6 +6683,49 @@ function createToolDefinitions() {
       },
     },
     {
+      name: 'studio_movement_list',
+      description: 'List movement (kimodo) reference cards on the open project with status, bound character, action line and accepted motion metadata, plus movement gaps. Movement is the one reference kind whose product is motion data, not an image. Read-only.',
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'studio_movement_add',
+      description: 'Preview or add a movement card: a named action bound to one character, e.g. "throws a right hook then backpedals". Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          prompt: { type: 'string', description: 'the action in plain language' },
+          characterId: { type: 'string', description: 'character card id that performs it' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['name'],
+      },
+    },
+    {
+      name: 'studio_movement_generate',
+      description: 'Preview or generate the motion clip for a movement card on the local kimodo.cpp service (SMPL-X22, GB10). Lands the result in `review` — never straight into `accepted`. A regenerate keeps the accepted clip until a new one is accepted. GPU work is serial. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          movement: { type: 'string', description: 'movement card id or name' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['movement'],
+      },
+    },
+    {
+      name: 'studio_movement_accept',
+      description: 'Preview or accept the reviewed motion clip on a movement card, binding it to the character. Accepting is normally a human act — only do this when asked. Defaults to previewOnly.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          movement: { type: 'string', description: 'movement card id or name' },
+          previewOnly: { type: 'boolean' },
+        },
+        required: ['movement'],
+      },
+    },
+    {
       name: 'studio_qa_record',
       description: 'Preview or record a per-track QA verdict, optionally with a MediaRubric evaluation. fail requires a reason. unverified is first-class and is not a pass. Rubric technical_fail / automated_fail force that track to fail. Defaults to previewOnly.',
       inputSchema: {
@@ -11540,6 +11583,10 @@ class ComfyStudioMcpServer {
       case 'studio_blocking_add_character':
       case 'studio_slots_list':
       case 'studio_slots_mutate':
+      case 'studio_movement_list':
+      case 'studio_movement_add':
+      case 'studio_movement_generate':
+      case 'studio_movement_accept':
       case 'studio_qa_record':
       case 'studio_audit':
       case 'studio_flow':
@@ -11583,6 +11630,9 @@ class ComfyStudioMcpServer {
             'studio_cast_lock',
             'studio_blocking_add_character',
             'studio_slots_mutate',
+            'studio_movement_add',
+            'studio_movement_generate',
+            'studio_movement_accept',
             'studio_qa_record',
             'synthesize_voiceover',
             'clone_voice',

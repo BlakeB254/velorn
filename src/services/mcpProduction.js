@@ -65,6 +65,27 @@ import {
   lockCastMembers,
   unlockCastMembers,
 } from './castLock.js'
+import {
+  acceptMovement,
+  assignMovementToCharacter,
+  failMovement,
+  findMovementCard,
+  markMovementGenerating,
+  motionMetaFromResponse,
+  movementAccepted,
+  movementGaps,
+  movementLine,
+  movementRequest,
+  requestRegenerateMovement,
+  reviewMovement,
+} from './movementRefs.js'
+import {
+  addCardByName,
+  mapCard,
+  normalizeReferences,
+  upsertCard,
+} from './referencePanels.js'
+import { generateMotion, kimodoHealth } from './kimodoMotion.js'
 import { normalizeProjectLook, normalizeShotSettings } from './shotSettings.js'
 import { applyOutputTargetToSettings, generateResolution } from './outputRatio.js'
 import {
@@ -782,6 +803,194 @@ export function handleStudioSlotsMutate(payload = {}) {
   return { success: true, action: 'studio_slots_mutate', op, studio }
 }
 
+// ---------------------------------------------------------------------------
+// Movement (kimodo) — the one reference kind whose product is motion data.
+//
+// The panel could always drive this; an agent could not, so the movement layer
+// of the context stack was unreachable over MCP. These four handlers mirror the
+// panel's lifecycle exactly (empty -> generating -> review -> accepted) and
+// reuse movementRefs.js so there is one set of rules, not two.
+// ---------------------------------------------------------------------------
+
+function referencesOf(project) {
+  return normalizeReferences(project.references)
+}
+
+/**
+ * Write references straight into the store, the way every other MCP handler
+ * persists (see persistCreativeOps / persistStudio) and let autosave carry it
+ * to disk. The panel calls saveProject({references}) instead, but that path is
+ * async and returns early when there is no project handle — which is exactly
+ * the case for a project opened over MCP, so the write silently vanished.
+ */
+function persistReferences(next) {
+  useProjectStore.setState((state) => ({
+    currentProject: state.currentProject ? {
+      ...state.currentProject,
+      references: next,
+      modified: new Date().toISOString(),
+    } : null,
+  }))
+  return next
+}
+
+/** Re-read references from the store — a generation is long enough that other edits may have landed. */
+function freshMovement(cardId, fallback) {
+  const fresh = referencesOf(useProjectStore.getState().currentProject || {})
+  const latest = (fresh.movements || []).find((item) => item.id === cardId)
+  return { fresh, latest: latest || fallback }
+}
+
+/** movementRefs stores the clip pointer as `outDir`; surface it under both spellings. */
+function motionView(meta) {
+  if (!meta) return null
+  return {
+    frames: meta.frames,
+    joints: meta.joints,
+    format: meta.format,
+    engine: meta.engine,
+    outDir: meta.outDir || null,
+    out_dir: meta.outDir || null,
+    generatedAt: meta.generatedAt || null,
+  }
+}
+
+function movementView(references, card) {
+  return {
+    id: card.id,
+    name: card.name,
+    status: card.status,
+    characterId: card.characterId || null,
+    prompt: card.prompt || '',
+    params: card.params,
+    accepted: movementAccepted(card),
+    actionLine: movementLine(references, card),
+    motion: motionView(card.motion),
+    // What is waiting on a human in `review`. Without this an agent cannot see
+    // the clip it just generated, only the previously accepted one.
+    candidate: motionView(card.candidate),
+    error: card.error || '',
+  }
+}
+
+export function handleStudioMovementList() {
+  const project = requireProject()
+  const references = referencesOf(project)
+  const cards = references.movements || []
+  return {
+    action: 'studio_movement_list',
+    count: cards.length,
+    movements: cards.map((card) => movementView(references, card)),
+    gaps: movementGaps(references),
+    note: 'A movement contributes its action line to the prompt whether or not the clip is accepted.',
+  }
+}
+
+export function handleStudioMovementAdd(payload = {}) {
+  const project = requireProject()
+  const name = String(payload.name || '').trim()
+  if (!name) throw new Error('studio_movement_add needs a name.')
+  if (payload.previewOnly !== false) {
+    return {
+      previewOnly: true,
+      action: 'studio_movement_add',
+      name,
+      prompt: payload.prompt || '',
+      characterId: payload.characterId || payload.character_id || null,
+    }
+  }
+  const references = referencesOf(project)
+  const { references: withCard, card } = addCardByName(references, 'movement', name)
+  let next = withCard
+  const prompt = String(payload.prompt || '').trim()
+  const characterId = String(payload.characterId || payload.character_id || '').trim()
+  if (prompt || characterId) {
+    next = mapCard(next, 'movement', card.id, (c) => {
+      let updated = prompt ? { ...c, prompt } : c
+      if (characterId) updated = assignMovementToCharacter(updated, characterId)
+      return updated
+    })
+  }
+  persistReferences(next)
+  const saved = (normalizeReferences(next).movements || []).find((c) => c.id === card.id) || card
+  return { success: true, action: 'studio_movement_add', movement: movementView(next, saved) }
+}
+
+/**
+ * Generate the clip on kimodo and land it in `review` — never straight into
+ * `accepted`. Accepting is a human act, same as every other reference kind.
+ */
+export async function handleStudioMovementGenerate(payload = {}) {
+  const project = requireProject()
+  const references = referencesOf(project)
+  const card = findMovementCard(references, payload.movement || payload.id || payload.name)
+  if (!card) throw new Error(`No movement card matching '${payload.movement || payload.id || payload.name}'.`)
+
+  // movementRequest throws when the card has no action prompt or no character.
+  const request = movementRequest(card)
+
+  if (payload.previewOnly !== false) {
+    return {
+      previewOnly: true,
+      action: 'studio_movement_generate',
+      movement: card.name,
+      request,
+      willRegenerate: Boolean(card.motion),
+      note: 'Runs on the local kimodo service and lands in review, not accepted.',
+    }
+  }
+
+  await kimodoHealth()   // fail fast and clearly if the service is down
+
+  const startedAt = new Date().toISOString()
+  persistReferences(upsertCard(references, card.motion
+    ? requestRegenerateMovement(card, { now: startedAt })
+    : markMovementGenerating(card, { now: startedAt })))
+
+  try {
+    const response = await generateMotion(request.prompt, {
+      frames: request.frames,
+      steps: request.steps,
+      seed: request.seed,
+    })
+    const now = new Date().toISOString()
+    const meta = motionMetaFromResponse(response, { params: card.params, now })
+    const { fresh, latest } = freshMovement(card.id, card)
+    const next = upsertCard(fresh, reviewMovement(latest, meta, { now }))
+    persistReferences(next)
+    const saved = (normalizeReferences(next).movements || []).find((c) => c.id === card.id)
+    return {
+      success: true,
+      action: 'studio_movement_generate',
+      movement: movementView(next, saved || latest),
+      next: 'Review the clip, then studio_movement_accept to bind it to the character.',
+    }
+  } catch (error) {
+    const now = new Date().toISOString()
+    const { fresh, latest } = freshMovement(card.id, card)
+    persistReferences(upsertCard(fresh, failMovement(latest, error, { now })))
+    throw error
+  }
+}
+
+export function handleStudioMovementAccept(payload = {}) {
+  const project = requireProject()
+  const references = referencesOf(project)
+  const card = findMovementCard(references, payload.movement || payload.id || payload.name)
+  if (!card) throw new Error(`No movement card matching '${payload.movement || payload.id || payload.name}'.`)
+  if (!card.candidate && !card.motion) {
+    throw new Error(`'${card.name}' has no generated clip to accept yet.`)
+  }
+  if (payload.previewOnly !== false) {
+    return { previewOnly: true, action: 'studio_movement_accept', movement: card.name, status: card.status }
+  }
+  const next = mapCard(references, 'movement', card.id,
+    (c) => acceptMovement(c, { now: new Date().toISOString() }))
+  persistReferences(next)
+  const saved = (normalizeReferences(next).movements || []).find((c) => c.id === card.id) || card
+  return { success: true, action: 'studio_movement_accept', movement: movementView(next, saved) }
+}
+
 export function handleStudioQaRecord(payload = {}) {
   const project = requireProject()
   if (payload.previewOnly !== false) {
@@ -1457,13 +1666,21 @@ export function handleProductionAction(action, payload = {}) {
   const project = useProjectStore.getState().currentProject
   const core = project ? coreFromProject(project) : {}
   const result = dispatchProductionAction(action, payload)
-  return decorateWithMcpTrace(action, payload, result, {
+  const context = {
     slug: project?.production?.slug || project?.cdxMigration?.slug || project?.name,
     entity_id: core.entity_id,
     skill: core.skill,
     skill_version_id: core.skill?.skill_version_id,
     started: String(Date.now()),
-  })
+  }
+  // An async handler must be settled before it is decorated: spreading a
+  // pending Promise yields only the trace, so the handler's real payload was
+  // dropped and its rejection went unhandled. handleMcpAction awaits us, so
+  // returning the chained promise is safe. Sync handlers keep their old path.
+  if (result && typeof result.then === 'function') {
+    return result.then((settled) => decorateWithMcpTrace(action, payload, settled, context))
+  }
+  return decorateWithMcpTrace(action, payload, result, context)
 }
 
 function dispatchProductionAction(action, payload = {}) {
@@ -1506,6 +1723,14 @@ function dispatchProductionAction(action, payload = {}) {
       return handleStudioSlotsList()
     case 'studio_slots_mutate':
       return handleStudioSlotsMutate(payload)
+    case 'studio_movement_list':
+      return handleStudioMovementList()
+    case 'studio_movement_add':
+      return handleStudioMovementAdd(payload)
+    case 'studio_movement_generate':
+      return handleStudioMovementGenerate(payload)
+    case 'studio_movement_accept':
+      return handleStudioMovementAccept(payload)
     case 'studio_qa_record':
       return handleStudioQaRecord(payload)
     case 'studio_audit':

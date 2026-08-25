@@ -8746,6 +8746,10 @@ async function handleMcpAction(request = {}) {
     case 'studio_blocking_add_character':
     case 'studio_slots_list':
     case 'studio_slots_mutate':
+    case 'studio_movement_list':
+    case 'studio_movement_add':
+    case 'studio_movement_generate':
+    case 'studio_movement_accept':
     case 'studio_qa_record':
     case 'studio_audit':
     case 'studio_flow':
