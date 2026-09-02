@@ -568,22 +568,12 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
       </div>
 
       {!doc ? (
-        /* Improved empty state */
-        <div className="py-10 border border-dashed border-sf-dark-600 rounded-2xl flex flex-col items-center text-center">
-          <div className="w-8 h-8 rounded-full bg-sf-dark-800 flex items-center justify-center mb-4">
-            <span className="text-2xl text-sf-text-muted">📍</span>
+        /* Honest empty state — no guaranteed-fail button, accurate copy */
+        <div className="py-6 border border-dashed border-sf-dark-600 rounded flex flex-col items-center text-center">
+          <div className="text-sf-text-primary text-sm font-medium mb-2">No blocking data</div>
+          <div className="text-sf-text-muted text-[11px] max-w-[260px] leading-tight mb-4">
+            No blocking.json for this slot yet. GENERATE FROM BLOCKING can still use first/last frames from the shot.
           </div>
-          <div className="text-sf-text-primary text-sm font-medium mb-1">No blocking data</div>
-          <div className="text-sf-text-muted text-[11px] max-w-[260px] leading-tight mb-6">
-            Camera rig, character paths, gates and viewport previews will appear here after the first generation pass.
-          </div>
-          <button
-            type="button"
-            onClick={generateFromBlocking}
-            className="px-5 py-2 text-xs bg-sf-accent hover:bg-sf-accent-hover text-white rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sf-accent focus-visible:outline-offset-2"
-          >
-            Generate from blocking
-          </button>
         </div>
       ) : (
         <>
@@ -591,14 +581,14 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
           {gates && (
             <div className="space-y-2">
               <div
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${
+                className={`flex items-center gap-3 px-4 py-3 rounded border ${
                   gates.ready
                     ? 'border-sf-success/40 bg-sf-success/5'
                     : 'border-sf-error/40 bg-sf-error/5'
                 }`}
               >
                 <div
-                  className={`inline-flex items-center px-3 py-1 text-xs font-mono uppercase tracking-[1px] rounded-lg font-medium ${
+                  className={`inline-flex items-center px-3 py-1 text-xs font-mono uppercase tracking-[1px] rounded font-medium ${
                     gates.ready
                       ? 'bg-sf-success text-white'
                       : 'bg-sf-error text-white'
@@ -641,7 +631,7 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
           <div className="space-y-3">
             <div className="flex items-baseline justify-between">
               <div className="text-[11px] uppercase tracking-widest font-medium text-sf-text-muted">VIEWPORTS</div>
-              <div className="text-[10px] text-sf-text-muted">drag camera/characters in top view · wheel zooms</div>
+              <div className="text-[11px] text-sf-text-muted">drag camera/characters in top view · wheel zooms</div>
             </div>
 
             {/* Top viewport */}
@@ -665,7 +655,7 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
             </div>
 
             {/* Time scrubber — improved container */}
-            <div className="flex items-center gap-3 bg-sf-dark-900 border border-sf-dark-700 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-3 bg-sf-dark-900 border border-sf-dark-700 rounded px-4 py-3">
               <span className="font-mono text-xs text-sf-text-muted w-5">t</span>
               <input
                 type="range"
@@ -685,7 +675,7 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
 
           {/* Sample readout */}
           {sampleReadout && (
-            <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900 p-3">
+            <div className="rounded border border-sf-dark-700 bg-sf-dark-900 p-3">
               <div className="flex items-center justify-between text-[11px] uppercase tracking-widest text-sf-text-muted mb-3">
                 <span>BRIDGE SAMPLES — FRAME {sampleReadout.frame}</span>
               </div>
@@ -738,7 +728,7 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
               )}
             </div>
 
-            <div className="bg-sf-dark-900 border border-sf-dark-700 rounded-2xl p-4 space-y-5">
+            <div className="bg-sf-dark-900 border border-sf-dark-700 rounded p-4 space-y-5">
               {/* Position */}
               <div>
                 <div className="text-[10px] uppercase tracking-[0.5px] text-sf-text-muted mb-3">POSITION (m)</div>
@@ -753,7 +743,7 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
                         step="0.05"
                         value={rig.camera[key] ?? 0}
                         onChange={(event) => patchCamera({ [key]: Number(event.target.value) })}
-                        className="w-full bg-sf-dark-800 border border-sf-dark-600 hover:border-sf-dark-500 focus:border-sf-accent rounded-xl px-3 py-2 text-sm text-sf-text-primary tabular-nums text-right focus:outline-none transition-colors"
+                        className="w-full bg-sf-dark-800 border border-sf-dark-600 hover:border-sf-dark-500 focus:border-sf-accent rounded px-3 py-2 text-sm text-sf-text-primary tabular-nums text-right focus:outline-none transition-colors"
                       />
                     </label>
                   ))}
@@ -776,7 +766,7 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
                           step="0.1"
                           value={rig.camera[key] ?? 0}
                           onChange={(event) => patchCamera({ [key]: Number(event.target.value) })}
-                          className="w-full bg-sf-dark-800 border border-sf-dark-600 hover:border-sf-dark-500 focus:border-sf-accent rounded-xl px-3 py-2 text-sm text-sf-text-primary tabular-nums text-right focus:outline-none transition-colors"
+                          className="w-full bg-sf-dark-800 border border-sf-dark-600 hover:border-sf-dark-500 focus:border-sf-accent rounded px-3 py-2 text-sm text-sf-text-primary tabular-nums text-right focus:outline-none transition-colors"
                         />
                       </label>
                     )
@@ -795,7 +785,7 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
                       step="0.5"
                       value={rig.camera.fov_deg ?? 40.95}
                       onChange={(event) => patchCamera({ fov_deg: Number(event.target.value) })}
-                      className="w-full bg-sf-dark-800 border border-sf-dark-600 hover:border-sf-dark-500 focus:border-sf-accent rounded-xl px-3 py-2 text-sm text-sf-text-primary tabular-nums text-right focus:outline-none transition-colors"
+                      className="w-full bg-sf-dark-800 border border-sf-dark-600 hover:border-sf-dark-500 focus:border-sf-accent rounded px-3 py-2 text-sm text-sf-text-primary tabular-nums text-right focus:outline-none transition-colors"
                     />
                   </label>
                 </div>
@@ -809,14 +799,14 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
               <button
                 type="button"
                 onClick={save}
-                className="col-span-1 px-4 py-2.5 text-xs border border-sf-dark-600 hover:border-sf-text-secondary text-sf-text-secondary hover:text-sf-text-primary rounded-2xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sf-accent focus-visible:outline-offset-2"
+                className="col-span-1 px-4 py-2.5 text-xs border border-sf-dark-600 hover:border-sf-text-secondary text-sf-text-secondary hover:text-sf-text-primary rounded-xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sf-accent focus-visible:outline-offset-2"
               >
                 Save blocking.json
               </button>
               <button
                 type="button"
                 onClick={() => onApplyRig?.(rig)}
-                className="col-span-1 px-4 py-2.5 text-xs border border-sf-blue/40 hover:bg-sf-blue/5 text-sf-blue rounded-2xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sf-accent focus-visible:outline-offset-2"
+                className="col-span-1 px-4 py-2.5 text-xs border border-sf-blue/40 hover:bg-sf-blue/5 text-sf-blue rounded-xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sf-accent focus-visible:outline-offset-2"
               >
                 Apply to shot
               </button>
@@ -826,13 +816,13 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
               type="button"
               disabled={rendering}
               onClick={generateFromBlocking}
-              className="w-full py-3.5 text-sm font-semibold bg-sf-accent hover:bg-sf-accent-hover disabled:bg-sf-dark-700 disabled:text-sf-text-muted text-white rounded-3xl shadow-inner transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sf-accent"
+              className="w-full py-3.5 text-sm font-semibold bg-sf-accent hover:bg-sf-accent-hover disabled:bg-sf-dark-700 disabled:text-sf-text-muted text-white rounded-2xl shadow-inner transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sf-accent"
             >
               {rendering ? 'Rendering control passes…' : 'GENERATE FROM BLOCKING'}
             </button>
 
             {error && (
-              <div className="px-3 py-2 text-xs text-sf-error bg-sf-error/5 border border-sf-error/20 rounded-2xl flex items-start gap-2">
+              <div className="px-3 py-2 text-xs text-sf-error bg-sf-error/5 border border-sf-error/20 rounded flex items-start gap-2">
                 <span>⚠</span>
                 <span>{error}</span>
               </div>
