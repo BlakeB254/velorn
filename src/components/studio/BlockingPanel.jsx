@@ -27,8 +27,8 @@ const FALLBACK_COLOR = '#fbbf24'
 const CAM_COLOR = '#38bdf8'
 
 const GATE_PILL_CLASS = {
-  pass: 'border-emerald-500/50 text-emerald-400',
-  fail: 'border-red-500/60 text-red-400',
+  pass: 'border-sf-success/50 text-sf-success bg-sf-success/10',
+  fail: 'border-sf-error/60 text-sf-error bg-sf-error/10',
   skip: 'border-sf-dark-600 text-sf-text-muted',
 }
 
@@ -556,124 +556,290 @@ export default function BlockingPanel({ projectPath, studio, card, onApplyRig })
 
   if (!shotSlug) return null
 
+  const firstFailingGate = gates?.gates?.find((g) => g.status !== 'pass')
+
   return (
-    <div className="rounded border border-sf-dark-700 bg-sf-dark-950 p-2 space-y-2">
+    <div className="rounded border border-sf-dark-700 bg-sf-dark-950 p-3 space-y-5 text-xs">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-wide text-sf-text-muted">Blocking · {shotSlug}</span>
-        <span className="text-[10px] text-sf-text-muted">drag camera/arrows in top view · wheel zooms the view</span>
+        <span className="text-[11px] uppercase tracking-widest text-sf-text-muted font-medium">
+          BLOCKING • {shotSlug}
+        </span>
       </div>
-      {doc && cutCount > 0 && (
-        <div className="flex flex-wrap items-center gap-1" aria-label="camera cuts">
-          <span className="text-[9px] uppercase tracking-wide text-sf-text-muted">cam</span>
-          {Array.from({ length: cutCount + 1 }, (_, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setCamIndex(i)}
-              className={`px-1.5 py-0.5 text-[9px] rounded border tabular-nums ${i === camIndex
-                ? 'border-sf-accent/60 text-sf-accent'
-                : 'border-sf-dark-600 text-sf-text-muted hover:text-sf-text-secondary'}`}
-            >
-              {camNameAt(doc, i)}
-            </button>
-          ))}
-        </div>
-      )}
+
       {!doc ? (
-        <p className="text-[11px] text-sf-text-muted">No blocking.json for this slot yet. Generate-from-blocking can still use first/last frames.</p>
+        /* Improved empty state */
+        <div className="py-10 border border-dashed border-sf-dark-600 rounded-2xl flex flex-col items-center text-center">
+          <div className="w-8 h-8 rounded-full bg-sf-dark-800 flex items-center justify-center mb-4">
+            <span className="text-2xl text-sf-text-muted">📍</span>
+          </div>
+          <div className="text-sf-text-primary text-sm font-medium mb-1">No blocking data</div>
+          <div className="text-sf-text-muted text-[11px] max-w-[260px] leading-tight mb-6">
+            Camera rig, character paths, gates and viewport previews will appear here after the first generation pass.
+          </div>
+          <button
+            type="button"
+            onClick={generateFromBlocking}
+            className="px-5 py-2 text-xs bg-sf-accent hover:bg-sf-accent-hover text-white rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sf-accent focus-visible:outline-offset-2"
+          >
+            Generate from blocking
+          </button>
+        </div>
       ) : (
         <>
+          {/* STATUS — headline ready/blocked state */}
           {gates && (
-            <div className="flex flex-wrap items-center gap-1" aria-label="blocking gates">
-              {gates.gates.map((g) => (
-                <span
-                  key={g.gate}
-                  title={`${g.gate} ${g.status}${g.reasons[0] ? ` — ${g.reasons[0]}` : ''}`}
-                  className={`px-1.5 py-0.5 text-[9px] rounded border tabular-nums ${GATE_PILL_CLASS[g.status] || GATE_PILL_CLASS.skip}`}
+            <div className="space-y-2">
+              <div
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${
+                  gates.ready
+                    ? 'border-sf-success/40 bg-sf-success/5'
+                    : 'border-sf-error/40 bg-sf-error/5'
+                }`}
+              >
+                <div
+                  className={`inline-flex items-center px-3 py-1 text-xs font-mono uppercase tracking-[1px] rounded-lg font-medium ${
+                    gates.ready
+                      ? 'bg-sf-success text-white'
+                      : 'bg-sf-error text-white'
+                  }`}
                 >
-                  {g.gate}
-                </span>
-              ))}
-              <span className="text-[9px] text-sf-text-muted ml-1">
-                {gates.ready ? 'ready' : 'gates failing'} · G5 evaluated at generation time
-              </span>
+                  {gates.ready ? 'READY' : 'BLOCKED'}
+                </div>
+                <div className="flex-1 text-sm text-sf-text-primary">
+                  {gates.ready ? (
+                    'All gates passing — ready to generate'
+                  ) : firstFailingGate ? (
+                    <>
+                      {firstFailingGate.gate} — {firstFailingGate.reasons?.[0] || 'gate failure'}
+                    </>
+                  ) : (
+                    'Gates failing'
+                  )}
+                </div>
+                <div className="text-[10px] text-sf-text-muted tabular-nums text-right">
+                  G5 evaluated<br />at generation
+                </div>
+              </div>
+
+              {/* Gate pills — keep operator codes but now secondary */}
+              <div className="flex flex-wrap items-center gap-1.5 pl-1" aria-label="blocking gates">
+                {gates.gates.map((g) => (
+                  <span
+                    key={g.gate}
+                    title={`${g.gate} ${g.status}${g.reasons?.[0] ? ` — ${g.reasons[0]}` : ''}`}
+                    className={`px-2.5 py-1 text-xs font-mono rounded border tabular-nums transition-colors ${GATE_PILL_CLASS[g.status] || GATE_PILL_CLASS.skip}`}
+                  >
+                    {g.gate}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
-          <div ref={topHostRef} onPointerDown={onTopPointerDown} onPointerMove={onTopPointerMove} onPointerUp={onTopPointerUp} />
-          <div>
-            <div className="px-0.5 py-0.5 text-[10px] uppercase tracking-wide text-sf-text-muted">side · depth (Y) × height (Z)</div>
-            <div ref={sideHostRef} />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-sf-text-muted">t</span>
-            <input
-              type="range"
-              min={0}
-              max={tMax}
-              step={0.04}
-              value={Math.min(t, tMax)}
-              onChange={(event) => setT(Number(event.target.value))}
-              className="flex-1 h-1 accent-sf-accent"
+
+          {/* VIEWPORTS section */}
+          <div className="space-y-3">
+            <div className="flex items-baseline justify-between">
+              <div className="text-[11px] uppercase tracking-widest font-medium text-sf-text-muted">VIEWPORTS</div>
+              <div className="text-[10px] text-sf-text-muted">drag camera/characters in top view · wheel zooms</div>
+            </div>
+
+            {/* Top viewport */}
+            <div
+              ref={topHostRef}
+              onPointerDown={onTopPointerDown}
+              onPointerMove={onTopPointerMove}
+              onPointerUp={onTopPointerUp}
+              aria-label="Top-down orthographic view: drag to reposition camera or characters"
+              className="rounded border border-sf-dark-700 bg-sf-dark-900 overflow-hidden cursor-crosshair"
             />
-            <span className="text-[10px] text-sf-text-muted tabular-nums w-12 text-right">{t.toFixed(2)}s</span>
+
+            {/* Side viewport */}
+            <div className="space-y-1">
+              <div className="px-1 text-[11px] uppercase tracking-widest text-sf-text-muted">SIDE — DEPTH (Y) × HEIGHT (Z)</div>
+              <div
+                ref={sideHostRef}
+                aria-label="Side orthographic elevation view"
+                className="rounded border border-sf-dark-700 bg-sf-dark-900 overflow-hidden"
+              />
+            </div>
+
+            {/* Time scrubber — improved container */}
+            <div className="flex items-center gap-3 bg-sf-dark-900 border border-sf-dark-700 rounded-xl px-4 py-3">
+              <span className="font-mono text-xs text-sf-text-muted w-5">t</span>
+              <input
+                type="range"
+                min={0}
+                max={tMax}
+                step={0.04}
+                value={Math.min(t, tMax)}
+                onChange={(event) => setT(Number(event.target.value))}
+                className="flex-1 accent-sf-accent cursor-pointer"
+                aria-label="Scrub timeline"
+              />
+              <span className="font-mono text-xs tabular-nums text-sf-text-secondary w-14 text-right">
+                {t.toFixed(2)}s
+              </span>
+            </div>
           </div>
+
+          {/* Sample readout */}
           {sampleReadout && (
-            <div className="rounded border border-sf-dark-700 bg-sf-dark-900 px-2 py-1">
-              <div className="text-[10px] uppercase tracking-wide text-sf-text-muted">
-                frame {sampleReadout.frame} · bridge screen samples
+            <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900 p-3">
+              <div className="flex items-center justify-between text-[11px] uppercase tracking-widest text-sf-text-muted mb-3">
+                <span>BRIDGE SAMPLES — FRAME {sampleReadout.frame}</span>
               </div>
-              <ul className="text-[10px] text-sf-text-secondary space-y-0.5 mt-0.5">
+              <ul className="space-y-2 text-xs">
                 {sampleReadout.rows.map((row) => (
-                  <li key={row.cast_id} className="flex items-center gap-1.5 tabular-nums">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: row.color }} />
-                    <span className="flex-1 truncate">{row.cast_id}</span>
-                    <span>x {row.x.toFixed(2)}</span>
-                    <span>y {row.y.toFixed(2)}</span>
-                    <span className={row.on_screen ? 'text-emerald-400' : 'text-red-400'}>
-                      {row.on_screen ? 'on screen' : 'off screen'}
+                  <li key={row.cast_id} className="flex items-center gap-3 tabular-nums">
+                    <span
+                      className="w-3 h-3 rounded-full shrink-0 ring-1 ring-offset-2 ring-offset-sf-dark-900 ring-sf-dark-700"
+                      style={{ background: row.color }}
+                    />
+                    <span className="flex-1 font-medium text-sf-text-secondary truncate">{row.cast_id}</span>
+                    <span className="text-sf-text-muted">x {row.x.toFixed(2)}</span>
+                    <span className="text-sf-text-muted">y {row.y.toFixed(2)}</span>
+                    <span
+                      className={`px-3 py-px text-[10px] font-medium rounded-full ${
+                        row.on_screen
+                          ? 'bg-sf-success/10 text-sf-success'
+                          : 'bg-sf-error/10 text-sf-error'
+                      }`}
+                    >
+                      {row.on_screen ? 'ON SCREEN' : 'OFF'}
                     </span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 text-[10px]">
-            {['x_m', 'y_m', 'z_m', 'yaw_deg', 'pitch_deg', 'roll_deg', 'fov_deg'].map((key) => (
-              <label key={key} className="space-y-0.5">
-                <span className="text-sf-text-muted">{key.replace('_', ' ')}</span>
-                <input
-                  type="number"
-                  step="0.05"
-                  value={rig.camera[key]}
-                  onChange={(event) => patchCamera({ [key]: Number(event.target.value) })}
-                  className="w-full bg-sf-dark-800 border border-sf-dark-700 rounded px-1 py-0.5 text-sf-text-primary"
-                />
-              </label>
-            ))}
+
+          {/* CAMERA RIG — grouped numerics */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="text-[11px] uppercase tracking-widest font-medium text-sf-text-muted">CAMERA RIG</div>
+              {doc && cutCount > 0 && (
+                <div className="flex flex-wrap gap-1" aria-label="camera cuts">
+                  {Array.from({ length: cutCount + 1 }, (_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setCamIndex(i)}
+                      className={`px-2 py-0.5 text-[10px] font-mono rounded border tabular-nums transition-all ${
+                        i === camIndex
+                          ? 'border-sf-accent/70 bg-sf-accent/10 text-sf-accent'
+                          : 'border-sf-dark-600 text-sf-text-muted hover:text-sf-text-secondary hover:border-sf-text-muted'
+                      }`}
+                    >
+                      {camNameAt(doc, i)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-sf-dark-900 border border-sf-dark-700 rounded-2xl p-4 space-y-5">
+              {/* Position */}
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.5px] text-sf-text-muted mb-3">POSITION (m)</div>
+                <div className="grid grid-cols-3 gap-4">
+                  {['x_m', 'y_m', 'z_m'].map((key) => (
+                    <label key={key} className="space-y-1">
+                      <div className="text-[10px] text-sf-text-muted font-medium uppercase tracking-wider">
+                        {key.replace('_m', '')}
+                      </div>
+                      <input
+                        type="number"
+                        step="0.05"
+                        value={rig.camera[key] ?? 0}
+                        onChange={(event) => patchCamera({ [key]: Number(event.target.value) })}
+                        className="w-full bg-sf-dark-800 border border-sf-dark-600 hover:border-sf-dark-500 focus:border-sf-accent rounded-xl px-3 py-2 text-sm text-sf-text-primary tabular-nums text-right focus:outline-none transition-colors"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Rotation */}
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.5px] text-sf-text-muted mb-3">ROTATION (°)</div>
+                <div className="grid grid-cols-3 gap-4">
+                  {['yaw_deg', 'pitch_deg', 'roll_deg'].map((key) => {
+                    const label = key.replace('_deg', '').toUpperCase()
+                    return (
+                      <label key={key} className="space-y-1">
+                        <div className="text-[10px] text-sf-text-muted font-medium uppercase tracking-wider">
+                          {label}
+                        </div>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={rig.camera[key] ?? 0}
+                          onChange={(event) => patchCamera({ [key]: Number(event.target.value) })}
+                          className="w-full bg-sf-dark-800 border border-sf-dark-600 hover:border-sf-dark-500 focus:border-sf-accent rounded-xl px-3 py-2 text-sm text-sf-text-primary tabular-nums text-right focus:outline-none transition-colors"
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Lens */}
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.5px] text-sf-text-muted mb-3">LENS</div>
+                <div className="max-w-[140px]">
+                  <label className="space-y-1">
+                    <div className="text-[10px] text-sf-text-muted font-medium uppercase tracking-wider">FOV (°)</div>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={rig.camera.fov_deg ?? 40.95}
+                      onChange={(event) => patchCamera({ fov_deg: Number(event.target.value) })}
+                      className="w-full bg-sf-dark-800 border border-sf-dark-600 hover:border-sf-dark-500 focus:border-sf-accent rounded-xl px-3 py-2 text-sm text-sf-text-primary tabular-nums text-right focus:outline-none transition-colors"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-1">
-            <button type="button" onClick={save} className="px-2 py-1 text-[10px] rounded border border-sf-dark-600 text-sf-text-secondary">
-              Save blocking.json
-            </button>
-            <button
-              type="button"
-              onClick={() => onApplyRig?.(rig)}
-              className="px-2 py-1 text-[10px] rounded border border-sf-accent/50 text-sf-accent"
-            >
-              Apply handle to shot
-            </button>
+
+          {/* ACTIONS — clear hierarchy */}
+          <div className="pt-2 border-t border-sf-dark-700 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={save}
+                className="col-span-1 px-4 py-2.5 text-xs border border-sf-dark-600 hover:border-sf-text-secondary text-sf-text-secondary hover:text-sf-text-primary rounded-2xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sf-accent focus-visible:outline-offset-2"
+              >
+                Save blocking.json
+              </button>
+              <button
+                type="button"
+                onClick={() => onApplyRig?.(rig)}
+                className="col-span-1 px-4 py-2.5 text-xs border border-sf-blue/40 hover:bg-sf-blue/5 text-sf-blue rounded-2xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sf-accent focus-visible:outline-offset-2"
+              >
+                Apply to shot
+              </button>
+            </div>
+
             <button
               type="button"
               disabled={rendering}
               onClick={generateFromBlocking}
-              className="px-2 py-1 text-[10px] rounded bg-sf-accent/90 text-white disabled:opacity-50"
+              className="w-full py-3.5 text-sm font-semibold bg-sf-accent hover:bg-sf-accent-hover disabled:bg-sf-dark-700 disabled:text-sf-text-muted text-white rounded-3xl shadow-inner transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sf-accent"
             >
-              {rendering ? 'Rendering control passes…' : 'Generate from blocking'}
+              {rendering ? 'Rendering control passes…' : 'GENERATE FROM BLOCKING'}
             </button>
+
+            {error && (
+              <div className="px-3 py-2 text-xs text-sf-error bg-sf-error/5 border border-sf-error/20 rounded-2xl flex items-start gap-2">
+                <span>⚠</span>
+                <span>{error}</span>
+              </div>
+            )}
           </div>
         </>
       )}
-      {error && <p className="text-[10px] text-red-400">{error}</p>}
     </div>
   )
 }
