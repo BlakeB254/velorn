@@ -678,6 +678,15 @@ export default function StoryboardWorkspace() {
                 slot: slotView?.slot || null,
                 productionType: production?.type,
               })
+              const slotQa = slotView?.qa || {}
+              const isQaFail = slotQa.overall === 'fail' || slotQa.video?.result === 'fail' || slotQa.audio?.result === 'fail'
+              const isFailedQa = Boolean(slotView?.slot?.quality === 'failed-qa')
+              const cardState = isFailedQa || isQaFail
+                ? 'error'
+                : (slotView?.state === 'filled' && slotQa.overall === 'pass')
+                  ? 'success'
+                  : 'neutral'
+
               return (
                 <article
                   key={card.id}
@@ -692,23 +701,62 @@ export default function StoryboardWorkspace() {
                     moveCard(fromId, card.id)
                     setDragId(null)
                   }}
-                  className={`rounded-xl border bg-sf-dark-900 overflow-hidden flex flex-col ${
-                    dragId === card.id ? 'border-sf-accent opacity-70' : 'border-sf-dark-700'
+                  className={`rounded border bg-sf-dark-900 overflow-hidden flex flex-col border-l-4 ${
+                    dragId === card.id
+                      ? 'border-sf-accent opacity-70 ring-1 ring-sf-accent/30'
+                      : cardState === 'success'
+                        ? 'border-l-sf-success border-sf-success/30'
+                        : (cardState === 'error' || isFailedQa)
+                          ? 'border-l-sf-error border-sf-error/30'
+                          : 'border-sf-dark-700'
                   }`}
                 >
-                  <div className="px-3 pt-3 pb-2 space-y-1.5">
+                  <div className="px-3 pt-3 pb-2 space-y-3">
+                    {/* Card-level state — scannable at a glance (matches BlockingPanel headline treatment) */}
                     {slotView && (
-                      <div className="flex flex-wrap gap-1 text-[9px] uppercase tracking-wide">
-                        <span className={`px-1.5 py-0.5 rounded border ${
-                          slotView.state === 'filled' ? 'border-emerald-500/50 text-emerald-300'
-                            : slotView.state === 'partial' ? 'border-amber-400/50 text-amber-200'
-                              : 'border-dashed border-sf-dark-500 text-sf-text-muted'
-                        }`}>{slotView.slot.slot_id} · {slotView.state}</span>
-                        <span className={slotView.qa.video.result === 'pass' ? 'text-emerald-300' : slotView.qa.video.result === 'fail' ? 'text-red-400' : 'text-sf-text-muted'}>
-                          V {slotView.qa.video.result}
+                      <div
+                        className={`-mx-3 px-3 py-1 text-xs font-semibold uppercase tracking-widest flex items-center gap-2 border-b ${
+                          cardState === 'success'
+                            ? 'bg-sf-success/5 border-sf-success/30 text-sf-success'
+                            : 'bg-sf-error/5 border-sf-error/30 text-sf-error'
+                        }`}
+                      >
+                        {cardState === 'success' ? 'COMPLETE' : isFailedQa ? 'QA FAILED' : 'NEEDS REVIEW'}
+                        {isFailedQa && (
+                          <span className="text-[11px] font-normal normal-case tracking-normal">(every take rejected)</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Metadata chips — now secondary row, larger, pill-styled with sf tokens and bg */}
+                    {slotView && (
+                      <div className="flex flex-wrap gap-1 text-xs uppercase tracking-wider">
+                        <span className={`px-2 py-0.5 rounded border font-medium ${
+                          slotView.state === 'filled'
+                            ? 'border-sf-success/50 bg-sf-success/10 text-sf-success'
+                            : slotView.state === 'partial'
+                              ? 'border-sf-warning/50 bg-sf-warning/10 text-sf-warning'
+                              : 'border-dashed border-sf-dark-500 bg-sf-dark-900 text-sf-text-muted'
+                        }`}>
+                          {slotView.slot.slot_id} · {slotView.state}
                         </span>
-                        <span className={slotView.qa.audio.result === 'pass' ? 'text-emerald-300' : slotView.qa.audio.result === 'fail' ? 'text-red-400' : 'text-sf-text-muted'}>
-                          A {slotView.qa.audio.result}
+                        <span className={`px-2 py-0.5 rounded border font-medium tabular-nums ${
+                          slotQa.video.result === 'pass'
+                            ? 'border-sf-success/50 bg-sf-success/10 text-sf-success'
+                            : slotQa.video.result === 'fail'
+                              ? 'border-sf-error/60 bg-sf-error/10 text-sf-error'
+                              : 'border-sf-dark-500 text-sf-text-muted'
+                        }`}>
+                          V {slotQa.video.result}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded border font-medium tabular-nums ${
+                          slotQa.audio.result === 'pass'
+                            ? 'border-sf-success/50 bg-sf-success/10 text-sf-success'
+                            : slotQa.audio.result === 'fail'
+                              ? 'border-sf-error/60 bg-sf-error/10 text-sf-error'
+                              : 'border-sf-dark-500 text-sf-text-muted'
+                        }`}>
+                          A {slotQa.audio.result}
                         </span>
                         <TakeChip card={card} studio={studio} />
                         <RouteChip route={route} />
@@ -716,11 +764,13 @@ export default function StoryboardWorkspace() {
                       </div>
                     )}
                     {!slotView && (
-                      <div className="flex flex-wrap gap-1 text-[9px] uppercase tracking-wide">
+                      <div className="flex flex-wrap gap-1 text-xs uppercase tracking-wider">
                         <RouteChip route={route} />
                         {card.dialogue && <TakeChip card={card} studio={studio} />}
                       </div>
                     )}
+
+                    {/* Grouped title row: drag + editable title + order + delete (no longer competes with chips) */}
                     <div className="flex items-start gap-2">
                       <span
                         draggable
@@ -730,7 +780,7 @@ export default function StoryboardWorkspace() {
                           event.dataTransfer.setData('text/plain', card.id)
                         }}
                         onDragEnd={() => setDragId(null)}
-                        className="mt-1 text-sf-text-muted cursor-grab"
+                        className="mt-0.5 text-sf-text-muted cursor-grab active:cursor-grabbing"
                         title="Drag to reorder"
                       >
                         <GripVertical className="w-3.5 h-3.5" />
@@ -742,7 +792,7 @@ export default function StoryboardWorkspace() {
                         className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-sf-text-primary border-b border-transparent focus:border-sf-dark-500 outline-none"
                       />
                       <span
-                        className="flex-shrink-0 min-w-[1.75rem] h-7 px-1.5 rounded-md bg-black/70 border border-white/15 text-[12px] font-semibold tabular-nums text-white flex items-center justify-center"
+                        className="flex-shrink-0 min-w-[1.75rem] h-7 px-1.5 rounded bg-sf-dark-800 border border-sf-dark-600 text-xs font-semibold tabular-nums text-sf-text-secondary flex items-center justify-center"
                         title={`Shot ${card.order}`}
                       >
                         {card.order}
@@ -750,7 +800,7 @@ export default function StoryboardWorkspace() {
                       <button
                         type="button"
                         onClick={() => removeCard(card.id)}
-                        className="p-1 rounded text-sf-text-muted hover:text-white"
+                        className="p-1 rounded text-sf-text-muted hover:text-sf-text-primary hover:bg-sf-dark-800"
                         title="Remove card"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

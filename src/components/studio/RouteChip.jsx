@@ -8,7 +8,7 @@ export default function RouteChip({ route }) {
   return (
     <span
       title={[routingSummary(route), route.notes, (route.reasons || []).join('; ')].filter(Boolean).join('\n')}
-      className="px-1.5 py-0.5 rounded border border-sky-500/40 text-sky-200"
+      className="px-2 py-0.5 rounded border border-sf-blue/40 bg-sf-blue/10 text-sf-blue text-xs font-medium"
     >
       {route.class.replace(/_/g, ' ')} → {route.workflowId}{draft}
     </span>

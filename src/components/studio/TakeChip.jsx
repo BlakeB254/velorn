@@ -14,8 +14,10 @@ export default function TakeChip({ card, studio }) {
   return (
     <span
       title={takeSummary(take)}
-      className={`px-1.5 py-0.5 rounded border ${
-        ready ? 'border-emerald-500/50 text-emerald-300' : 'border-amber-400/50 text-amber-200'
+      className={`px-2 py-0.5 rounded border text-xs font-medium ${
+        ready 
+          ? 'border-sf-success/50 bg-sf-success/10 text-sf-success' 
+          : 'border-sf-warning/50 bg-sf-warning/10 text-sf-warning'
       }`}
     >
       VO {take.stage}

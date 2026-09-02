@@ -4,17 +4,17 @@ import { rubricFor } from '../../services/evaluationRubrics'
 import { recordVerdict } from '../../services/studioStore'
 
 const RESULT_TONE = {
-  pass: 'border-emerald-500/50 text-emerald-300',
-  fail: 'border-red-400/60 text-red-300',
+  pass: 'border-sf-success/50 bg-sf-success/10 text-sf-success',
+  fail: 'border-sf-error/60 bg-sf-error/10 text-sf-error',
   unverified: 'border-sf-dark-500 text-sf-text-muted',
 }
 
 const VERDICT_TONE = {
-  NEEDS_REGEN: 'border-red-400/60 text-red-300',
-  READY_TO_GENERATE: 'border-sky-400/60 text-sky-200',
-  DIALOGUE_BLOCKED: 'border-amber-400/60 text-amber-200',
+  NEEDS_REGEN: 'border-sf-error/60 bg-sf-error/10 text-sf-error',
+  READY_TO_GENERATE: 'border-sf-success/50 bg-sf-success/10 text-sf-success',
+  DIALOGUE_BLOCKED: 'border-sf-warning/50 bg-sf-warning/10 text-sf-warning',
   NEEDS_FLF: 'border-sf-dark-500 text-sf-text-muted',
-  DONE: 'border-emerald-500/50 text-emerald-300',
+  DONE: 'border-sf-success/50 bg-sf-success/10 text-sf-success',
 }
 
 function ResultButtons({ value, onChange }) {
@@ -25,7 +25,7 @@ function ResultButtons({ value, onChange }) {
           key={result}
           type="button"
           onClick={() => onChange(result)}
-          className={`px-1.5 py-0.5 rounded border text-[9px] uppercase ${
+          className={`px-2 py-0.5 rounded border text-xs font-medium uppercase tracking-wider ${
             value === result ? RESULT_TONE[result] : 'border-sf-dark-700 text-sf-text-muted'
           }`}
         >
@@ -130,7 +130,7 @@ export function AuditChip({ verdict, title }) {
   return (
     <span
       title={title || verdict}
-      className={`px-1.5 py-0.5 rounded border text-[9px] uppercase ${VERDICT_TONE[verdict] || VERDICT_TONE.NEEDS_FLF}`}
+      className={`px-2 py-0.5 rounded border text-xs font-medium uppercase tracking-wider ${VERDICT_TONE[verdict] || VERDICT_TONE.NEEDS_FLF}`}
     >
       {verdict.replace(/_/g, ' ')}
     </span>
